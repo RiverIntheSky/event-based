@@ -1,0 +1,4 @@
+/home/weizhen/ev/build/CMakeFiles/edit_cache.dir
+/home/weizhen/ev/build/CMakeFiles/rebuild_cache.dir
+/home/weizhen/ev/build/CMakeFiles/ev.dir
+/home/weizhen/ev/build/CMakeFiles/ev_automoc.dir
