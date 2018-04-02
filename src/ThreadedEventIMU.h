@@ -7,8 +7,7 @@
 #include <atomic>
 
 #include <okvis/ImuFrameSynchronizer.hpp>
-#include <okvis/FrameSynchronizer.hpp>
-#include <opencv2/core/eigen.hpp>
+#include <okvis/FrameSynchronizer.hpp>‚
 
 #include "Frontend.h"
 #include "ceres/ceres.h"
