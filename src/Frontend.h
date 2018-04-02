@@ -17,8 +17,7 @@ namespace ev {
 
 struct Contrast {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Contrast(int x, int y)
-        : x_(x), y_(y) {}
+    Contrast(){}
 
     // rotate vector x by w*t
     static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w);
@@ -37,7 +36,13 @@ struct Contrast {
     bool operator()(const T* w1, const T* w2, const T* w3, double* residual) const {
         Eigen::Vector3d w_;
         w_ << *w1, *w2, *w3;
-        residual[0] = getIntensity(x_, y_, w_) - I_mu;
+        residual[0] = 0;
+        for (int x_ = 0; x_ < 240; x_++) {
+            for (int y_ = 0; y_ < 180; y_++) {
+                residual[0] += std::pow(getIntensity(x_, y_, w_) - I_mu, 2.);
+            }
+        }
+
         return true;
     }
 
@@ -46,8 +51,8 @@ struct Contrast {
     static Eigen::MatrixXd intensity;
 //    static bool intensitySet{false};
     static Parameters param;
-    const int x_;
-    const int y_;
+//    const int x_;
+//    const int y_;
 };
 
 /**

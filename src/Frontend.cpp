@@ -29,7 +29,7 @@ namespace ev {
 
 void Contrast::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration& t, Eigen::Vector3d& w) {
     Eigen::Vector3d x_ = x.homogeneous();
-    x_w = x_ + (w * t.toNSec()).cross(x_);
+    x_w = x_ + (w * t.toSec()).cross(x_);
     x_w /= x_w(2);
 }
 
@@ -63,14 +63,18 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
         Eigen::Vector3d point_warped;
          auto t = it->timeStamp - t0;
         warp(point_warped, p, t, w);
+#if 1
         Eigen::Matrix3d cameraMatrix_;
         cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
         Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
+#else
+        Eigen::Vector3d point_camera = point_warped;
+#endif
         if (point_camera(0) > 0 && point_camera(0) < 239
                 && point_camera(1) > 0 && point_camera(1) < 179) {
             fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
         } else {
-            LOG(INFO) << "discard point outside frustum";
+            // LOG(INFO) << "discard point outside frustum";
         }
     }
 }
