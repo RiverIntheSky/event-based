@@ -4,6 +4,11 @@
 #include "util/utils.h"
 #include <chrono>
 
+std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em = NULL;
+double ev::Contrast::I_mu;
+Eigen::MatrixXd ev::Contrast::intensity = Eigen::Matrix3d::Zero();
+ev::Parameters ev::Contrast::param = ev::Parameters();
+
 
 int main(int argc, char *argv[])
 {

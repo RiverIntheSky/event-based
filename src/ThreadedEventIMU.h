@@ -1,5 +1,5 @@
-#ifndef THREADEDEVENTIMU_H
-#define THREADEDEVENTIMU_H
+#ifndef INCLUDE_EV_THREADEDEVENTIMU_H
+#define INCLUDE_EV_THREADEDEVENTIMU_H
 
 #include <thread>
 #include <mutex>
@@ -10,9 +10,9 @@
 #include <okvis/FrameSynchronizer.hpp>
 #include <opencv2/core/eigen.hpp>
 
-#include "event.h"
 #include "Frontend.h"
 #include "ceres/ceres.h"
+
 
 namespace ev {
 

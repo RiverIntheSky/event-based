@@ -1,5 +1,5 @@
-#ifndef INCLUDE_EV_FRONTEND_H
-#define INCLUDE_EV_FRONTEND_H
+#ifndef FRONTEND_H
+#define FRONTEND_H
 
 #include <mutex>
 
@@ -8,6 +8,7 @@
 #include <okvis/VioFrontendInterface.hpp>
 #include <okvis/timing/Timer.hpp>
 #include <okvis/DenseMatcher.hpp>
+#include <opencv2/core/eigen.hpp>
 #include "parameters.h"
 #include "event.h"
 
@@ -24,15 +25,13 @@ struct Contrast {
 
     // dealing with non-integer coordinates
     // bilinear interpolation
-    static void fuse(Eigen::MatrixXd& image, Eigen::Vector2d& p, bool& polarity);
+    static void fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity);
 
     static void synthesizeEventFrame(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement>& em);
 
-    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters param, Eigen::Vector3d& w);
+    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters& param, Eigen::Vector3d w);
 
     double getIntensity(int x, int y, Eigen::Vector3d w) const;
-
-
 
     template <typename T>
     bool operator()(const T* w1, const T* w2, const T* w3, double* residual) const {
@@ -42,7 +41,7 @@ struct Contrast {
         return true;
     }
 
-    static std::shared_ptr<EventMeasurement> em;
+    static std::shared_ptr<eventFrameMeasurement> em;
     static double I_mu;
     static Eigen::MatrixXd intensity;
 //    static bool intensitySet{false};
@@ -405,4 +404,4 @@ private:
 
 }  // namespace okvis
 
-#endif // INCLUDE_EV_FRONTEND_H
+#endif // EV_FRONTEND_H

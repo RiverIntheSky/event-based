@@ -799,8 +799,10 @@ CMakeFiles/ev.dir/src/Frontend.cpp.o
  /home/weizhen/Documents/okvis/build/brisk/src/brisk_external/agast/include/agast/wrap-opencv.h
  /home/weizhen/ev/src/Frontend.cpp
  /home/weizhen/ev/src/Frontend.h
+ /home/weizhen/ev/src/event.h
  /home/weizhen/ev/src/parameters.h
  /opt/ros/kinetic/include/opencv-3.3.1/opencv/cxcore.h
+ /opt/ros/kinetic/include/opencv-3.3.1/opencv/highgui.h
  /opt/ros/kinetic/include/opencv-3.3.1/opencv2/calib3d.hpp
  /opt/ros/kinetic/include/opencv-3.3.1/opencv2/calib3d/calib3d_c.h
  /opt/ros/kinetic/include/opencv-3.3.1/opencv2/core.hpp
@@ -817,6 +819,7 @@ CMakeFiles/ev.dir/src/Frontend.cpp.o
  /opt/ros/kinetic/include/opencv-3.3.1/opencv2/core/cvdef.h
  /opt/ros/kinetic/include/opencv-3.3.1/opencv2/core/cvstd.hpp
  /opt/ros/kinetic/include/opencv-3.3.1/opencv2/core/cvstd.inl.hpp
+ /opt/ros/kinetic/include/opencv-3.3.1/opencv2/core/eigen.hpp
  /opt/ros/kinetic/include/opencv-3.3.1/opencv2/core/fast_math.hpp
  /opt/ros/kinetic/include/opencv-3.3.1/opencv2/core/hal/interface.h
  /opt/ros/kinetic/include/opencv-3.3.1/opencv2/core/mat.hpp
@@ -1279,18 +1282,25 @@ CMakeFiles/ev.dir/src/Frontend.cpp.o
  /usr/local/lib/CMake/okvis/../../../include/okvis/Duration.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/Estimator.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/Frame.hpp
+ /usr/local/lib/CMake/okvis/../../../include/okvis/FrameSynchronizer.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/FrameTypedefs.hpp
+ /usr/local/lib/CMake/okvis/../../../include/okvis/Frontend.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/IdProvider.hpp
+ /usr/local/lib/CMake/okvis/../../../include/okvis/ImuFrameSynchronizer.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/MatchingAlgorithm.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/Measurements.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/MultiFrame.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/Parameters.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/ThreadPool.hpp
+ /usr/local/lib/CMake/okvis/../../../include/okvis/ThreadedKFVio.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/Time.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/Variables.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/VioBackendInterface.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/VioFrontendInterface.hpp
+ /usr/local/lib/CMake/okvis/../../../include/okvis/VioInterface.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/VioKeyframeWindowMatchingAlgorithm.hpp
+ /usr/local/lib/CMake/okvis/../../../include/okvis/VioParametersReader.hpp
+ /usr/local/lib/CMake/okvis/../../../include/okvis/VioVisualizer.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/assert_macros.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/cameras/CameraBase.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/cameras/DistortionBase.hpp
@@ -1330,6 +1340,7 @@ CMakeFiles/ev.dir/src/Frontend.cpp.o
  /usr/local/lib/CMake/okvis/../../../include/okvis/kinematics/implementation/Transformation.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/kinematics/operators.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/source_file_pos.hpp
+ /usr/local/lib/CMake/okvis/../../../include/okvis/threadsafe/ThreadsafeQueue.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/timing/Timer.hpp
  /usr/local/lib/CMake/okvis/../../../include/okvis/triangulation/ProbabilisticStereoTriangulator.hpp
  /usr/local/lib/CMake/okvis/../../../include/opengv/absolute_pose/AbsoluteAdapterBase.hpp

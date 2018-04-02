@@ -173,8 +173,11 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 double w2 = 0.;
                 double w3 = 0.;
                 Contrast::em = em;
+                Contrast::param = parameters_;
                 Contrast::synthesizeEventFrame(synthesizedFrame, em);
+
                 Contrast::I_mu = synthesizedFrame.mean();
+                LOG(INFO) << synthesizedFrame.mean();
                 ceres::Problem problem;
                 for (int col = 0; col < 240; col++) {
                     for (int row = 0; row < 180; row++) {
@@ -199,15 +202,15 @@ void ThreadedEventIMU::eventConsumerLoop() {
                             << "\n";
 //                cv::Mat ef(parameters_.array_size_x, parameters_.array_size_y, CV_64F, cv::Scalar(0.0));
 //                cv::eigen2cv(synthesizedFrame, ef);
-//                std::ofstream file("/home/weizhen/ceres.txt");
-//                if (file.is_open()) {
-//                    for (int c = 0; c != 240; c++) {
-//                        for (int l = 0; l != 180; l++) {
-//                            file << synthesizedFrame(c, l) << '\n';
-//                        }
-//                    }
-//                }
-//                file.close();
+                std::ofstream file("/home/weizhen/ceres.txt");
+                if (file.is_open()) {
+                    for (int c = 0; c != 240; c++) {
+                        for (int l = 0; l != 180; l++) {
+                            file << synthesizedFrame(c, l) << '\n';
+                        }
+                    }
+                }
+                file.close();
                 // addImage(em->events.front().timeStamp, 0, ef);
                 eventFrames.pop_front();
 

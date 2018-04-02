@@ -23,8 +23,12 @@ okvis/timing/Timer.hpp
 -
 okvis/DenseMatcher.hpp
 -
+opencv2/core/eigen.hpp
+-
 parameters.h
 ../src/parameters.h
+event.h
+../src/event.h
 
 ../src/ThreadedEventIMU.h
 thread
@@ -41,10 +45,10 @@ okvis/FrameSynchronizer.hpp
 -
 opencv2/core/eigen.hpp
 -
-event.h
-../src/event.h
 Frontend.h
 ../src/Frontend.h
+ceres/ceres.h
+../src/ceres/ceres.h
 
 ../src/event.h
 okvis/VioParametersReader.hpp
@@ -105,6 +109,8 @@ okvis/VioKeyframeWindowMatchingAlgorithm.hpp
 -
 okvis/IdProvider.hpp
 -
+Eigen/Geometry
+-
 okvis/cameras/PinholeCamera.hpp
 -
 okvis/cameras/EquidistantDistortion.hpp
@@ -135,8 +141,12 @@ okvis/timing/Timer.hpp
 -
 okvis/DenseMatcher.hpp
 -
+opencv2/core/eigen.hpp
+-
 parameters.h
 /home/weizhen/ev/src/parameters.h
+event.h
+/home/weizhen/ev/src/event.h
 
 /home/weizhen/ev/src/ThreadedEventIMU.cpp
 ThreadedEventIMU.h
@@ -157,10 +167,10 @@ okvis/FrameSynchronizer.hpp
 -
 opencv2/core/eigen.hpp
 -
-event.h
-/home/weizhen/ev/src/event.h
 Frontend.h
 /home/weizhen/ev/src/Frontend.h
+ceres/ceres.h
+/home/weizhen/ev/src/ceres/ceres.h
 
 /home/weizhen/ev/src/event.cpp
 
