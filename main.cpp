@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/boxes_6dof/boxes_6dof";
+    std::string path = "/home/weizhen/Documents/dataset/boxes_rotation";
 
     // open the events file
     std::string events_line;
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 
     ev::ThreadedEventIMU ev_estimator(parameters);
 
-    while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(1)) {
+    while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(3)) {
 
         std::stringstream stream(imu_line);
         std::string s;
