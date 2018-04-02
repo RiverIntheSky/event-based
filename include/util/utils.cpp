@@ -15,15 +15,17 @@ parameterReader::parameterReader(const std::string& filename) {
 
     std::getline(file, s, ' ');
     double fy = std::stod(s);
-//    parameters.cameraMatrix.at<double>(1, 1) = fy;
+    parameters.cameraMatrix.at<double>(1, 1) = fy;
 
     std::getline(file, s, ' ');
     double cx = std::stod(s);
-//    parameters.cameraMatrix.at<double>(0, 2) = cx;
+    parameters.cameraMatrix.at<double>(0, 2) = cx;
 
     std::getline(file, s, ' ');
     double cy = std::stod(s);
-    //parameters.cameraMatrix.at<double>(1, 2) = cy;
+    parameters.cameraMatrix.at<double>(1, 2) = cy;
+    
+    LOG(INFO) << parameters.cameraMatrix;
 
     std::getline(file, s, ' ');
     double k1 = std::stod(s);

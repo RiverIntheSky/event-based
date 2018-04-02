@@ -58,12 +58,6 @@ bool ThreadedEventIMU::addImuMeasurement(const okvis::Time& stamp,
     imu_measurement.measurement.gyroscopes = omega;
     imu_measurement.timeStamp = stamp;
 
-    //  std::cout << std::endl;
-    //  std::cout << "imu: " << imu_measurement.timeStamp
-    //            << std::endl << imu_measurement.measurement.accelerometers
-    //            << std::endl << imu_measurement.measurement.gyroscopes << std::endl;
-    //  std::cout << std::endl;
-
     if (blocking_) {
         imuMeasurementsReceived_.PushBlockingIfFull(imu_measurement, 1);
         return true;
@@ -174,7 +168,35 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 //                addImage(em->eventframe.timeStamp, em->eventframe.sensorId, em->eventframe.measurement);
                 //cv::Mat synthesizedFrame(parameters_.array_size_x, parameters_.array_size_y, CV_64F, cv::Scalar(0.0));
                 Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_x, parameters_.array_size_y);
-                correctEvent(em);
+                undistortEvents(em);
+                double w1 = 0.;
+                double w2 = 0.;
+                double w3 = 0.;
+                Contrast::em = em;
+                Contrast::synthesizeEventFrame(synthesizedFrame, em);
+                Contrast::I_mu = synthesizedFrame.mean();
+                ceres::Problem problem;
+                for (int col = 0; col < 240; col++) {
+                    for (int row = 0; row < 180; row++) {
+                        ceres::CostFunction* cost_function =
+                          new ceres::NumericDiffCostFunction<Contrast, ceres::CENTRAL, 1, 1, 1, 1>(
+                            new Contrast(col, row));
+//                        ceres::CostFunction* cost_function =
+//                             new ceres::AutoDiffCostFunction<Contrast, 1, 1, 1>(
+//                                 new Contrast(col, row));
+                        problem.AddResidualBlock(cost_function, new ceres::CauchyLoss(0.5) , &w1, &w2, &w3);
+                    }
+                }
+
+                  ceres::Solver::Options options;
+                  options.minimizer_progress_to_stdout = true;
+                  ceres::Solver::Summary summary;
+                  ceres::Solve(options, &problem, &summary);
+                  std::cout << summary.BriefReport() << "\n";
+                  std::cout << "w : " << w1
+                            << " " << w2
+                            << " " << w3
+                            << "\n";
 //                cv::Mat ef(parameters_.array_size_x, parameters_.array_size_y, CV_64F, cv::Scalar(0.0));
 //                cv::eigen2cv(synthesizedFrame, ef);
 //                std::ofstream file("/home/weizhen/ceres.txt");
@@ -218,7 +240,7 @@ void ThreadedEventIMU::setBlocking(bool blocking) {
 //}
 
 // bool ThreadedEventIMU::correctEvent(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement> em) {
-bool ThreadedEventIMU::correctEvent(std::shared_ptr<eventFrameMeasurement>& em) {
+bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& em) {
     auto it = em->events.begin();
 #if 0
     for (; it != em->events.end(); it++) {
@@ -226,25 +248,22 @@ bool ThreadedEventIMU::correctEvent(std::shared_ptr<eventFrameMeasurement>& em) 
     }
 #else
     for (; it != em->events.end(); it++) {
-        cv::Vec2d p(it->measurement.x, it->measurement.y);
+        cv::Vec2d p((it->measurement.x-parameters_.cameraMatrix.at<double>(0,2))/parameters_.cameraMatrix.at<double>(0,0),
+                    (it->measurement.y-parameters_.cameraMatrix.at<double>(1,2))/parameters_.cameraMatrix.at<double>(1,1));
+//        cv::Vec2d p(it->measurement.x, it->measurement.y);
         cv::Vec2d p_undistorted;
-        cv::undistort(p, p_undistorted, parameters_.cameraMatrix, parameters_.distCoeffs);
+        cv::undistort(p, p_undistorted, cv::Mat::eye(3, 3, CV_64F), parameters_.distCoeffs);
         it->measurement.x = p_undistorted[0];
         it->measurement.y = p_undistorted[1];
-        LOG(INFO) << "Before (" << p[0] << ", " << p[1] << ")";
-        LOG(INFO) << "After (" << p_undistorted[0] << ", " << p_undistorted[1] << ")";
-        LOG(INFO);
+//        LOG(INFO) << "Before (" << p[0] << ", " << p[1] << ")";
+//        LOG(INFO) << "After (" << p_undistorted[0] << ", " << p_undistorted[1] << ")";
+//        LOG(INFO);
     }
 #endif
     return true;
 }
 
-//bool ThreadedEventIMU::synthesizeEventFrame(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement> em) {
-//    auto it = em->events.begin();
-//    for (; it != em->events.end(); it++) {
-//            frame(it->measurement.x, it->measurement.y) += (int(it->measurement.p) * 2 - 1);
-//    }
-//}
+
 
 //cv::Mat ThreadedEventIMU::correctEvent(const EventMeasurement& event_measurement) {
 //    // cv::Matx<double, x, y>;
@@ -254,20 +273,6 @@ bool ThreadedEventIMU::correctEvent(std::shared_ptr<eventFrameMeasurement>& em) 
 //    return ef;
 //}
 
-//void ThreadedEventIMU::fuse(cv::Mat& image, cv::Vec2d point, bool polarity) {
-//    cv::Vec2d p1 = ceil(point);
-//    cv::Vec2d p2 = (p1.x, p1.y + 1);
-//    cv::Vec2d p3 = (p1.x + 1, p1.y);
-//    cv::Vec2d p4 = p1 + 1;
-//    double a1 = (p4.x - point.x) * (p4.y - point.y);
-//    double a2 = -(p3.x - point.x) * (p3.y - point.y);
-//    double a3 = -(p2.x - point.x) * (p2.y - oint.y);
-//    double a4 =  (p1.x - point.x) * (p1.y - point.y);
-//    image.at<double>(p1) += a1;
-//    image.at<double>(p2) += a2;
-//    image.at<double>(p3) += a3;
-//    image.at<double>(p4) += a4;
-//}
 
 // Start all threads.
 void ThreadedEventIMU::startThreads() {

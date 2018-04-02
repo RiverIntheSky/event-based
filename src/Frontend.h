@@ -2,39 +2,78 @@
 #define INCLUDE_EV_FRONTEND_H
 
 #include <mutex>
+
 #include <okvis/assert_macros.hpp>
 #include <okvis/Estimator.hpp>
 #include <okvis/VioFrontendInterface.hpp>
 #include <okvis/timing/Timer.hpp>
 #include <okvis/DenseMatcher.hpp>
 #include "parameters.h"
+#include "event.h"
 
 /// \brief okvis Main namespace of this package.
 namespace ev {
+
+struct Contrast {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    Contrast(int x, int y)
+        : x_(x), y_(y) {}
+
+    // rotate vector x by w*t
+    static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w);
+
+    // dealing with non-integer coordinates
+    // bilinear interpolation
+    static void fuse(Eigen::MatrixXd& image, Eigen::Vector2d& p, bool& polarity);
+
+    static void synthesizeEventFrame(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement>& em);
+
+    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters param, Eigen::Vector3d& w);
+
+    double getIntensity(int x, int y, Eigen::Vector3d w) const;
+
+
+
+    template <typename T>
+    bool operator()(const T* w1, const T* w2, const T* w3, double* residual) const {
+        Eigen::Vector3d w_;
+        w_ << *w1, *w2, *w3;
+        residual[0] = getIntensity(x_, y_, w_) - I_mu;
+        return true;
+    }
+
+    static std::shared_ptr<EventMeasurement> em;
+    static double I_mu;
+    static Eigen::MatrixXd intensity;
+//    static bool intensitySet{false};
+    static Parameters param;
+    const int x_;
+    const int y_;
+};
 
 /**
  * @brief A frontend using BRISK features
  */
 class Frontend {
- public:
-  OKVIS_DEFINE_EXCEPTION(Exception, std::runtime_error)
+public:
+    OKVIS_DEFINE_EXCEPTION(Exception, std::runtime_error)
 
 #ifdef DEACTIVATE_TIMERS
-  typedef okvis::timing::DummyTimer TimerSwitchable;
+    typedef okvis::timing::DummyTimer TimerSwitchable;
 #else
-  typedef okvis::timing::Timer TimerSwitchable;
+    typedef okvis::timing::Timer TimerSwitchable;
 #endif
 
-  /**
+    /**
    * @brief Constructor.
    * @param
    */
-  Frontend();
-  virtual ~Frontend() {
-  }
+    Frontend();
+    virtual ~Frontend() {
+    }
 
-  ///@{
-  /**
+    ///@{
+    /**
    * @brief Detection and descriptor extraction on a per image basis.
    * @remark This method is threadsafe.
    * @param
@@ -46,12 +85,12 @@ class Frontend {
    * @warning Using keypoints from a different source is not yet implemented.
    * @return True if successful.
    */
-  virtual bool detectAndDescribe(
-                                 std::shared_ptr<okvis::MultiFrame> frameOut,
-                                 const okvis::kinematics::Transformation& T_WC,
-                                 const std::vector<cv::KeyPoint> * keypoints);
+    virtual bool detectAndDescribe(
+            std::shared_ptr<okvis::MultiFrame> frameOut,
+            const okvis::kinematics::Transformation& T_WC,
+            const std::vector<cv::KeyPoint> * keypoints);
 
-  /**
+    /**
    * @brief Matching as well as initialization of landmarks and state.
    * @warning This method is not threadsafe.
    * @warning This method uses the estimator. Make sure to not access it in another thread.
@@ -63,14 +102,14 @@ class Frontend {
    * @param[out] asKeyframe Should the frame be a keyframe?
    * @return True if successful.
    */
-  virtual bool dataAssociationAndInitialization(
-      okvis::Estimator& estimator,
-      okvis::kinematics::Transformation& T_WS_propagated,
-      const ev::Parameters & params,
-      const std::shared_ptr<okvis::MapPointVector> map,
-      std::shared_ptr<okvis::MultiFrame> framesInOut, bool* asKeyframe);
+    virtual bool dataAssociationAndInitialization(
+            okvis::Estimator& estimator,
+            okvis::kinematics::Transformation& T_WS_propagated,
+            const ev::Parameters & params,
+            const std::shared_ptr<okvis::MapPointVector> map,
+            std::shared_ptr<okvis::MultiFrame> framesInOut, bool* asKeyframe);
 
-  /**
+    /**
    * @brief Propagates pose, speeds and biases with given IMU measurements.
    * @see okvis::ceres::ImuError::propagation()
    * @remark This method is threadsafe.
@@ -84,211 +123,211 @@ class Frontend {
    * @param[out] jacobian Jacobian w.r.t. start states.
    * @return True on success.
    */
-  virtual bool propagation(const okvis::ImuMeasurementDeque & imuMeasurements,
-                           const ev::Parameters& Params,
-                           okvis::kinematics::Transformation& T_WS_propagated,
-                           okvis::SpeedAndBias & speedAndBiases,
-                           const okvis::Time& t_start, const okvis::Time& t_end,
-                           Eigen::Matrix<double, 15, 15>* covariance,
-                           Eigen::Matrix<double, 15, 15>* jacobian) const;
+    virtual bool propagation(const okvis::ImuMeasurementDeque & imuMeasurements,
+                             const ev::Parameters& Params,
+                             okvis::kinematics::Transformation& T_WS_propagated,
+                             okvis::SpeedAndBias & speedAndBiases,
+                             const okvis::Time& t_start, const okvis::Time& t_end,
+                             Eigen::Matrix<double, 15, 15>* covariance,
+                             Eigen::Matrix<double, 15, 15>* jacobian) const;
 
-  ///@}
-  /// @name Getters related to the BRISK detector
-  /// @{
+    ///@}
+    /// @name Getters related to the BRISK detector
+    /// @{
 
-  /// @brief Get the number of octaves of the BRISK detector.
-  size_t getBriskDetectionOctaves() const {
-    return briskDetectionOctaves_;
-  }
+    /// @brief Get the number of octaves of the BRISK detector.
+    size_t getBriskDetectionOctaves() const {
+        return briskDetectionOctaves_;
+    }
 
-  /// @brief Get the detection threshold of the BRISK detector.
-  double getBriskDetectionThreshold() const {
-    return briskDetectionThreshold_;
-  }
+    /// @brief Get the detection threshold of the BRISK detector.
+    double getBriskDetectionThreshold() const {
+        return briskDetectionThreshold_;
+    }
 
-  /// @brief Get the absolute threshold of the BRISK detector.
-  double getBriskDetectionAbsoluteThreshold() const {
-    return briskDetectionAbsoluteThreshold_;
-  }
+    /// @brief Get the absolute threshold of the BRISK detector.
+    double getBriskDetectionAbsoluteThreshold() const {
+        return briskDetectionAbsoluteThreshold_;
+    }
 
-  /// @brief Get the maximum amount of keypoints of the BRISK detector.
-  size_t getBriskDetectionMaximumKeypoints() const {
-    return briskDetectionMaximumKeypoints_;
-  }
+    /// @brief Get the maximum amount of keypoints of the BRISK detector.
+    size_t getBriskDetectionMaximumKeypoints() const {
+        return briskDetectionMaximumKeypoints_;
+    }
 
-  ///@}
-  /// @name Getters related to the BRISK descriptor
-  /// @{
+    ///@}
+    /// @name Getters related to the BRISK descriptor
+    /// @{
 
-  /// @brief Get the rotation invariance setting of the BRISK descriptor.
-  bool getBriskDescriptionRotationInvariance() const {
-    return briskDescriptionRotationInvariance_;
-  }
+    /// @brief Get the rotation invariance setting of the BRISK descriptor.
+    bool getBriskDescriptionRotationInvariance() const {
+        return briskDescriptionRotationInvariance_;
+    }
 
-  /// @brief Get the scale invariance setting of the BRISK descriptor.
-  bool getBriskDescriptionScaleInvariance() const {
-    return briskDescriptionScaleInvariance_;
-  }
+    /// @brief Get the scale invariance setting of the BRISK descriptor.
+    bool getBriskDescriptionScaleInvariance() const {
+        return briskDescriptionScaleInvariance_;
+    }
 
-  ///@}
-  /// @name Other getters
-  /// @{
+    ///@}
+    /// @name Other getters
+    /// @{
 
-  /// @brief Get the matching threshold.
-  double getBriskMatchingThreshold() const {
-    return briskMatchingThreshold_;
-  }
+    /// @brief Get the matching threshold.
+    double getBriskMatchingThreshold() const {
+        return briskMatchingThreshold_;
+    }
 
-  /// @brief Get the area overlap threshold under which a new keyframe is inserted.
-  float getKeyframeInsertionOverlapThershold() const {
-    return keyframeInsertionOverlapThreshold_;
-  }
+    /// @brief Get the area overlap threshold under which a new keyframe is inserted.
+    float getKeyframeInsertionOverlapThershold() const {
+        return keyframeInsertionOverlapThreshold_;
+    }
 
-  /// @brief Get the matching ratio threshold under which a new keyframe is inserted.
-  float getKeyframeInsertionMatchingRatioThreshold() const {
-    return keyframeInsertionMatchingRatioThreshold_;
-  }
+    /// @brief Get the matching ratio threshold under which a new keyframe is inserted.
+    float getKeyframeInsertionMatchingRatioThreshold() const {
+        return keyframeInsertionMatchingRatioThreshold_;
+    }
 
-  /// @brief Returns true if the initialization has been completed (RANSAC with actual translation)
-  bool isInitialized() {
-    return isInitialized_;
-  }
+    /// @brief Returns true if the initialization has been completed (RANSAC with actual translation)
+    bool isInitialized() {
+        return isInitialized_;
+    }
 
-  /// @}
-  /// @name Setters related to the BRISK detector
-  /// @{
+    /// @}
+    /// @name Setters related to the BRISK detector
+    /// @{
 
-  /// @brief Set the number of octaves of the BRISK detector.
-  void setBriskDetectionOctaves(size_t octaves) {
-    briskDetectionOctaves_ = octaves;
-    initialiseBriskFeatureDetectors();
-  }
+    /// @brief Set the number of octaves of the BRISK detector.
+    void setBriskDetectionOctaves(size_t octaves) {
+        briskDetectionOctaves_ = octaves;
+        initialiseBriskFeatureDetectors();
+    }
 
-  /// @brief Set the detection threshold of the BRISK detector.
-  void setBriskDetectionThreshold(double threshold) {
-    briskDetectionThreshold_ = threshold;
-    initialiseBriskFeatureDetectors();
-  }
+    /// @brief Set the detection threshold of the BRISK detector.
+    void setBriskDetectionThreshold(double threshold) {
+        briskDetectionThreshold_ = threshold;
+        initialiseBriskFeatureDetectors();
+    }
 
-  /// @brief Set the absolute threshold of the BRISK detector.
-  void setBriskDetectionAbsoluteThreshold(double threshold) {
-    briskDetectionAbsoluteThreshold_ = threshold;
-    initialiseBriskFeatureDetectors();
-  }
+    /// @brief Set the absolute threshold of the BRISK detector.
+    void setBriskDetectionAbsoluteThreshold(double threshold) {
+        briskDetectionAbsoluteThreshold_ = threshold;
+        initialiseBriskFeatureDetectors();
+    }
 
-  /// @brief Set the maximum number of keypoints of the BRISK detector.
-  void setBriskDetectionMaximumKeypoints(size_t maxKeypoints) {
-    briskDetectionMaximumKeypoints_ = maxKeypoints;
-    initialiseBriskFeatureDetectors();
-  }
+    /// @brief Set the maximum number of keypoints of the BRISK detector.
+    void setBriskDetectionMaximumKeypoints(size_t maxKeypoints) {
+        briskDetectionMaximumKeypoints_ = maxKeypoints;
+        initialiseBriskFeatureDetectors();
+    }
 
-  /// @}
-  /// @name Setters related to the BRISK descriptor
-  /// @{
+    /// @}
+    /// @name Setters related to the BRISK descriptor
+    /// @{
 
-  /// @brief Set the rotation invariance setting of the BRISK descriptor.
-  void setBriskDescriptionRotationInvariance(bool invariance) {
-    briskDescriptionRotationInvariance_ = invariance;
-    initialiseBriskFeatureDetectors();
-  }
+    /// @brief Set the rotation invariance setting of the BRISK descriptor.
+    void setBriskDescriptionRotationInvariance(bool invariance) {
+        briskDescriptionRotationInvariance_ = invariance;
+        initialiseBriskFeatureDetectors();
+    }
 
-  /// @brief Set the scale invariance setting of the BRISK descriptor.
-  void setBriskDescriptionScaleInvariance(bool invariance) {
-    briskDescriptionScaleInvariance_ = invariance;
-    initialiseBriskFeatureDetectors();
-  }
+    /// @brief Set the scale invariance setting of the BRISK descriptor.
+    void setBriskDescriptionScaleInvariance(bool invariance) {
+        briskDescriptionScaleInvariance_ = invariance;
+        initialiseBriskFeatureDetectors();
+    }
 
-  ///@}
-  /// @name Other setters
-  /// @{
+    ///@}
+    /// @name Other setters
+    /// @{
 
-  /// @brief Set the matching threshold.
-  void setBriskMatchingThreshold(double threshold) {
-    briskMatchingThreshold_ = threshold;
-  }
+    /// @brief Set the matching threshold.
+    void setBriskMatchingThreshold(double threshold) {
+        briskMatchingThreshold_ = threshold;
+    }
 
-  /// @brief Set the area overlap threshold under which a new keyframe is inserted.
-  void setKeyframeInsertionOverlapThreshold(float threshold) {
-    keyframeInsertionOverlapThreshold_ = threshold;
-  }
+    /// @brief Set the area overlap threshold under which a new keyframe is inserted.
+    void setKeyframeInsertionOverlapThreshold(float threshold) {
+        keyframeInsertionOverlapThreshold_ = threshold;
+    }
 
-  /// @brief Set the matching ratio threshold under which a new keyframe is inserted.
-  void setKeyframeInsertionMatchingRatioThreshold(float threshold) {
-    keyframeInsertionMatchingRatioThreshold_ = threshold;
-  }
+    /// @brief Set the matching ratio threshold under which a new keyframe is inserted.
+    void setKeyframeInsertionMatchingRatioThreshold(float threshold) {
+        keyframeInsertionMatchingRatioThreshold_ = threshold;
+    }
 
-  /// @}
+    /// @}
 
- private:
+private:
 
-  /**
+    /**
    * @brief   feature detectors with the current settings.
    *          The vector contains one for each camera to ensure that there are no problems with parallel detection.
    * @warning Lock with featureDetectorMutexes_[cameraIndex] when using the detector.
    */
-  cv::FeatureDetector featureDetector_;
-  /**
+    cv::FeatureDetector featureDetector_;
+    /**
    * @brief   feature descriptors with the current settings.
    *          The vector contains one for each camera to ensure that there are no problems with parallel detection.
    * @warning Lock with featureDetectorMutexes_[cameraIndex] when using the descriptor.
    */
-  cv::DescriptorExtractor descriptorExtractor_;
-  /// Mutex for feature detectors and descriptors.
-  std::mutex featureDetectorMutex_;
+    cv::DescriptorExtractor descriptorExtractor_;
+    /// Mutex for feature detectors and descriptors.
+    std::mutex featureDetectorMutex_;
 
-  bool isInitialized_;        ///< Is the pose initialised?
-  //const size_t numCameras_;   ///< Number of cameras in the configuration.
+    bool isInitialized_;        ///< Is the pose initialised?
+    //const size_t numCameras_;   ///< Number of cameras in the configuration.
 
-  /// @name BRISK detection parameters
-  /// @{
+    /// @name BRISK detection parameters
+    /// @{
 
-  size_t briskDetectionOctaves_;            ///< The set number of brisk octaves.
-  double briskDetectionThreshold_;          ///< The set BRISK detection threshold.
-  double briskDetectionAbsoluteThreshold_;  ///< The set BRISK absolute detection threshold.
-  size_t briskDetectionMaximumKeypoints_;   ///< The set maximum number of keypoints.
+    size_t briskDetectionOctaves_;            ///< The set number of brisk octaves.
+    double briskDetectionThreshold_;          ///< The set BRISK detection threshold.
+    double briskDetectionAbsoluteThreshold_;  ///< The set BRISK absolute detection threshold.
+    size_t briskDetectionMaximumKeypoints_;   ///< The set maximum number of keypoints.
 
-  /// @}
-  /// @name BRISK descriptor extractor parameters
-  /// @{
+    /// @}
+    /// @name BRISK descriptor extractor parameters
+    /// @{
 
-  bool briskDescriptionRotationInvariance_; ///< The set rotation invariance setting.
-  bool briskDescriptionScaleInvariance_;    ///< The set scale invariance setting.
+    bool briskDescriptionRotationInvariance_; ///< The set rotation invariance setting.
+    bool briskDescriptionScaleInvariance_;    ///< The set scale invariance setting.
 
-  ///@}
-  /// @name BRISK matching parameters
-  ///@{
+    ///@}
+    /// @name BRISK matching parameters
+    ///@{
 
-  double briskMatchingThreshold_; ///< The set BRISK matching threshold.
+    double briskMatchingThreshold_; ///< The set BRISK matching threshold.
 
-  ///@}
+    ///@}
 
-  std::unique_ptr<okvis::DenseMatcher> matcher_; ///< Matcher object.
+    std::unique_ptr<okvis::DenseMatcher> matcher_; ///< Matcher object.
 
-  /**
+    /**
    * @brief If the hull-area around all matched keypoints of the current frame (with existing landmarks)
    *        divided by the hull-area around all keypoints in the current frame is lower than
    *        this threshold it should be a new keyframe.
    * @see   doWeNeedANewKeyframe()
    */
-  float keyframeInsertionOverlapThreshold_;  //0.6
-  /**
+    float keyframeInsertionOverlapThreshold_;  //0.6
+    /**
    * @brief If the number of matched keypoints of the current frame with an older frame
    *        divided by the amount of points inside the convex hull around all keypoints
    *        is lower than the threshold it should be a keyframe.
    * @see   doWeNeedANewKeyframe()
    */
-  float keyframeInsertionMatchingRatioThreshold_;  //0.2
+    float keyframeInsertionMatchingRatioThreshold_;  //0.2
 
-  /**
+    /**
    * @brief Decision whether a new frame should be keyframe or not.
    * @param estimator     const reference to the estimator.
    * @param currentFrame  Keyframe candidate.
    * @return True if it should be a new keyframe.
    */
-  bool needANewKeyframe(const okvis::Estimator& estimator,
-                            std::shared_ptr<okvis::MultiFrame> currentFrame);  // based on some overlap area heuristics
+    bool needANewKeyframe(const okvis::Estimator& estimator,
+                          std::shared_ptr<okvis::MultiFrame> currentFrame);  // based on some overlap area heuristics
 
-  /**
+    /**
    * @brief Match a new multiframe to existing keyframes
    * @tparam MATCHING_ALGORITHM Algorithm to match new keypoints to existing landmarks
    * @warning As this function uses the estimator it is not threadsafe
@@ -302,15 +341,15 @@ class Frontend {
    * @param[in]  removeOutliers         Remove outliers during RANSAC.
    * @return The number of matches in total.
    */
-  template<class MATCHING_ALGORITHM>
-  int matchToKeyframes(okvis::Estimator& estimator,
-                       const okvis::VioParameters& params,
-                       const uint64_t currentFrameId, bool& rotationOnly,
-                       bool usePoseUncertainty = true,
-                       double* uncertainMatchFraction = 0,
-                       bool removeOutliers = true);  // for wide-baseline matches (good initial guess)
+    template<class MATCHING_ALGORITHM>
+    int matchToKeyframes(okvis::Estimator& estimator,
+                         const okvis::VioParameters& params,
+                         const uint64_t currentFrameId, bool& rotationOnly,
+                         bool usePoseUncertainty = true,
+                         double* uncertainMatchFraction = 0,
+                         bool removeOutliers = true);  // for wide-baseline matches (good initial guess)
 
-  /**
+    /**
    * @brief Match a new multiframe to the last frame.
    * @tparam MATCHING_ALGORITHM Algorithm to match new keypoints to existing landmarks
    * @warning As this function uses the estimator it is not threadsafe.
@@ -321,14 +360,14 @@ class Frontend {
    * @param removeOutliers      Remove outliers during RANSAC.
    * @return The number of matches in total.
    */
-  template<class MATCHING_ALGORITHM>
-  int matchToLastFrame(okvis::Estimator& estimator,
-                       const okvis::VioParameters& params,
-                       const uint64_t currentFrameId,
-                       bool usePoseUncertainty = true,
-                       bool removeOutliers = true);
+    template<class MATCHING_ALGORITHM>
+    int matchToLastFrame(okvis::Estimator& estimator,
+                         const okvis::VioParameters& params,
+                         const uint64_t currentFrameId,
+                         bool usePoseUncertainty = true,
+                         bool removeOutliers = true);
 
-  /**
+    /**
    * @brief Perform 3D/2D RANSAC.
    * @warning As this function uses the estimator it is not threadsafe.
    * @param estimator       Estimator.
@@ -337,12 +376,12 @@ class Frontend {
    * @param removeOutliers  Remove observation of outliers in estimator.
    * @return Number of inliers.
    */
-  int runRansac3d2d(okvis::Estimator& estimator,
-                    const okvis::cameras::NCameraSystem &nCameraSystem,
-                    std::shared_ptr<okvis::MultiFrame> currentFrame,
-                    bool removeOutliers);
+    int runRansac3d2d(okvis::Estimator& estimator,
+                      const okvis::cameras::NCameraSystem &nCameraSystem,
+                      std::shared_ptr<okvis::MultiFrame> currentFrame,
+                      bool removeOutliers);
 
-  /**
+    /**
    * @brief Perform 2D/2D RANSAC.
    * @warning As this function uses the estimator it is not threadsafe.
    * @param estimator         Estimator.
@@ -354,13 +393,13 @@ class Frontend {
    * @param[out] rotationOnly Was the rotation only RANSAC model enough to explain the matches.
    * @return Number of inliers.
    */
-  int runRansac2d2d(okvis::Estimator& estimator,
-                    const okvis::VioParameters& params, uint64_t currentFrameId,
-                    uint64_t olderFrameId, bool initializePose,
-                    bool removeOutliers, bool &rotationOnly);
+    int runRansac2d2d(okvis::Estimator& estimator,
+                      const okvis::VioParameters& params, uint64_t currentFrameId,
+                      uint64_t olderFrameId, bool initializePose,
+                      bool removeOutliers, bool &rotationOnly);
 
-  /// (re)instantiates feature detectors and descriptor extractors. Used after settings changed or at startup.
-  void initialiseBriskFeatureDetectors();
+    /// (re)instantiates feature detectors and descriptor extractors. Used after settings changed or at startup.
+    void initialiseBriskFeatureDetectors();
 
 };
 

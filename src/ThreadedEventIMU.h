@@ -12,6 +12,7 @@
 
 #include "event.h"
 #include "Frontend.h"
+#include "ceres/ceres.h"
 
 namespace ev {
 
@@ -27,23 +28,10 @@ public:
 //    typedef Eigen::Matrix<double, 2, 2> eventFrame;
 
 
-    struct eventFrameMeasurement {
-//        okvis::Measurement<cv::Mat> events;
 
-//        eventFrameMeasurement(int x, int y) {
-//            // ?????
-//            cv::Mat ef(x, y, CV_64F, cv::Scalar(0.0));
-//            eventframe.measurement = ef;
-//            eventframe.sensorId = 0;
-//        }
-        //~eventFrameMeasurement();
-        std::vector<EventMeasurement> events;
-        unsigned counter_w{0}; // counter for temporal window size
-        eventFrameMeasurement() {}
-    };
 
 //    bool correctEvent(cv::Mat& frame, eventFrameMeasurement* em);
-    bool correctEvent(std::shared_ptr<eventFrameMeasurement>& em);
+    bool undistortEvents(std::shared_ptr<eventFrameMeasurement>& em);
 
     //void fuse(cv::Mat& image, cv::Vec2d point, bool polarity);
 
