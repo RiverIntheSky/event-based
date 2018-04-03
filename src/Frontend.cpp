@@ -43,7 +43,7 @@ void Contrast::fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) {
 
     double a1 = (p4(0) - p(0)) * (p4(1) - p(1));
     double a2 = -(p3(0) - p(0)) * (p3(1) - p(1));
-    double a3 = -(p2(0) - p(0)) * (p2(0) - p(1));
+    double a3 = -(p2(0) - p(0)) * (p2(1) - p(1));
     double a4 =  (p1(0) - p(0)) * (p1(1) - p(1));
 
     image(p1(0), p1(1)) += a1 * pol;
@@ -63,13 +63,9 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
         Eigen::Vector3d point_warped;
          auto t = it->timeStamp - t0;
         warp(point_warped, p, t, w);
-#if 1
         Eigen::Matrix3d cameraMatrix_;
         cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
         Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
-#else
-        Eigen::Vector3d point_camera = point_warped;
-#endif
         if (point_camera(0) > 0 && point_camera(0) < 239
                 && point_camera(1) > 0 && point_camera(1) < 179) {
             fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
@@ -80,11 +76,9 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
 }
 
 double Contrast::getIntensity(int x, int y, Eigen::Vector3d w) const {
-//    if (!intensitySet) {
     if (x == 0 && y == 0) {
         intensity = Eigen::MatrixXd::Zero(240, 180);
         Intensity(intensity, em, param, w);
-//        intensitySet = true;
     }
     return intensity(x, y);
 }

@@ -7,11 +7,10 @@
 #include <atomic>
 
 #include <okvis/ImuFrameSynchronizer.hpp>
-#include <okvis/FrameSynchronizer.hpp>‚
+#include <okvis/FrameSynchronizer.hpp>
 
 #include "Frontend.h"
 #include "ceres/ceres.h"
-
 
 namespace ev {
 

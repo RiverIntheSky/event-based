@@ -1,7 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include "ThreadedEventIMU.h"
-#include "util/utils.h"
 #include <chrono>
 
 std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em = NULL;

@@ -8,9 +8,9 @@
 #include <okvis/VioFrontendInterface.hpp>
 #include <okvis/timing/Timer.hpp>
 #include <okvis/DenseMatcher.hpp>
-#include <opencv2/core/eigen.hpp>
 #include "parameters.h"
 #include "event.h"
+#include "util/utils.h"
 
 /// \brief okvis Main namespace of this package.
 namespace ev {
@@ -42,17 +42,34 @@ struct Contrast {
                 residual[0] += std::pow(getIntensity(x_, y_, w_) - I_mu, 2.);
             }
         }
-
+        residual[0] /= (240*180);
+        residual[0] = 1./residual[0];
         return true;
     }
 
     static std::shared_ptr<eventFrameMeasurement> em;
     static double I_mu;
     static Eigen::MatrixXd intensity;
-//    static bool intensitySet{false};
     static Parameters param;
-//    const int x_;
-//    const int y_;
+};
+
+class imshowCallback: public ceres::IterationCallback {
+ public:
+    imshowCallback(double& w1, double& w2, double& w3)
+        :w1_(w1), w2_(w2), w3_(w3) {}
+
+  ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
+      ev::imshowRescaled(ev::Contrast::intensity, msec_);
+      return ceres::SOLVER_CONTINUE;
+  }
+
+
+ private:
+  int msec_ = 1;
+  std::string s_ = "image";
+  double w1_;
+  double w2_;
+  double w3_;
 };
 
 /**

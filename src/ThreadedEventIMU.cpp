@@ -161,9 +161,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 eventFrames.push_back(std::make_shared<eventFrameMeasurement>());
             }
             for (auto it = eventFrames.begin(); it != eventFrames.end(); it++) {
-                // auto singleEvent = correctEvent(data);
-                // (*it)->eventframe.timeStamp not set
-                // (*it)->eventframe.measurement += singleEvent;
                 (*it)->events.push_back(data);
                 (*it)->counter_w++;
             }
@@ -174,34 +171,12 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 //cv::Mat synthesizedFrame(parameters_.array_size_x, parameters_.array_size_y, CV_64F, cv::Scalar(0.0));
                 Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_x, parameters_.array_size_y);
                 undistortEvents(em);
+
                 Contrast::em = em;
                 Contrast::param = parameters_;
                 Contrast::synthesizeEventFrame(synthesizedFrame, em);
-
-                Contrast::I_mu = synthesizedFrame.mean();
-                LOG(INFO) << synthesizedFrame.mean();
-                ceres::Problem problem;
-
-                        ceres::CostFunction* cost_function =
-                          new ceres::NumericDiffCostFunction<Contrast, ceres::CENTRAL, 1, 1, 1, 1>(
-                            new Contrast());
-//                        ceres::CostFunction* cost_function =
-//                             new ceres::AutoDiffCostFunction<Contrast, 1, 1, 1>(
-//                                 new Contrast(col, row));
-                        problem.AddResidualBlock(cost_function, NULL , &w1, &w2, &w3);
-
-
-                  ceres::Solver::Options options;
-                  options.minimizer_progress_to_stdout = true;
-                  ceres::Solver::Summary summary;
-                  ceres::Solve(options, &problem, &summary);
-                  std::cout << summary.BriefReport() << "\n";
-                  std::cout << "w : " << w1
-                            << " " << w2
-                            << " " << w3
-                            << "\n";
-//                cv::Mat ef(parameters_.array_size_x, parameters_.array_size_y, CV_64F, cv::Scalar(0.0));
-//                cv::eigen2cv(synthesizedFrame, ef);
+//                cv::Mat frame;
+//                cv::eigen2cv(synthesizedFrame, frame);
 //                std::ofstream file("/home/weizhen/ceres.txt");
 //                if (file.is_open()) {
 //                    for (int c = 0; c != 240; c++) {
@@ -211,7 +186,31 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //                    }
 //                }
 //                file.close();
-                // addImage(em->events.front().timeStamp, 0, ef);
+//                addImage(em->events.front().timeStamp, 0, ef);
+//                ev::imshowRescaled(frame);
+                Contrast::I_mu = synthesizedFrame.mean();
+                LOG(INFO) << synthesizedFrame.mean();
+                ceres::Problem problem;
+
+                ceres::CostFunction* cost_function =
+                        new ceres::NumericDiffCostFunction<Contrast, ceres::CENTRAL, 1, 1, 1, 1>(
+                            new Contrast());
+                problem.AddResidualBlock(cost_function, new ceres::ArctanLoss(1) , &w1, &w2, &w3);
+
+
+                ceres::Solver::Options options;
+                ev::imshowCallback callback(w1, w2, w3);
+                options.callbacks.push_back(&callback);
+                options.minimizer_progress_to_stdout = true;
+                options.update_state_every_iteration = true;
+                ceres::Solver::Summary summary;
+                ceres::Solve(options, &problem, &summary);
+                std::cout << summary.BriefReport() << "\n";
+                std::cout << "w : " << w1
+                          << " " << w2
+                          << " " << w3
+                          << "\n";
+
                 eventFrames.pop_front();
 
             }
@@ -237,53 +236,55 @@ void ThreadedEventIMU::setBlocking(bool blocking) {
     }
 }
 
-//bool ThreadedEventIMU::correctEvent(cv::Mat& frame, eventFrameMeasurement *em) {
-
-
-//}
-
-// bool ThreadedEventIMU::correctEvent(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement> em) {
 bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& em) {
-    auto it = em->events.begin();
+
+    cv::Mat src(240, 180, CV_64F, cv::Scalar(0.0));
+    cv::Mat dst(240, 180, CV_64F, cv::Scalar(0.0));
 #if 0
+    auto it = em->events.begin();
     for (; it != em->events.end(); it++) {
-        frame(it->measurement.x, it->measurement.y) += (int(it->measurement.p) * 2 - 1);
+        src.at<double>(it->measurement.x, it->measurement.y) +=  (int(it->measurement.p) * 2 - 1);
     }
+    cv::undistort(src, dst, parameters_.cameraMatrix, parameters_.distCoeffs);
+    cv::Mat src_;
+    double min, max;
+    cv::minMaxLoc(src, &min, &max);
+    cv::subtract(src, cv::Mat(src.rows, src.cols, CV_64F, cv::Scalar(min)), src_);
+    src_ /= (max - min);
+    cv::imshow("distorted", src_);
+    cv::waitKey(0);
+    cv::Mat dst_;
+    cv::minMaxLoc(dst, &min, &max);
+    cv::subtract(dst, cv::Mat(src.rows, src.cols, CV_64F, cv::Scalar(min)), dst_);
+    dst_ /= (max - min);
+    cv::imshow("undistorted", dst_);
+    cv::waitKey(0);
 #else
-    for (; it != em->events.end(); it++) {
-//        LOG(INFO) << "Before (" << it->measurement.x << ", " << it->measurement.y << ")";
-        cv::Vec2d p((it->measurement.x-parameters_.cameraMatrix.at<double>(0,2))/parameters_.cameraMatrix.at<double>(0,0),
-                    (it->measurement.y-parameters_.cameraMatrix.at<double>(1,2))/parameters_.cameraMatrix.at<double>(1,1));
-//        cv::Vec2d p(it->measurement.x, it->measurement.y);
-        cv::Vec2d p_undistorted;
-#if 1
-        cv::undistort(p, p_undistorted, cv::Mat::eye(3, 3, CV_64F), parameters_.distCoeffs);
-#else
-        p_undistorted = p;
-#endif
-        it->measurement.x = p_undistorted[0];
-        it->measurement.y = p_undistorted[1];
-//        cv::Vec3d p_undistorted_(p_undistorted[0], p_undistorted[1], 1);
-//        cv::Mat p_camera_ = parameters_.cameraMatrix * cv::Mat(p_undistorted_);
-
-
-
-//        LOG(INFO) << "After (" << p_camera_.at<double>(0,0) << ", " <<p_camera_.at<double>(1,0) << ")";
-//        LOG(INFO);
+    cv::Mat map_x, map_y;
+    map_x.create(src.size(), CV_64F);
+    map_y.create(src.size(), CV_64F);
+    std::vector<cv::Point2d> inputDistortedPoints;
+    std::vector<cv::Point2d> outputUndistortedPoints;
+    for (auto it = em->events.begin(); it != em->events.end(); it++) {
+        cv::Point2d point(it->measurement.x, it->measurement.y);
+        inputDistortedPoints.push_back(point);
     }
+    cv::undistortPoints(inputDistortedPoints, outputUndistortedPoints,
+                        parameters_.cameraMatrix, parameters_.distCoeffs);
+    auto it = em->events.begin();
+    auto p_it = outputUndistortedPoints.begin();
+    for (; it != em->events.end(); it++, p_it++) {
+        it->measurement.x = p_it->x;
+        it->measurement.y = p_it->y;
+    }
+    //    cv::Mat_<double> I = cv::Mat_<double>::eye(3,3);
+    //    cv::remap(src, dst, map_x, map_y, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
+    //    cv::initUndistortRectifyMap(parameters_.cameraMatrix, parameters_.distCoeffs,
+    //                                I, parameters_.cameraMatrix, cv::Size(src.cols, src.rows),
+    //                                map_x.type(), map_x, map_y);
 #endif
     return true;
 }
-
-
-
-//cv::Mat ThreadedEventIMU::correctEvent(const EventMeasurement& event_measurement) {
-//    // cv::Matx<double, x, y>;
-//    cv::Mat ef(parameters_.array_size_x, parameters_.array_size_y, CV_64F, cv::Scalar(0.0));
-//    // do not distinguish between positive and negative events
-//    ef.at<double>(event_measurement.measurement.x, event_measurement.measurement.y) += 1;
-//    return ef;
-//}
 
 
 // Start all threads.
