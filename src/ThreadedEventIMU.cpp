@@ -141,14 +141,12 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
 
     Eigen::Quaternionf q = Eigen::Quaternionf(-0.0360707764043, 0.89561673416, -0.443278553788, 0.008584190961);
-    auto euler = q.toRotationMatrix().eulerAngles(0, 1, 2);
+//    auto euler = q.toRotationMatrix().eulerAngles(0, 1, 2);
 
 //    double w1 =  2.224;
 //    double w2 =  0.047;
 //    double w3 =  3.084;
-    double w1 =  0;
-    double w2 =  0;
-    double w3 =  0;
+    double w[] = {0., 0., 0.};
 
     for (;;) {
         // get data and check for termination request
@@ -204,25 +202,25 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 ceres::Problem problem;
 
                 ceres::CostFunction* cost_function =
-                        new ceres::AutoDiffCostFunction<Contrast, 1, 1, 1, 1>(
+                        new ceres::AutoDiffCostFunction<Contrast, 1, 3>(
                             new Contrast());
-                problem.AddResidualBlock(cost_function, NULL , &w1, &w2, &w3);
+                problem.AddResidualBlock(cost_function, NULL , w);
 
 
                 ceres::Solver::Options options;
-                ev::imshowCallback callback(w1, w2, w3);
+                ev::imshowCallback callback(w);
                 options.callbacks.push_back(&callback);
                 options.minimizer_progress_to_stdout = true;
                 options.update_state_every_iteration = true;
                 ceres::Solver::Summary summary;
                 ceres::Solve(options, &problem, &summary);
                 std::cout << summary.BriefReport() << "\n";
-                std::cout << "w : " << w1
-                          << " " << w2
-                          << " " << w3
+                std::cout << "w : " << w[1]
+                          << " " << w[2]
+                          << " " << w[3]
                           << "\n";
                 synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_x, parameters_.array_size_y);
-                Contrast::Intensity(synthesizedFrame, Contrast::em, Contrast::param, Eigen::Vector3d(w1, w2, w3));
+                Contrast::Intensity(synthesizedFrame, Contrast::em, Contrast::param, w);
                 ev::imshowRescaled(ev::Contrast::intensity, 0);
                 eventFrames.pop_front();
 

@@ -11,39 +11,58 @@
 #include "parameters.h"
 #include "event.h"
 #include "util/utils.h"
+#include <cmath>
 
 /// \brief okvis Main namespace of this package.
 namespace ev {
 
 struct Contrast {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Contrast(){}
 
     // rotate vector x by w*t
-    static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w);
-
+    template <typename T>
+    static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration& t, const T* const w) {
+        // Casting the projection matrix to type T results in the matrix multiplication to be performed as
+        // jet-to-jet multiplication and addition during autodiff, leading to an unnecessary overhead
+        // since operations between a Jet and scalar are actually optimized in ceres to be faster than
+        // Jet-to-Jet operations.
+        Eigen::Vector3d x_ = x.homogeneous();
+        Eigen::Vector3d w_(w[0], w[1], w[2]);
+        x_w = x_ + (w_ * t.toSec()).cross(x_);
+        x_w /= x_w(2);
+    }
     // dealing with non-integer coordinates
     // bilinear interpolation
     static void fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity);
 
     static void synthesizeEventFrame(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement>& em);
 
-    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters& param, Eigen::Vector3d w);
-
-    double getIntensity(int x, int y, Eigen::Vector3d w) const;
+    template <typename T>
+    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters& param, const T* const w);
 
     template <typename T>
-    bool operator()(const T* w1, const T* w2, const T* w3, T* residual) const {
-        Eigen::Vector3d w_;
-        w_ << *w1, *w2, *w3;
-        residual[0] = 0;
+    static double getIntensity(int x, int y, const T* const w);
+
+    template <typename T>
+    bool operator()(const T* const w, T* residual) const {
+        residual[0] = T(0);
         for (int x_ = 0; x_ < 240; x_++) {
             for (int y_ = 0; y_ < 180; y_++) {
-                residual[0] += std::pow(getIntensity(x_, y_, w_) - I_mu, 2);
+T two_pi(2.0 * M_PI);
+ceres::floor((T(M_PI)) / two_pi);
+                ceres::sqrt(T(0));
+                auto ui = w[0];
+                ceres::floor(ui);
+                Eigen::Vector3d x_w;
+                Eigen::Vector2d x;
+                okvis::Duration t;
+                warp(x_w, x, t, w);
+                auto teonauhs = getIntensity(x_, y_, w);
+                residual[0] += T(std::pow(teonauhs - I_mu, 2));
             }
         }
-        residual[0] /= (240*180);
-        residual[0] = std::sqrt(1./residual[0]);
+        residual[0] /= T(240*180);
+        residual[0] = 1./residual[0];
         return true;
     }
 
@@ -55,8 +74,8 @@ struct Contrast {
 
 class imshowCallback: public ceres::IterationCallback {
  public:
-    imshowCallback(double& w1, double& w2, double& w3)
-        :w1_(w1), w2_(w2), w3_(w3) {}
+    imshowCallback(double* w)
+        :w_(w) {}
 
   ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
  //     ev::imshowRescaled(ev::Contrast::intensity, msec_);
@@ -67,9 +86,7 @@ class imshowCallback: public ceres::IterationCallback {
  private:
   int msec_ = 1;
   std::string s_ = "image";
-  double w1_;
-  double w2_;
-  double w3_;
+  double* w_;
 };
 
 /**

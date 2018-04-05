@@ -27,11 +27,7 @@
 
 namespace ev {
 
-void Contrast::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration& t, Eigen::Vector3d& w) {
-    Eigen::Vector3d x_ = x.homogeneous();
-    x_w = x_ + (w * t.toSec()).cross(x_);
-    x_w /= x_w(2);
-}
+
 
 void Contrast::fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) {
 #if 1
@@ -57,10 +53,12 @@ void Contrast::fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) {
 }
 
 void Contrast::synthesizeEventFrame(Eigen::MatrixXd &frame, std::shared_ptr<eventFrameMeasurement>& em) {
-    Intensity(frame, em, param, Eigen::Vector3d::Zero());
+    double w[] = {0, 0, 0};
+    Intensity(frame, em, param, w);
 }
 
-void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement> &em, Parameters& param, Eigen::Vector3d w) {
+template <typename T>
+void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement> &em, Parameters& param, const T* const w) {
     okvis::Time t0 = em->events.front().timeStamp;
     for(auto it = em->events.begin(); it != em->events.end(); it++) {
         Eigen::Vector2d p(it->measurement.x, it->measurement.y);
@@ -79,7 +77,8 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
     }
 }
 
-double Contrast::getIntensity(int x, int y, Eigen::Vector3d w) const {
+template <typename T>
+double Contrast::getIntensity(int x, int y, const T* const w) {
     if (x == 0 && y == 0) {
         intensity = Eigen::MatrixXd::Zero(240, 180);
         Intensity(intensity, em, param, w);
