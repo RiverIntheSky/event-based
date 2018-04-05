@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 
 project(ev)
 
-set(OKVIS_INSTALLATION "/home/weizhen/Documents/okvis")
+set(OKVIS_INSTALLATION "/home/weizhen/Downloads/okvis")
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 set(PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
@@ -16,8 +16,7 @@ find_package( OpenCV COMPONENTS core highgui imgproc features2d REQUIRED )
 include_directories(BEFORE ${OpenCV_INCLUDE_DIRS})
 
 # require okvis
-set(CMAKE_PREFIX_PATH "/usr/local/lib/")
-message(${CMAKE_PREFIX_PATH})
+# set(CMAKE_PREFIX_PATH "/usr/local/lib/")
 find_package( okvis REQUIRED)
 include_directories(${OKVIS_INCLUDE_DIRS})
 
@@ -46,14 +45,6 @@ endif()
 find_package(glog REQUIRED)
 
 find_package(Qt5Core)
-
-# EXTERNAL DEPENDENCIES
-#include(ExternalProject)
-#list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-#include_directories(${CMAKE_BINARY_DIR}/include)
-#link_directories(${CMAKE_BINARY_DIR}/lib)
-
-
 
 include_directories(${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include)

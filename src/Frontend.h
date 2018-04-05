@@ -33,17 +33,17 @@ struct Contrast {
     double getIntensity(int x, int y, Eigen::Vector3d w) const;
 
     template <typename T>
-    bool operator()(const T* w1, const T* w2, const T* w3, double* residual) const {
+    bool operator()(const T* w1, const T* w2, const T* w3, T* residual) const {
         Eigen::Vector3d w_;
         w_ << *w1, *w2, *w3;
         residual[0] = 0;
         for (int x_ = 0; x_ < 240; x_++) {
             for (int y_ = 0; y_ < 180; y_++) {
-                residual[0] += std::pow(getIntensity(x_, y_, w_) - I_mu, 2.);
+                residual[0] += std::pow(getIntensity(x_, y_, w_) - I_mu, 2);
             }
         }
         residual[0] /= (240*180);
-        residual[0] = 1./residual[0];
+        residual[0] = std::sqrt(1./residual[0]);
         return true;
     }
 
@@ -59,7 +59,7 @@ class imshowCallback: public ceres::IterationCallback {
         :w1_(w1), w2_(w2), w3_(w3) {}
 
   ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
-      ev::imshowRescaled(ev::Contrast::intensity, msec_);
+ //     ev::imshowRescaled(ev::Contrast::intensity, msec_);
       return ceres::SOLVER_CONTINUE;
   }
 

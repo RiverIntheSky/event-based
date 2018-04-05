@@ -34,7 +34,11 @@ void Contrast::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration& t
 }
 
 void Contrast::fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) {
+#if 1
     int pol = int(polarity) * 2 - 1;
+#else
+    int pol = 1;
+#endif
 
     Eigen::Vector2d p1(std::floor(p(0)), std::floor(p(1)));
     Eigen::Vector2d p2(p1(0), p1(1) + 1);

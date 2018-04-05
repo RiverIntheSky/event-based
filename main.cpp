@@ -59,13 +59,14 @@ int main(int argc, char *argv[])
 //        return -1;
 //    }
     // set reading position to first line
+
     imu_file.clear();
     imu_file.seekg(0);
 
     okvis::Time start(0.0);
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
-    okvis::Duration deltaT(0.0);
+    okvis::Duration deltaT(15.0);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
@@ -74,7 +75,7 @@ int main(int argc, char *argv[])
 
     ev::ThreadedEventIMU ev_estimator(parameters);
 
-    while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(3)) {
+    while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(20)) {
 
         std::stringstream stream(imu_line);
         std::string s;

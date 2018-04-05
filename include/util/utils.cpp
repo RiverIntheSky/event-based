@@ -53,23 +53,21 @@ bool parameterReader::getParameter(ev::Parameters& parameter){
 
 void imshowRescaled(const cv::Mat &src, int msec, std::string s) {
     cv::Mat dst;
+#if 1
     double min, max;
     cv::minMaxLoc(src, &min, &max);
     cv::subtract(src, cv::Mat(src.rows, src.cols, CV_64F, cv::Scalar(min)), dst);
     dst /= (max - min);
+#else
+    dst = src;
+#endif
     cv::imshow(s, dst);
     cv::waitKey(msec);
 }
 
 void imshowRescaled(Eigen::MatrixXd &src_, int msec, std::string s) {
-    cv::Mat dst;
     cv::Mat src;
     cv::eigen2cv(src_, src);
-    double min, max;
-    cv::minMaxLoc(src, &min, &max);
-    cv::subtract(src, cv::Mat(src.rows, src.cols, CV_64F, cv::Scalar(min)), dst);
-    dst /= (max - min);
-    cv::imshow(s, dst);
-    cv::waitKey(msec);
+    imshowRescaled(src, msec, s);
 }
 }
