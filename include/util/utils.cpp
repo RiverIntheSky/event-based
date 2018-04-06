@@ -57,11 +57,14 @@ void imshowRescaled(const cv::Mat &src, int msec, std::string s) {
     double min, max;
     cv::minMaxLoc(src, &min, &max);
     cv::subtract(src, cv::Mat(src.rows, src.cols, CV_64F, cv::Scalar(min)), dst);
+
     dst /= (max - min);
 #else
     dst = src;
 #endif
-    cv::imshow(s, dst);
+    cv::putText(dst, s, cvPoint(30,30),
+    cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+    cv::imshow("image", dst);
     cv::waitKey(msec);
 }
 

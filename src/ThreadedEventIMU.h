@@ -156,6 +156,10 @@ public:
 
     virtual bool addEventMeasurement(okvis::Time& t, unsigned int x, unsigned int y, bool p);
 
+    bool addGroundtruth(const okvis::Time& t,
+                        const Eigen::Vector3d& position,
+                        const Eigen::Quaterniond& orientation);
+
 
 private:
     /// \}

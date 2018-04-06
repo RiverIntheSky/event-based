@@ -77,6 +77,11 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
             // LOG(INFO) << "discard point outside frustum";
         }
     }
+    cv::Mat src, dst;
+    cv::eigen2cv(image, src);
+    int kernelSize = 1;
+    cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
+    cv::cv2eigen(src, image);
 }
 
 double Contrast::getIntensity(int x, int y, Eigen::Vector3d w) const {

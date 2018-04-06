@@ -29,14 +29,14 @@ int main(int argc, char *argv[])
         LOG(ERROR)<< "no events file found at " << events_path;
         return -1;
     }
-//    unsigned int number_of_lines;
-//    while (std::getline(events_file, events_line))
-//        ++number_of_lines;
-//    LOG(INFO)<< "No. events measurements: " << number_of_lines;
-//    if (number_of_lines <= 0) {
-//        LOG(ERROR)<< "no events messages present in " << events_path;
-//        return -1;
-//    }
+    //    unsigned int number_of_lines;
+    //    while (std::getline(events_file, events_line))
+    //        ++number_of_lines;
+    //    LOG(INFO)<< "No. events measurements: " << number_of_lines;
+    //    if (number_of_lines <= 0) {
+    //        LOG(ERROR)<< "no events messages present in " << events_path;
+    //        return -1;
+    //    }
     // set reading position to first line
     events_file.clear();
     events_file.seekg(0);
@@ -49,15 +49,15 @@ int main(int argc, char *argv[])
         LOG(ERROR)<< "no imu file found at " << imu_path;
         return -1;
     }
-//    number_of_lines = 0;
-//    while (std::getline(imu_file, imu_line))
-//        ++number_of_lines;
-//    LOG(INFO)<< "No. IMU measurements: " << number_of_lines;
+    //    number_of_lines = 0;
+    //    while (std::getline(imu_file, imu_line))
+    //        ++number_of_lines;
+    //    LOG(INFO)<< "No. IMU measurements: " << number_of_lines;
 
-//    if (number_of_lines <= 0) {
-//        LOG(ERROR)<< "no imu messages present in " << imu_path;
-//        return -1;
-//    }
+    //    if (number_of_lines <= 0) {
+    //        LOG(ERROR)<< "no imu messages present in " << imu_path;
+    //        return -1;
+    //    }
     // set reading position to first line
 
     imu_file.clear();
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
     okvis::Time start(0.0);
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
-    okvis::Duration deltaT(15.0);
+    okvis::Duration deltaT(15);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
@@ -74,6 +74,41 @@ int main(int argc, char *argv[])
     pr.getParameter(parameters);
 
     ev::ThreadedEventIMU ev_estimator(parameters);
+
+    // open the groundtruth file
+    std::string groundtruth_line;
+    std::string groundtruth_path = path + "/groundtruth.txt";
+    std::ifstream groundtruth_file(groundtruth_path);
+    if (!groundtruth_file.good()) {
+        LOG(ERROR)<< "no groundtruth file found at " << groundtruth_path;
+        return -1;
+    }
+
+    while (std::getline(groundtruth_file, groundtruth_line)) {
+
+        std::stringstream stream(groundtruth_line);
+        std::string s;
+        std::getline(stream, s, ' ');
+        std::string nanoseconds = s.substr(s.size() - 9, 9);
+        std::string seconds = s.substr(0, s.size() - 9);
+
+        Eigen::Vector3d position;
+        for (int j = 0; j < 3; ++j) {
+            std::getline(stream, s, ' ');
+            position[j] = std::stof(s);
+        }
+
+        double w, x, y, z;
+        stream >> x;
+        stream >> y;
+        stream >> z;
+        stream >> w;
+        Eigen::Quaterniond orientation;
+
+
+
+    }
+
 
     while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(20)) {
 
@@ -85,14 +120,14 @@ int main(int argc, char *argv[])
 
         Eigen::Vector3d gyr;
         for (int j = 0; j < 3; ++j) {
-          std::getline(stream, s, ' ');
-          gyr[j] = std::stof(s);
+            std::getline(stream, s, ' ');
+            gyr[j] = std::stof(s);
         }
 
         Eigen::Vector3d acc;
         for (int j = 0; j < 3; ++j) {
-          std::getline(stream, s, ' ');
-          acc[j] = std::stof(s);
+            std::getline(stream, s, ' ');
+            acc[j] = std::stof(s);
         }
 
         t_imu = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
@@ -101,9 +136,9 @@ int main(int argc, char *argv[])
         do {
 
             if (!std::getline(events_file, events_line)) {
-              std::cout << std::endl << "Finished. Press any key to exit." << std::endl << std::flush;
-              cv::waitKey();
-              return 0;
+                std::cout << std::endl << "Finished. Press any key to exit." << std::endl << std::flush;
+                cv::waitKey();
+                return 0;
             }
 
             std::stringstream stream_ev(events_line);

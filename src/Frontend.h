@@ -59,7 +59,8 @@ class imshowCallback: public ceres::IterationCallback {
         :w1_(w1), w2_(w2), w3_(w3) {}
 
   ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
- //     ev::imshowRescaled(ev::Contrast::intensity, msec_);
+      std::string caption = "cost = " + std::to_string(summary.cost);
+      ev::imshowRescaled(ev::Contrast::intensity, msec_, caption);
       return ceres::SOLVER_CONTINUE;
   }
 
