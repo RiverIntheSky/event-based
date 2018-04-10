@@ -227,6 +227,9 @@ private:
      /// Events input queue.
      okvis::threadsafe::ThreadSafeQueue<ev::EventMeasurement> eventMeasurementsReceived_;
 
+     /// ground truth queue.
+     okvis::threadsafe::ThreadSafeQueue<ev::MaconMeasurement> maconMeasurementsReceived_;
+
 
      /// @brief This struct contains the results of the optimization for ease of publication.
      ///        It is also used for publishing poses that have been propagated with the IMU

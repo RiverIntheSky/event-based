@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
     okvis::Time start(0.0);
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
+    okvis::Time t_gt = start;
     okvis::Duration deltaT(15);
 
     std::string configFilename = path + "/calib.txt";
@@ -90,7 +91,8 @@ int main(int argc, char *argv[])
         std::string s;
         std::getline(stream, s, ' ');
         std::string nanoseconds = s.substr(s.size() - 9, 9);
-        std::string seconds = s.substr(0, s.size() - 9);
+        std::string seconds = s.substr(0, s.size() - 9);      
+        t_gt = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
 
         Eigen::Vector3d position;
         for (int j = 0; j < 3; ++j) {
@@ -105,8 +107,7 @@ int main(int argc, char *argv[])
         stream >> w;
         Eigen::Quaterniond orientation;
 
-
-
+        ev_estimator.addGroundtruth(t_gt, position, orientation);
     }
 
 

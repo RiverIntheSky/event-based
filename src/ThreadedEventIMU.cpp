@@ -77,7 +77,7 @@ bool ThreadedEventIMU::addGroundtruth(const okvis::Time& t,
     groundtruth.measurement.q = orientation;
     groundtruth.timeStamp = t;
 
-        maconMeasurementsReceived_.PushBlockingIfFull(groundtruth, 1);
+    maconMeasurementsReceived_.PushBlockingIfFull(groundtruth, 1);
 
     return true;
 }
