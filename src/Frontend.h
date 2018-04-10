@@ -39,7 +39,7 @@ struct Contrast {
         residual[0] = 0;
         for (int x_ = 0; x_ < 240; x_++) {
             for (int y_ = 0; y_ < 180; y_++) {
-                residual[0] += std::pow(getIntensity(x_, y_, w_) - I_mu, 2);
+                residual[0] += std::pow(getIntensity(x_, y_, w_) - intensity.mean(), 2);
             }
         }
         residual[0] /= (240*180);
@@ -60,14 +60,14 @@ class imshowCallback: public ceres::IterationCallback {
 
   ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
       std::string caption = "cost = " + std::to_string(summary.cost);
-      ev::imshowRescaled(ev::Contrast::intensity, msec_, caption);
+      ev::imshowRescaled(ev::Contrast::intensity, msec_, s_, caption);
       return ceres::SOLVER_CONTINUE;
   }
 
 
  private:
   int msec_ = 1;
-  std::string s_ = "image";
+  std::string s_ = "optimizing";
   double w1_;
   double w2_;
   double w3_;

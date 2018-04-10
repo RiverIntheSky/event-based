@@ -105,10 +105,13 @@ int main(int argc, char *argv[])
         stream >> y;
         stream >> z;
         stream >> w;
-        Eigen::Quaterniond orientation;
+        Eigen::Quaterniond orientation(w, x, y, z);
 
-        ev_estimator.addGroundtruth(t_gt, position, orientation);
+        if (t_gt - start > deltaT) {
+            ev_estimator.addGroundtruth(t_gt, position, orientation);
+        }
     }
+
 
 
     while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(20)) {

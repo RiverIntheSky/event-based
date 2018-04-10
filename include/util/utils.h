@@ -33,8 +33,8 @@ struct Pose {
 typedef okvis::Measurement<Pose> MaconMeasurement;
 
 // map entries in src to [0, 1]
-void imshowRescaled(const cv::Mat& src, int msec = 0, std::string s = "image");
-void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string s = "image");
+void imshowRescaled(const cv::Mat& src, int msec = 0, std::string title = "image", std::string text = "");
+void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string title = "image", std::string text = "");
 }
 
 #endif // UTILS_H

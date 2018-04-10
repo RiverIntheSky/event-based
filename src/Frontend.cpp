@@ -62,10 +62,12 @@ void Contrast::synthesizeEventFrame(Eigen::MatrixXd &frame, std::shared_ptr<even
 
 void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement> &em, Parameters& param, Eigen::Vector3d w) {
     okvis::Time t0 = em->events.front().timeStamp;
+    okvis::Time t1 = em->events.back().timeStamp;
     for(auto it = em->events.begin(); it != em->events.end(); it++) {
         Eigen::Vector2d p(it->measurement.x, it->measurement.y);
         Eigen::Vector3d point_warped;
-         auto t = it->timeStamp - t0;
+        auto t = t1 - it->timeStamp;
+        // warp to last frame
         warp(point_warped, p, t, w);
         Eigen::Matrix3d cameraMatrix_;
         cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
@@ -106,26 +108,26 @@ Frontend::Frontend()
           std::unique_ptr<okvis::DenseMatcher>(new okvis::DenseMatcher(4))),
       keyframeInsertionOverlapThreshold_(0.6),
       keyframeInsertionMatchingRatioThreshold_(0.2) {
-  initialiseBriskFeatureDetectors();
+    initialiseBriskFeatureDetectors();
 }
 
 // Detection and descriptor extraction on a per image basis.
 bool Frontend::detectAndDescribe(
-                                 std::shared_ptr<okvis::MultiFrame> frameOut,
-                                 const okvis::kinematics::Transformation& T_WC,
-                                 const std::vector<cv::KeyPoint> * keypoints) {
-  return true;
+        std::shared_ptr<okvis::MultiFrame> frameOut,
+        const okvis::kinematics::Transformation& T_WC,
+        const std::vector<cv::KeyPoint> * keypoints) {
+    return true;
 }
 
 // Matching as well as initialization of landmarks and state.
 bool Frontend::dataAssociationAndInitialization(
-    okvis::Estimator& estimator,
-    okvis::kinematics::Transformation& /*T_WS_propagated*/, // TODO sleutenegger: why is this not used here?
-    const ev::Parameters & params,
-    const std::shared_ptr<okvis::MapPointVector> /*map*/, // TODO sleutenegger: why is this not used here?
-    std::shared_ptr<okvis::MultiFrame> framesInOut,
-    bool *asKeyframe) {
-  return true;
+        okvis::Estimator& estimator,
+        okvis::kinematics::Transformation& /*T_WS_propagated*/, // TODO sleutenegger: why is this not used here?
+        const ev::Parameters & params,
+        const std::shared_ptr<okvis::MapPointVector> /*map*/, // TODO sleutenegger: why is this not used here?
+        std::shared_ptr<okvis::MultiFrame> framesInOut,
+        bool *asKeyframe) {
+    return true;
 }
 
 // Propagates pose, speeds and biases with given IMU measurements.
@@ -137,13 +139,13 @@ bool Frontend::propagation(const okvis::ImuMeasurementDeque & imuMeasurements,
                            Eigen::Matrix<double, 15, 15>* covariance,
                            Eigen::Matrix<double, 15, 15>* jacobian) const {
 
-  return false;
+    return false;
 }
 
 // Decision whether a new frame should be keyframe or not.
 bool Frontend::needANewKeyframe(
-    const okvis::Estimator& estimator,
-    std::shared_ptr<okvis::MultiFrame> currentFrame) {
+        const okvis::Estimator& estimator,
+        std::shared_ptr<okvis::MultiFrame> currentFrame) {
 
     return true;
 }
@@ -157,9 +159,9 @@ int Frontend::matchToKeyframes(okvis::Estimator& estimator,
                                bool usePoseUncertainty,
                                double* uncertainMatchFraction,
                                bool removeOutliers) {
-  int retCtr = 0;
+    int retCtr = 0;
 
-  return retCtr;
+    return retCtr;
 }
 
 // Match a new multiframe to the last frame.
@@ -170,8 +172,8 @@ int Frontend::matchToLastFrame(okvis::Estimator& estimator,
                                bool usePoseUncertainty,
                                bool removeOutliers) {
 
-  int retCtr = 0;
-  return retCtr;
+    int retCtr = 0;
+    return retCtr;
 }
 
 // Perform 3D/2D RANSAC.
@@ -179,8 +181,8 @@ int Frontend::runRansac3d2d(okvis::Estimator& estimator,
                             const okvis::cameras::NCameraSystem& nCameraSystem,
                             std::shared_ptr<okvis::MultiFrame> currentFrame,
                             bool removeOutliers) {
-  int numInliers = 0;
-  return numInliers;
+    int numInliers = 0;
+    return numInliers;
 }
 
 // Perform 2D/2D RANSAC.
@@ -190,26 +192,26 @@ int Frontend::runRansac2d2d(okvis::Estimator& estimator,
                             bool initializePose,
                             bool removeOutliers,
                             bool& rotationOnly) {
-  return 0;
+    return 0;
 }
 
 // (re)instantiates feature detectors and descriptor extractors. Used after settings changed or at startup.
 void Frontend::initialiseBriskFeatureDetectors() {
-  featureDetectorMutex_.lock();
+    featureDetectorMutex_.lock();
 
-  featureDetector_.clear();
-  descriptorExtractor_.clear();
+    featureDetector_.clear();
+    descriptorExtractor_.clear();
 
-  featureDetector_ = brisk::ScaleSpaceFeatureDetector<brisk::HarrisScoreCalculator>(
+    featureDetector_ = brisk::ScaleSpaceFeatureDetector<brisk::HarrisScoreCalculator>(
                 briskDetectionThreshold_, briskDetectionOctaves_,
                 briskDetectionAbsoluteThreshold_,
                 briskDetectionMaximumKeypoints_);
 
-  descriptorExtractor_= brisk::BriskDescriptorExtractor(
+    descriptorExtractor_= brisk::BriskDescriptorExtractor(
                 briskDescriptionRotationInvariance_,
                 briskDescriptionScaleInvariance_);
 
-  featureDetectorMutex_.unlock();
+    featureDetectorMutex_.unlock();
 }
 
 }
