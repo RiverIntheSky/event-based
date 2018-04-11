@@ -40,11 +40,7 @@ struct Contrast {
         double m = intensity.mean();
         for (int x_ = 0; x_ < 240; x_++) {
             for (int y_ = 0; y_ < 180; y_++) {
-<<<<<<< Updated upstream
-                residual[0] += std::pow(getIntensity(x_, y_, w_) - intensity.mean(), 2);
-=======
                 residual[0] += std::pow(getIntensity(x_, y_, w_) - m, 2);
->>>>>>> Stashed changes
             }
         }
         residual[0] /= (240*180);

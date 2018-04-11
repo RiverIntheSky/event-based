@@ -77,20 +77,15 @@ bool ThreadedEventIMU::addGroundtruth(const okvis::Time& t,
     groundtruth.measurement.q = orientation;
     groundtruth.timeStamp = t;
 
-<<<<<<< Updated upstream
-        maconMeasurements_.push_back(groundtruth);
-        it_gt = maconMeasurements_.begin();
-
-=======
     maconMeasurements_.push_back(groundtruth);
     it_gt = maconMeasurements_.begin();
->>>>>>> Stashed changes
     return true;
 }
 
 // Loop to process IMU measurements.
 void ThreadedEventIMU::imuConsumerLoop() {
     LOG(INFO) << "I am imu consumer loop";
+    LOG(INFO) << imuMeasurementsReceived_.Size();
 
     okvis::ImuMeasurement data;
     //    TimerSwitchable processImuTimer("0 processImuMeasurements",true);
@@ -157,18 +152,11 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
 
-    //    double w1 =  0.04111337760464654;
-    //    double w2 =  2.133983923557489;
-    //    double w3 =  -2.272747100334764;
-    double w1 =  1;
+    double w1 =  0;
     double w2 =  1;
-    double w3 =  1;
+    double w3 =  0;
 
     Contrast::param = parameters_;
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
     for (;;) {
         // get data and check for termination request
         if (eventMeasurementsReceived_.PopBlocking(&data) == false) {
@@ -183,84 +171,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
         {
             std::lock_guard<std::mutex> lock(eventMeasurements_mutex_);
 
-<<<<<<< Updated upstream
-            // every synthesized event frame starts with new groundtruth data,
-            // ends with newly available groundtruth data
-
-            if (data.timeStamp > it_gt->timeStamp){
-                if (!eventFrames.empty()) {
-                    auto em = eventFrames.front();
-                    undistortEvents(em);
-                    Contrast::em = em;
-                    Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_x, parameters_.array_size_y);
-
-                    // synthesized event frame with zero motion
-                    Contrast::synthesizeEventFrame(synthesizedFrame, em);
-
-                    ceres::Problem problem;
-
-                    ceres::CostFunction* cost_function =
-                            new ceres::NumericDiffCostFunction<Contrast, ceres::CENTRAL, 1, 1, 1, 1>(
-                                new Contrast());
-                    problem.AddResidualBlock(cost_function, NULL , &w1, &w2, &w3);
-
-
-                    ceres::Solver::Options options;
-                    ev::imshowCallback callback(w1, w2, w3);
-                    options.callbacks.push_back(&callback);
-    //                options.minimizer_progress_to_stdout = true;
-                    options.update_state_every_iteration = true;
-                    ceres::Solver::Summary summary;
-                    ceres::Solve(options, &problem, &summary);
-                    std::cout << summary.BriefReport() << "\n";
-                    std::cout << "w : " << w1
-                              << " " << w2
-                              << " " << w3
-                              << "\n";
-
-                    eventFrames.pop_front();
-
-                    // ground truth rotation
-
-                    Eigen::Quaterniond p1 = it_gt->measurement.q;
-                    Eigen::Quaterniond p2 = (it_gt+1)->measurement.q;
-
-                    okvis::Time begin = em->events.front().timeStamp;
-                    okvis::Time end = em->events.back().timeStamp;
-
-                    // world transition
-                    Eigen::Quaterniond transition = p1 * p2.inverse();
-                    Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
-                    Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
-
-                    LOG(INFO) << begin;
-                    LOG(INFO) << end;
-
-                    Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_x, parameters_.array_size_y);
-                    Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
-
-                    double cost = 0;
-                    double mu = groundTruth.mean();
-                    for (int x_ = 0; x_ < 240; x_++) {
-                        for (int y_ = 0; y_ < 180; y_++) {
-                            cost += std::pow(groundTruth(x_, y_) - mu, 2);
-                        }
-                    }
-                    cost /= (240*180);
-                    cost = std::sqrt(1./cost);
-
-                    std::string caption = "cost = " + std::to_string(cost);
-                    ev::imshowRescaled(groundTruth, 1, "ground truth", caption);
-
-
-                }
-                eventFrames.push_back(std::make_shared<eventFrameMeasurement>());
-                it_gt++;
-            }
-
-            for (auto it = eventFrames.begin(); it != eventFrames.end(); it++) {
-                (*it)->events.push_back(data);
-=======
             for (auto it = eventFrames.begin(); it != eventFrames.end(); it++) {
                 (*it)->events.push_back(data);
             }
@@ -288,7 +198,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
 
                     LOG(INFO) << begin;
-                    LOG(INFO) << "events: " << em->events.size();
+                    LOG(INFO) << "events: " << em->events.size() << '\n';
                     LOG(INFO) << end << '\n';
 
                     LOG(INFO) << "ground truth:\n" << angularVelocity;
@@ -343,7 +253,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 }
                 eventFrames.push_back(std::make_shared<eventFrameMeasurement>());
                 it_gt++;
->>>>>>> Stashed changes
             }
         }
         processEventTimer.stop();
