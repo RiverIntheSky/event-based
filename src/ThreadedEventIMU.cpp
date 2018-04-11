@@ -153,7 +153,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
 
     double w1 =  0;
-    double w2 =  1;
+    double w2 =  2;
     double w3 =  0;
 
     Contrast::param = parameters_;
