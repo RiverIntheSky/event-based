@@ -91,7 +91,11 @@ int main(int argc, char *argv[])
         std::string s;
         std::getline(stream, s, ' ');
         std::string nanoseconds = s.substr(s.size() - 9, 9);
+<<<<<<< Updated upstream
         std::string seconds = s.substr(0, s.size() - 9);      
+=======
+        std::string seconds = s.substr(0, s.size() - 9);
+>>>>>>> Stashed changes
         t_gt = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
 
         Eigen::Vector3d position;
@@ -106,6 +110,12 @@ int main(int argc, char *argv[])
         stream >> z;
         stream >> w;
         Eigen::Quaterniond orientation(w, x, y, z);
+<<<<<<< Updated upstream
+=======
+        if (t_gt - start > deltaT) {
+            ev_estimator.addGroundtruth(t_gt, position, orientation);
+        }
+>>>>>>> Stashed changes
 
         if (t_gt - start > deltaT) {
             ev_estimator.addGroundtruth(t_gt, position, orientation);

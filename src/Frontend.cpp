@@ -61,13 +61,22 @@ void Contrast::synthesizeEventFrame(Eigen::MatrixXd &frame, std::shared_ptr<even
 }
 
 void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement> &em, Parameters& param, Eigen::Vector3d w) {
+<<<<<<< Updated upstream
     okvis::Time t0 = em->events.front().timeStamp;
+=======
+>>>>>>> Stashed changes
     okvis::Time t1 = em->events.back().timeStamp;
     for(auto it = em->events.begin(); it != em->events.end(); it++) {
         Eigen::Vector2d p(it->measurement.x, it->measurement.y);
         Eigen::Vector3d point_warped;
+<<<<<<< Updated upstream
         auto t = t1 - it->timeStamp;
         // warp to last frame
+=======
+
+        // project to last frame
+        auto t = t1 - it->timeStamp;
+>>>>>>> Stashed changes
         warp(point_warped, p, t, w);
         Eigen::Matrix3d cameraMatrix_;
         cv::cv2eigen(param.cameraMatrix, cameraMatrix_);

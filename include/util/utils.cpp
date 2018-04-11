@@ -63,7 +63,11 @@ void imshowRescaled(const cv::Mat &src, int msec, std::string title, std::string
     dst = src;
 #endif
     cv::putText(dst, text, cvPoint(30,30),
+<<<<<<< Updated upstream
     cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+=======
+                cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+>>>>>>> Stashed changes
     cv::imshow(title, dst);
     cv::waitKey(msec);
 }
