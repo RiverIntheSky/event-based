@@ -72,8 +72,8 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
         Eigen::Matrix3d cameraMatrix_;
         cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
         Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
-        if (point_camera(0) > 0 && point_camera(0) < 239
-                && point_camera(1) > 0 && point_camera(1) < 179) {
+        if (point_camera(0) > 0 && point_camera(0) < 179
+                && point_camera(1) > 0 && point_camera(1) < 239) {
             fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
         } else {
             // LOG(INFO) << "discard point outside frustum";
@@ -88,7 +88,7 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
 
 double Contrast::getIntensity(int x, int y, Eigen::Vector3d w) const {
     if (x == 0 && y == 0) {
-        intensity = Eigen::MatrixXd::Zero(240, 180);
+        intensity = Eigen::MatrixXd::Zero(180, 240);
         Intensity(intensity, em, param, w);
     }
     return intensity(x, y);

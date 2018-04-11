@@ -181,7 +181,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     undistortEvents(em);
                     Contrast::em = em;
 
-                    Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_x, parameters_.array_size_y);
+                    Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
                     Contrast::synthesizeEventFrame(synthesizedFrame, em);
 
                     // ground truth
@@ -203,14 +203,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                     LOG(INFO) << "ground truth:\n" << angularVelocity;
 
-                    Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_x, parameters_.array_size_y);
+                    Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
                     Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
 
                     double cost = 0;
                     double mu = groundTruth.mean();
                     for (int x_ = 0; x_ < 240; x_++) {
                         for (int y_ = 0; y_ < 180; y_++) {
-                            cost += std::pow(groundTruth(x_, y_) - mu, 2);
+                            cost += std::pow(groundTruth(y_, x_) - mu, 2);
                         }
                     }
                     cost /= (240*180);
@@ -276,7 +276,7 @@ bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& e
     std::vector<cv::Point2d> inputDistortedPoints;
     std::vector<cv::Point2d> outputUndistortedPoints;
     for (auto it = em->events.begin(); it != em->events.end(); it++) {
-        cv::Point2d point(it->measurement.x, it->measurement.y);
+        cv::Point2d point(it->measurement.y, it->measurement.x);
         inputDistortedPoints.push_back(point);
     }
     cv::undistortPoints(inputDistortedPoints, outputUndistortedPoints,
