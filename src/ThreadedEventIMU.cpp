@@ -184,13 +184,18 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
                     Contrast::synthesizeEventFrame(synthesizedFrame, em);
 
+                    ev::imshowRescaled(synthesizedFrame, 1, "zero motion");
+
                     // ground truth
-
-                    Eigen::Quaterniond p1 = it_gt->measurement.q;
-                    Eigen::Quaterniond p2 = (it_gt+1)->measurement.q;
-
                     okvis::Time begin = em->events.front().timeStamp;
                     okvis::Time end = em->events.back().timeStamp;
+
+                    // ???
+                    Eigen::Vector3d velocity = (it_gt->measurement.p - (it_gt-1)->measurement.p) / (end.toSec() - begin.toSec());
+
+                    Eigen::Quaterniond p1 = (it_gt-1)->measurement.q;
+                    Eigen::Quaterniond p2 = it_gt->measurement.q;
+
 
                     // world transition
                     Eigen::Quaterniond transition = p1 * p2.inverse();
@@ -204,7 +209,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     LOG(INFO) << "ground truth:\n" << angularVelocity;
 
                     Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-                    Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
+                    Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity, velocity);
 
                     double cost = 0;
                     double mu = groundTruth.mean();

@@ -29,7 +29,29 @@ namespace ev {
 
 void Contrast::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration& t, Eigen::Vector3d& w) {
     Eigen::Vector3d x_ = x.homogeneous();
-    x_w = x_ + (w * t.toSec()).cross(x_);
+    if (w.norm() == 0) {
+        x_w = x_;
+    } else {
+        Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
+        x_w = aa.toRotationMatrix() * x_;
+    }
+    // x_w = x_ + (w * t.toSec()).cross(x_);
+    x_w /= x_w(2);
+}
+
+void Contrast::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w, Eigen::Vector3d& tr) {
+    Eigen::Vector3d x_ = x.homogeneous();
+    Eigen::Matrix3d K;
+    Eigen::Matrix3d K_;
+    cv::cv2eigen(param.cameraMatrix, K);
+    cv::cv2eigen(param.cameraMatrix.inv(), K_);
+    if (w.norm() == 0) {
+        x_w = x_ + tr * t.toSec();
+    } else {
+        Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
+        x_w = aa.toRotationMatrix() * x_ + tr * t.toSec();
+    }
+    // x_w = x_ + (w * t.toSec()).cross(x_);
     x_w /= x_w(2);
 }
 
@@ -86,7 +108,34 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
     cv::cv2eigen(dst, image);
 }
 
-double Contrast::getIntensity(int x, int y, Eigen::Vector3d w) const {
+void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
+                      Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr) {
+    okvis::Time t1 = em->events.back().timeStamp;
+    for(auto it = em->events.begin(); it != em->events.end(); it++) {
+        Eigen::Vector2d p(it->measurement.x, it->measurement.y);
+        Eigen::Vector3d point_warped;
+
+        // project to last frame
+        auto t = t1 - it->timeStamp;
+        warp(point_warped, p, t, w, tr);
+        Eigen::Matrix3d cameraMatrix_;
+        cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
+        Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
+        if (point_camera(0) > 0 && point_camera(0) < 179
+                && point_camera(1) > 0 && point_camera(1) < 239) {
+            fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
+        } else {
+            // LOG(INFO) << "discard point outside frustum";
+        }
+    }
+    cv::Mat src, dst;
+    cv::eigen2cv(image, src);
+    int kernelSize = 3;
+    cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
+    cv::cv2eigen(dst, image);
+}
+
+double Contrast::getIntensity(int x, int y, Eigen::Vector3d& w) const {
     if (x == 0 && y == 0) {
         intensity = Eigen::MatrixXd::Zero(180, 240);
         Intensity(intensity, em, param, w);

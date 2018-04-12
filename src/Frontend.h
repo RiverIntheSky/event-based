@@ -21,6 +21,7 @@ struct Contrast {
 
     // rotate vector x by w*t
     static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w);
+    static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w, Eigen::Vector3d& tr);
 
     // dealing with non-integer coordinates
     // bilinear interpolation
@@ -30,7 +31,10 @@ struct Contrast {
 
     static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters& param, Eigen::Vector3d w);
 
-    double getIntensity(int x, int y, Eigen::Vector3d w) const;
+    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
+                          Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr);
+
+    double getIntensity(int x, int y, Eigen::Vector3d& w) const;
 
     template <typename T>
     bool operator()(const T* w1, const T* w2, const T* w3, T* residual) const {
