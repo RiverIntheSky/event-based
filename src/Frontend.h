@@ -8,6 +8,7 @@
 #include <okvis/VioFrontendInterface.hpp>
 #include <okvis/timing/Timer.hpp>
 #include <okvis/DenseMatcher.hpp>
+#include <Eigen/StdVector>
 #include "parameters.h"
 #include "event.h"
 #include "util/utils.h"
@@ -15,13 +16,47 @@
 /// \brief okvis Main namespace of this package.
 namespace ev {
 
+class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    ComputeVarianceFunction(std::shared_ptr<eventFrameMeasurement> em, Parameters parameters):
+        em_(em), param_(parameters) {}
+
+    virtual ~ComputeVarianceFunction() {}
+
+    virtual bool Evaluate(double const* const* parameters,
+                          double* residuals,
+                          double** jacobians) const;
+
+    void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d point, bool& polarity) const;
+    void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x,
+              okvis::Duration& t, Eigen::Vector3d& w) const;
+
+    void warp(Eigen::MatrixXd &dWdw, Eigen::Vector3d& x_w, Eigen::Vector2d& x,
+              okvis::Duration& t, Eigen::Vector3d& w) const;
+
+    void fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) const;
+
+    void Intensity(Eigen::MatrixXd& image, Eigen::Vector3d w) const;
+
+    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd& dIdw, Eigen::Vector3d w) const;
+
+    std::shared_ptr<eventFrameMeasurement> em_;
+    Parameters param_;
+    int kernelSize = 3;
+    static Eigen::MatrixXd intensity;
+};
+
+
 struct Contrast {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Contrast(){}
+    Contrast(){
+        //        compute_variance.reset(
+        //                    new ceres::CostFunctionToFunctor<1, 1>(new ComputeVarianceFunction));
+    }
 
     // rotate vector x by w*t
     static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w);
-    static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w, Eigen::Vector3d& tr);
 
     // dealing with non-integer coordinates
     // bilinear interpolation
@@ -29,22 +64,63 @@ struct Contrast {
 
     static void synthesizeEventFrame(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement>& em);
 
+    static void polarityEventFrame(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement>& em, bool po);
+
     static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters& param, Eigen::Vector3d w);
+
+    //    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
+    //                          Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr);
+
+    static double getIntensity(int x, int y, Eigen::Vector3d& w);
+
+    template <typename T>
+    bool operator()(const T** w, T* residual) const {
+
+        //        residual[0] = 0;
+        //        double m = intensity.mean();
+        //        for (int x_ = 0; x_ < 240; x_++) {
+        //            for (int y_ = 0; y_ < 180; y_++) {
+        //                residual[0] += std::pow(getIntensity(y_, x_, w_) - m, 2);
+        //            }
+        //        }
+        //        residual[0] /= (240*180);
+        //        residual[0] = std::sqrt(1./residual[0]);
+        T f;
+        (*compute_variance)(&w, &f);
+        return true;
+    }
+    static std::shared_ptr<eventFrameMeasurement> em;
+    static double I_mu;
+    static Eigen::MatrixXd intensity;
+    static Parameters param;
+    std::unique_ptr<ceres::CostFunctionToFunctor<1, 1> > compute_variance;
+};
+
+struct SE3 : Contrast {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    SE3(){}
+
+    // rotate vector x by w*t
+    static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w, Eigen::Vector3d& tr);
 
     static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
                           Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr);
 
-    double getIntensity(int x, int y, Eigen::Vector3d& w) const;
+    static double getIntensity(int x, int y, Eigen::Vector3d& w, Eigen::Vector3d& tr);
 
     template <typename T>
-    bool operator()(const T* w1, const T* w2, const T* w3, T* residual) const {
+    bool operator()(const T* t1, const T* t2, const T* t3,
+                    const T* w1, const T* w2, const T* w3,
+                    T* residual) const {
         Eigen::Vector3d w_;
         w_ << *w1, *w2, *w3;
+        Eigen::Vector3d t_;
+        t_ << *t1, *t2, *t3;
         residual[0] = 0;
         double m = intensity.mean();
         for (int x_ = 0; x_ < 240; x_++) {
             for (int y_ = 0; y_ < 180; y_++) {
-                residual[0] += std::pow(getIntensity(y_, x_, w_) - m, 2);
+                residual[0] += std::pow(getIntensity(y_, x_, w_, t_) - m, 2);
             }
         }
         residual[0] /= (240*180);
@@ -52,31 +128,22 @@ struct Contrast {
 
         return true;
     }
-
-    static std::shared_ptr<eventFrameMeasurement> em;
-    static double I_mu;
-    static Eigen::MatrixXd intensity;
-    static Parameters param;
 };
 
 class imshowCallback: public ceres::IterationCallback {
- public:
-    imshowCallback(double& w1, double& w2, double& w3)
-        :w1_(w1), w2_(w2), w3_(w3) {}
+public:
+    imshowCallback(){}
 
-  ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
-      std::string caption = "cost = " + std::to_string(summary.cost);
-      ev::imshowRescaled(ev::Contrast::intensity, msec_, s_, caption);
-      return ceres::SOLVER_CONTINUE;
-  }
+    ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
+        std::string caption = "cost = " + std::to_string(summary.cost);
+        ev::imshowRescaled(ev::ComputeVarianceFunction::intensity, msec_, s_, caption);
+        return ceres::SOLVER_CONTINUE;
+    }
 
 
- private:
-  int msec_ = 1;
-  std::string s_ = "optimizing";
-  double w1_;
-  double w2_;
-  double w3_;
+private:
+    int msec_ = 1;
+    std::string s_ = "optimizing";
 };
 
 /**

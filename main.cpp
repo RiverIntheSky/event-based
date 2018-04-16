@@ -6,6 +6,7 @@
 std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em = NULL;
 double ev::Contrast::I_mu;
 Eigen::MatrixXd ev::Contrast::intensity = Eigen::Matrix3d::Zero();
+Eigen::MatrixXd ev::ComputeVarianceFunction::intensity = Eigen::Matrix3d::Zero();
 ev::Parameters ev::Contrast::param = ev::Parameters();
 
 
@@ -19,7 +20,7 @@ int main(int argc, char *argv[])
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/shapes_translation";
+    std::string path = "/home/weizhen/Documents/dataset/shapes_rotation";
 
     // open the events file
     std::string events_line;
@@ -106,6 +107,7 @@ int main(int argc, char *argv[])
         stream >> y;
         stream >> z;
         stream >> w;
+        // q = -q not strictly recognized
         Eigen::Quaterniond orientation(w, x, y, z);
 
         if (t_gt - start > deltaT) {
