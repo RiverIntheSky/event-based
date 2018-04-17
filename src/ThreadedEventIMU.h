@@ -160,7 +160,6 @@ public:
                         const Eigen::Vector3d& position,
                         const Eigen::Quaterniond& orientation);
 
-
 private:
     /// \}
     /// \name Setters

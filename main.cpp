@@ -4,7 +4,7 @@
 #include <chrono>
 
 std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em = NULL;
-double ev::Contrast::I_mu;
+double ev::Contrast::events_number;
 Eigen::MatrixXd ev::Contrast::intensity = Eigen::Matrix3d::Zero();
 Eigen::MatrixXd ev::ComputeVarianceFunction::intensity = Eigen::Matrix3d::Zero();
 ev::Parameters ev::Contrast::param = ev::Parameters();
@@ -30,15 +30,7 @@ int main(int argc, char *argv[])
         LOG(ERROR)<< "no events file found at " << events_path;
         return -1;
     }
-    //    unsigned int number_of_lines;
-    //    while (std::getline(events_file, events_line))
-    //        ++number_of_lines;
-    //    LOG(INFO)<< "No. events measurements: " << number_of_lines;
-    //    if (number_of_lines <= 0) {
-    //        LOG(ERROR)<< "no events messages present in " << events_path;
-    //        return -1;
-    //    }
-    // set reading position to first line
+
     events_file.clear();
     events_file.seekg(0);
 
@@ -50,16 +42,6 @@ int main(int argc, char *argv[])
         LOG(ERROR)<< "no imu file found at " << imu_path;
         return -1;
     }
-    //    number_of_lines = 0;
-    //    while (std::getline(imu_file, imu_line))
-    //        ++number_of_lines;
-    //    LOG(INFO)<< "No. IMU measurements: " << number_of_lines;
-
-    //    if (number_of_lines <= 0) {
-    //        LOG(ERROR)<< "no imu messages present in " << imu_path;
-    //        return -1;
-    //    }
-    // set reading position to first line
 
     imu_file.clear();
     imu_file.seekg(0);

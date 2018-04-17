@@ -1,5 +1,4 @@
-#ifndef FRONTEND_H
-#define FRONTEND_H
+#pragma once
 
 #include <mutex>
 
@@ -45,6 +44,8 @@ public:
     Parameters param_;
     int kernelSize = 3;
     static Eigen::MatrixXd intensity;
+
+
 };
 
 
@@ -90,10 +91,11 @@ struct Contrast {
         return true;
     }
     static std::shared_ptr<eventFrameMeasurement> em;
-    static double I_mu;
+    static double   events_number;
     static Eigen::MatrixXd intensity;
     static Parameters param;
     std::unique_ptr<ceres::CostFunctionToFunctor<1, 1> > compute_variance;
+
 };
 
 struct SE3 : Contrast {
@@ -500,4 +502,3 @@ private:
 
 }  // namespace okvis
 
-#endif // EV_FRONTEND_H
