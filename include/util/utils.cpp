@@ -51,7 +51,7 @@ bool parameterReader::getParameter(ev::Parameters& parameter){
     return true;
 }
 
-void imshowRescaled(const cv::Mat &src, int msec, std::string s) {
+void imshowRescaled(const cv::Mat &src, int msec, std::string title, std::string text) {
     cv::Mat dst;
 #if 1
     double min, max;
@@ -62,15 +62,15 @@ void imshowRescaled(const cv::Mat &src, int msec, std::string s) {
 #else
     dst = src;
 #endif
-    cv::putText(dst, s, cvPoint(30,30),
-    cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
-    cv::imshow("image", dst);
+    cv::putText(dst, text, cvPoint(30,30),
+                cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+    cv::imshow(title, dst);
     cv::waitKey(msec);
 }
 
-void imshowRescaled(Eigen::MatrixXd &src_, int msec, std::string s) {
+void imshowRescaled(Eigen::MatrixXd &src_, int msec, std::string title, std::string text) {
     cv::Mat src;
     cv::eigen2cv(src_, src);
-    imshowRescaled(src, msec, s);
+    imshowRescaled(src, msec, title, text);
 }
 }

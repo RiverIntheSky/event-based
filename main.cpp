@@ -4,8 +4,9 @@
 #include <chrono>
 
 std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em = NULL;
-double ev::Contrast::I_mu;
+double ev::Contrast::events_number;
 Eigen::MatrixXd ev::Contrast::intensity = Eigen::Matrix3d::Zero();
+Eigen::MatrixXd ev::ComputeVarianceFunction::intensity = Eigen::Matrix3d::Zero();
 ev::Parameters ev::Contrast::param = ev::Parameters();
 
 
@@ -19,7 +20,7 @@ int main(int argc, char *argv[])
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/boxes_rotation";
+    std::string path = "/home/weizhen/Documents/dataset/shapes_rotation";
 
     // open the events file
     std::string events_line;
@@ -29,15 +30,7 @@ int main(int argc, char *argv[])
         LOG(ERROR)<< "no events file found at " << events_path;
         return -1;
     }
-    //    unsigned int number_of_lines;
-    //    while (std::getline(events_file, events_line))
-    //        ++number_of_lines;
-    //    LOG(INFO)<< "No. events measurements: " << number_of_lines;
-    //    if (number_of_lines <= 0) {
-    //        LOG(ERROR)<< "no events messages present in " << events_path;
-    //        return -1;
-    //    }
-    // set reading position to first line
+
     events_file.clear();
     events_file.seekg(0);
 
@@ -49,16 +42,6 @@ int main(int argc, char *argv[])
         LOG(ERROR)<< "no imu file found at " << imu_path;
         return -1;
     }
-    //    number_of_lines = 0;
-    //    while (std::getline(imu_file, imu_line))
-    //        ++number_of_lines;
-    //    LOG(INFO)<< "No. IMU measurements: " << number_of_lines;
-
-    //    if (number_of_lines <= 0) {
-    //        LOG(ERROR)<< "no imu messages present in " << imu_path;
-    //        return -1;
-    //    }
-    // set reading position to first line
 
     imu_file.clear();
     imu_file.seekg(0);
@@ -66,7 +49,7 @@ int main(int argc, char *argv[])
     okvis::Time start(0.0);
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
-    okvis::Time t_gt = start;
+
     okvis::Duration deltaT(15);
 
     std::string configFilename = path + "/calib.txt";
@@ -91,8 +74,9 @@ int main(int argc, char *argv[])
         std::string s;
         std::getline(stream, s, ' ');
         std::string nanoseconds = s.substr(s.size() - 9, 9);
-        std::string seconds = s.substr(0, s.size() - 9);      
-        t_gt = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
+        std::string seconds = s.substr(0, s.size() - 9);
+
+        okvis::Time t_gt = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
 
         Eigen::Vector3d position;
         for (int j = 0; j < 3; ++j) {
@@ -105,10 +89,14 @@ int main(int argc, char *argv[])
         stream >> y;
         stream >> z;
         stream >> w;
-        Eigen::Quaterniond orientation;
+        // q = -q not strictly recognized
+        Eigen::Quaterniond orientation(w, x, y, z);
 
-        ev_estimator.addGroundtruth(t_gt, position, orientation);
+        if (t_gt - start > deltaT) {
+            ev_estimator.addGroundtruth(t_gt, position, orientation);
+        }
     }
+
 
 
     while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(20)) {
