@@ -100,7 +100,9 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     if (jacobians != NULL && jacobians[0] != NULL) {
         for (int i = 0; i != 3; i++) {
             // negative??
-            jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
+            jacobians[0][i] *= (-2 * std::pow(residuals[0], 2));
+            //jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
+            LOG(INFO) << "j: " << jacobians[0][i];
         }
     }
 
@@ -240,24 +242,55 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd&
         Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
 
         // delta_x'
-        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0) + .5, point_camera(1)), it->measurement.p);
-        for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
-            dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) -= p_it->second * dWdw.row(0);
-        }
-        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0) - .5, point_camera(1)), it->measurement.p);
-        for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
-            dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += p_it->second * dWdw.row(0);
-        }
 
-        // delta_y'
-        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0), point_camera(1) + .5), it->measurement.p);
+        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
         for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
-            dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) -= p_it->second * dWdw.row(1);
+            double dr = point_camera(0) - (p_it->first)[0];
+            double dc = point_camera(1) - (p_it->first)[1];
+            if (dr > 0)
+                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((std::abs(dc) - 1) * dWdw.row(0) * it->measurement.p);
+            if (dr < 0)
+                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((1 - std::abs(dc)) * dWdw.row(0) * it->measurement.p);
+            if (dc > 0)
+                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((1 - std::abs(dr)) * dWdw.row(1) * it->measurement.p);
+            if (dc < 0)
+                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((std::abs(dr) - 1) * dWdw.row(1) * it->measurement.p);
+
+//            if (dr > 0 && dc > 0) {
+//                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += (((dc - 1) * dWdw.row(0) + (dr - 1) * dWdw.row(1))
+//                                                                        * it->measurement.p);
+//            }
+//            if (dr > 0 && dc < 0) {
+//                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((-dc - 1) * it->measurement.p * dWdw.row(0)
+//                                                                        + (1 - dr) * it->measurement.p * dWdw.row(1));
+//            }
+//            if (dr < 0 && dc > 0) {
+//                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((1 - dc) * it->measurement.p * dWdw.row(0)
+//                                                                        + (-dr - 1) * it->measurement.p * dWdw.row(1));
+//            }
+//            if (dr < 0 && dc < 0) {
+//                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += (((dc + 1) * dWdw.row(0) + (dr + 1) * dWdw.row(1))
+//                                                                         * it->measurement.p);
+//            }
         }
-        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0), point_camera(1) - .5), it->measurement.p);
-        for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
-            dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += p_it->second * dWdw.row(1);
-        }
+//        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0) + .5, point_camera(1)), it->measurement.p);
+//        for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
+//            dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) -= p_it->second * dWdw.row(0);
+//        }
+//        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0) - .5, point_camera(1)), it->measurement.p);
+//        for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
+//            dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += p_it->second * dWdw.row(0);
+//        }
+
+//        // delta_y'
+//        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0), point_camera(1) + .5), it->measurement.p);
+//        for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
+//            dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) -= p_it->second * dWdw.row(1);
+//        }
+//        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0), point_camera(1) - .5), it->measurement.p);
+//        for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
+//            dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += p_it->second * dWdw.row(1);
+//        }
 
         fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
 

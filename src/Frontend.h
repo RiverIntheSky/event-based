@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mutex>
+#include <limits>
 
 #include <okvis/assert_macros.hpp>
 #include <okvis/Estimator.hpp>
@@ -134,16 +135,19 @@ struct SE3 : Contrast {
 
 class imshowCallback: public ceres::IterationCallback {
 public:
-    imshowCallback(){}
+    imshowCallback(double* w): w_(w){}
 
     ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
-        std::string caption = "cost = " + std::to_string(summary.cost);
-        ev::imshowRescaled(ev::ComputeVarianceFunction::intensity, msec_, s_, caption);
+        if (summary.step_is_successful) {
+            std::string caption = "cost = " + std::to_string(summary.cost);
+            ev::imshowRescaled(ev::ComputeVarianceFunction::intensity, msec_, s_, caption);
+            LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
+        }
         return ceres::SOLVER_CONTINUE;
     }
 
-
 private:
+    double* w_;
     int msec_ = 1;
     std::string s_ = "optimizing";
 };

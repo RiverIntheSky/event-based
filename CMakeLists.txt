@@ -44,11 +44,8 @@ endif()
 
 find_package(glog REQUIRED)
 
-find_package(Qt5Core)
-
 include_directories(${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include)
-
 
 # only for editting, delete all non-executables afterwards
 add_executable(${PROJECT_NAME} "main.cpp"
@@ -58,7 +55,6 @@ add_executable(${PROJECT_NAME} "main.cpp"
     "${CMAKE_SOURCE_DIR}/include/util/utils.cpp")
 
 target_link_libraries(${PROJECT_NAME}
-    Qt5::Core
     glog::glog
     ${OpenCV_LIBS}
     ${OKVIS_LIBRARIES})
