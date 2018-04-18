@@ -73,4 +73,11 @@ void imshowRescaled(Eigen::MatrixXd &src_, int msec, std::string title, std::str
     cv::eigen2cv(src_, src);
     imshowRescaled(src, msec, title, text);
 }
+
+void quat2eul(Eigen::Quaterniond& q, double* euler) {
+    double y2 = q.y() * q.y();
+    euler[0] = std::atan2(2*(q.w()*q.z() + q.x()*q.y()), (1 - 2*(y2 + q.z()*q.z())));
+    euler[1] = std::asin( 2*(q.w()*q.y() - q.z()*q.x()));
+    euler[2] = std::atan2(2*(q.w()*q.x() + q.y()*q.z()), (1 - 2*(q.x()*q.x() + y2)));
+}
 }

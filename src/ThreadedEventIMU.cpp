@@ -154,11 +154,30 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
 
     double w[] = {0, 1, 0};
+    double t[] = {0, 1, 0};
 
-    double t1 =  0;
-    double t2 =  0;
-    double t3 =  0;
+    while (!allGroundtruthAdded_) {}
+    ev::Pose estimatedPose;
+    std::vector<std::vector<std::pair<double, double>>> estimatedPoses(3);
 
+    Gnuplot gp;
+    std::vector<std::vector<std::pair<double, double>>> groudtruth(3);
+
+    for (auto it = maconMeasurements_.begin(); it != maconMeasurements_.end(); it++) {
+        Eigen::Quaterniond q = it->measurement.q;
+        double euler[3];
+        ev::quat2eul(q, euler);
+        for (int i = 0; i < 3; i++) {
+            groudtruth[i].push_back(std::make_pair(it->timeStamp.toSec(), euler[i]));
+        }
+    }
+
+    gp << "set xrange [15:20]\n";
+
+//    gp << "plot" << gp.file1d(groudtruth[0]) << "with lines title 'roll',"
+//                 << gp.file1d(groudtruth[1]) << "with lines title 'pitch',"
+//                 << gp.file1d(groudtruth[2]) << "with lines title 'yaw'"
+//                                    << std::endl;
     Contrast::param = parameters_;
     for (;;) {
         // get data and check for termination request
@@ -187,10 +206,35 @@ void ThreadedEventIMU::eventConsumerLoop() {
             if (em->counter_w == parameters_.window_size) {
 
 
-                //                    int size = em->events.size();
-                //                    for (int i = size / 10; i != size; i++) {
-                //                        em->events.pop_back();
-                //                    }
+//                int size = em->events.size();
+//                for (int i = size / 10; i != size; i++) {
+//                    em->events.pop_back();
+//                }
+                if (estimatedPose.q.norm() == 0) {
+                    interpolateGroundtruth(estimatedPose, em->events.begin()->timeStamp);
+                }
+                double euler[3];
+                ev::quat2eul(estimatedPose.q, euler);
+
+                for (int i = 0; i < 3; i++) {
+                    estimatedPoses[i].push_back(std::make_pair(em->events.begin()->timeStamp.toSec(), euler[i]));
+                }
+
+                gp << "plot '-' binary" << gp.binFmt1d(groudtruth[0], "record") << "with lines title 'roll',"
+                   << "'-' binary" << gp.binFmt1d(groudtruth[1], "record") << "with lines title 'pitch',"
+                   << "'-' binary" << gp.binFmt1d(groudtruth[2], "record") << "with lines title 'yaw',"
+                   << "'-' binary" << gp.binFmt1d(estimatedPoses[0], "record") << "with lines title 'roll_',"
+                   << "'-' binary" << gp.binFmt1d(estimatedPoses[1], "record") << "with lines title 'pitch_',"
+                   << "'-' binary" << gp.binFmt1d(estimatedPoses[2], "record") << "with lines title 'yaw_'\n";
+
+                gp.sendBinary1d(groudtruth[0]);
+                gp.sendBinary1d(groudtruth[1]);
+                gp.sendBinary1d(groudtruth[2]);
+                gp.sendBinary1d(estimatedPoses[0]);
+                gp.sendBinary1d(estimatedPoses[1]);
+                gp.sendBinary1d(estimatedPoses[2]);
+                gp.flush();
+
                 undistortEvents(em);
                 Contrast::em = em;
 
@@ -198,23 +242,22 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Contrast::synthesizeEventFrame(synthesizedFrame, em);
                 ev::imshowRescaled(synthesizedFrame, 1, "zero motion");
 
-                //                    Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
-                //                    Eigen::Matrix3d cameraMatrix_;
-                //                    cv::cv2eigen(parameters_.cameraMatrix, cameraMatrix_);
-                //                    for(auto it = em->events.begin(); it != em->events.end(); it++) {
-                //                        Eigen::Vector2d p(it->measurement.x, it->measurement.y);
-                //                        Eigen::Vector3d point_camera = cameraMatrix_ * p.homogeneous();
+//                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
+//                Eigen::Matrix3d cameraMatrix_;
+//                cv::cv2eigen(parameters_.cameraMatrix, cameraMatrix_);
+//                for(auto it = em->events.begin(); it != em->events.end(); it++) {
+//                    Eigen::Vector2d p(it->measurement.x, it->measurement.y);
+//                    Eigen::Vector3d point_camera = cameraMatrix_ * p.homogeneous();
 
-                //                        if (point_camera(0) > 0 && point_camera(0) < 179
-                //                                && point_camera(1) > 0 && point_camera(1) < 239) {
-                //                            Contrast::fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
-                //                        }
-                //                        cv::Mat dst;
-                //                        cv::eigen2cv(image, dst);
-                //                        cv::imshow("animation", dst);
-                //                        cv::waitKey(3);
-                //                    }
-
+//                    if (point_camera(0) > 0 && point_camera(0) < 179
+//                            && point_camera(1) > 0 && point_camera(1) < 239) {
+//                        Contrast::fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
+//                    }
+//                    cv::Mat dst;
+//                    cv::eigen2cv(image, dst);
+//                    cv::imshow("animation", dst);
+//                    cv::waitKey(3);
+//                }
 
                 bool positive = true;
 
@@ -348,6 +391,13 @@ void ThreadedEventIMU::setBlocking(bool blocking) {
     }
 }
 
+
+// Start all threads.
+void ThreadedEventIMU::startThreads() {
+    imuConsumerThread_ = std::thread(&ThreadedEventIMU::imuConsumerLoop, this);
+    eventConsumerThread_ = std::thread(&ThreadedEventIMU::eventConsumerLoop, this);
+}
+
 bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& em) {
 
     std::vector<cv::Point2d> inputDistortedPoints;
@@ -367,12 +417,38 @@ bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& e
     return true;
 }
 
+bool ThreadedEventIMU::allGroundtruthAdded() {
+    return allGroundtruthAdded_;
+}
 
-// Start all threads.
-void ThreadedEventIMU::startThreads() {
-    imuConsumerThread_ = std::thread(&ThreadedEventIMU::imuConsumerLoop, this);
-    eventConsumerThread_ = std::thread(&ThreadedEventIMU::eventConsumerLoop, this);
+bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time& timeStamp) {
+    int stepSize = maconMeasurements_.size();
+    auto lo = maconMeasurements_.begin();
+    auto hi = lo + stepSize - 1;
+    if (timeStamp > hi->timeStamp || timeStamp < lo->timeStamp)
+        return false;
+    while (stepSize != 1) {
+        stepSize /= 2;
+        auto mid = lo + stepSize;
+        if (timeStamp < mid->timeStamp) hi = mid;
+        else if (timeStamp > mid->timeStamp) lo = mid;
+        else {
+            pose = mid->measurement;
+            return true;
+        }
+    }
+    if ((lo+1)->timeStamp < timeStamp) {
+        lo++;
+    } else if ((hi-1)->timeStamp > timeStamp) {
+        hi--;
+    }
+    double dt = (timeStamp - lo->timeStamp).toSec() / (hi->timeStamp - lo->timeStamp).toSec();
+    Eigen::Vector3d p = (hi->measurement.p - lo->measurement.p) * dt + lo->measurement.p;
+    Eigen::Quaterniond q = lo->measurement.q.slerp(dt, hi->measurement.q);
+    pose(p, q);
+    return true;
+}
+
 }
 
 
-}

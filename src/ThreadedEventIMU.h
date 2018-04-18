@@ -11,6 +11,7 @@
 
 #include "Frontend.h"
 #include "ceres/ceres.h"
+#include "util/gnuplot-iostream.h"
 
 namespace ev {
 
@@ -160,6 +161,7 @@ public:
                         const Eigen::Vector3d& position,
                         const Eigen::Quaterniond& orientation);
 
+     bool interpolateGroundtruth(Pose &pose, const okvis::Time& timeStamp);
 private:
     /// \}
     /// \name Setters
@@ -216,6 +218,8 @@ private:
      * @return The number of events that have been removed
      */
     int deleteEventMeasurements(const okvis::Time& eraseUntil);
+
+    bool allGroundtruthAdded();
 
      /// @name Measurement input queues
      /// @{
@@ -325,8 +329,8 @@ private:
 
      /// The maximum input queue size before events are dropped.
      const size_t maxEventInputQueueSize_;
-
-
+public:
+     bool allGroundtruthAdded_;
 };
 }
 

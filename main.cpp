@@ -89,15 +89,20 @@ int main(int argc, char *argv[])
         stream >> y;
         stream >> z;
         stream >> w;
+
+        if (w < 0) {
+            w = -w; x = -x; y = -y; z = -z;
+        }
+
         // q = -q not strictly recognized
         Eigen::Quaterniond orientation(w, x, y, z);
 
-        if (t_gt - start > deltaT) {
+//        if (t_gt - start > deltaT) {
             ev_estimator.addGroundtruth(t_gt, position, orientation);
-        }
+//        }
     }
 
-
+    ev_estimator.allGroundtruthAdded_ = true;
 
     while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(20)) {
 

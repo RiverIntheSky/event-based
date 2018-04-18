@@ -25,6 +25,15 @@ struct Pose {
     Pose(Eigen::Vector3d p_, Eigen::Quaterniond q_)
         : p(p_), q(q_) {}
 
+//    /// \brief Copy constructor.
+//    Pose(ev::Pose& po)
+//        : p(po.p), q(po.q) {}
+
+    void operator() (Eigen::Vector3d& p_, Eigen::Quaterniond& q_) {
+        p = p_;
+        q = q_;
+    }
+
 // private:
     Eigen::Vector3d p;
     Eigen::Quaterniond q;
@@ -35,6 +44,7 @@ typedef okvis::Measurement<Pose> MaconMeasurement;
 // map entries in src to [0, 1]
 void imshowRescaled(const cv::Mat& src, int msec = 0, std::string title = "image", std::string text = "");
 void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string title = "image", std::string text = "");
+void quat2eul(Eigen::Quaterniond& q, double* euler);
 }
 
 #endif // UTILS_H

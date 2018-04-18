@@ -44,6 +44,11 @@ endif()
 
 find_package(glog REQUIRED)
 
+find_package(Gnuplot REQUIRED)
+
+FIND_PACKAGE(Boost COMPONENTS filesystem system iostreams REQUIRED)
+include_directories(${Boost_INCLUDE_DIR})
+
 include_directories(${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include)
 
@@ -57,7 +62,8 @@ add_executable(${PROJECT_NAME} "main.cpp"
 target_link_libraries(${PROJECT_NAME}
     glog::glog
     ${OpenCV_LIBS}
-    ${OKVIS_LIBRARIES})
+    ${OKVIS_LIBRARIES}
+    ${Boost_LIBRARIES})
 
 if(${VISENSORDRIVER_FOUND})
     target_link_libraries(ev ${VISensorDriver_LIBRARY})
