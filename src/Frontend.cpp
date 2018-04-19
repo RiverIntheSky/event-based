@@ -124,19 +124,19 @@ void ComputeVarianceFunction::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x,
 void ComputeVarianceFunction::warp(Eigen::MatrixXd& dWdw, Eigen::Vector3d& x_w, Eigen::Vector2d& x,
                                    okvis::Duration& t, Eigen::Vector3d& w) const {
     Eigen::Vector3d x_ = x.homogeneous();
-    if (w.norm() == 0) {
+    double t_ = t.toSec();
+    if (w.norm() == 0 || t_ == 0) {
         x_w = x_;
         dWdw = Eigen::MatrixXd::Zero(2, 3);
     } else {
         Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
-        x_w = aa.toRotationMatrix() * x_;
-        dWdw = Eigen::Matrix3d::Zero();
-        dWdw.col(0) = (Eigen::Matrix3d() << 0, 0, 0, 0, 0, -1, 0, 1, 0).finished() * x_;
-        dWdw.col(1) = (Eigen::Matrix3d() << 0, 0, 1, 0, 0, 0, -1, 0, 0).finished() * x_;
-        dWdw.col(2) = (Eigen::Matrix3d() << 0, -1, 0, 1, 0, 0, 0, 0, 0).finished() * x_;
-        dWdw = (aa.toRotationMatrix() * t.toSec() / x_w(2)) * dWdw;
-        dWdw = dWdw.block(0, 0, 2, 3);
+        Eigen::Matrix3d R = aa.toRotationMatrix();
+        x_w =  R * x_;
+        Eigen::Matrix3d dWdw_ = -R*t_*ev::skew(x_)*
+                ((w*w.transpose()+(R.transpose()-Eigen::Matrix3d::Identity())*ev::skew(w)/t_)/w.squaredNorm());
+        dWdw = (dWdw_/x_w(2)-x_w*dWdw_.row(2)/std::pow(x_w(2),2)).block(0, 0, 2, 3);
     }
+
     //    x_w /= x_w(2);
 }
 
@@ -190,8 +190,7 @@ void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<int>, d
 
 void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::Vector3d w) const {
     image = Eigen::MatrixXd::Zero(param_.array_size_y, param_.array_size_x);
-
-    okvis::Time t1 = em_->events.back().timeStamp;
+    okvis::Time t0 = em_->events.front().timeStamp;
     Eigen::Matrix3d cameraMatrix_;
     cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
 //     ev::Contrast::events_number = .0;
@@ -200,7 +199,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::Vector3d 
         Eigen::Vector3d point_warped;
 
         // project to last frame
-        auto t = t1 - it->timeStamp;
+        auto t = it->timeStamp - t0;
         warp(point_warped, p, t, w);
 
         // z'/z
@@ -221,8 +220,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::Vector3d 
 void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd& dIdw, Eigen::Vector3d w) const {
     image = Eigen::MatrixXd::Zero(param_.array_size_y, param_.array_size_x);
     dIdw = Eigen::MatrixXd::Zero(param_.array_size_y * param_.array_size_x, 3);
-
-    okvis::Time t1 = em_->events.back().timeStamp;
+    okvis::Time t0 = em_->events.front().timeStamp;
     Eigen::Matrix3d cameraMatrix_;
     cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
     std::vector<std::pair<std::vector<int>, double>> pixel_weight;
@@ -232,7 +230,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd&
         Eigen::Vector3d point_warped;
 
         // project to last frame
-        auto t = t1 - it->timeStamp;
+        auto t = it->timeStamp - t0;
         Eigen::MatrixXd dWdw;
         warp(dWdw, point_warped, p, t, w);
 
@@ -254,7 +252,6 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd&
                 dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((1 - std::abs(dr)) * dWdw.row(1) * it->measurement.p);
             if (dc < 0)
                 dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((std::abs(dr) - 1) * dWdw.row(1) * it->measurement.p);
-
             image((p_it->first)[0], (p_it->first)[1]) += p_it->second;
         }
         // fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);

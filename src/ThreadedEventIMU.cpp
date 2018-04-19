@@ -150,10 +150,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
     ev::EventMeasurement data;
     // ??
     TimerSwitchable processEventTimer("0 processEventMeasurements",true);
-
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
-
-    double w[] = {0, 1, 0};
+     std::default_random_engine gen;
+std::uniform_real_distribution<double> dis(-0.1, 0.1);
+    double w[] = {0, 2, 0};
     double t[] = {0, 1, 0};
 
     while (!allGroundtruthAdded_) {}
@@ -172,7 +172,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
         }
     }
 
-    gp << "set xrange [15:20]\n";
+    gp << "set xrange [15:16]\n";
 
 //    gp << "plot" << gp.file1d(groudtruth[0]) << "with lines title 'roll',"
 //                 << gp.file1d(groudtruth[1]) << "with lines title 'pitch',"
@@ -261,13 +261,13 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 bool positive = true;
 
-                synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-                Contrast::polarityEventFrame(synthesizedFrame, em, positive);
-                ev::imshowRescaled(synthesizedFrame, 1, "positive events");
+//                synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
+//                Contrast::polarityEventFrame(synthesizedFrame, em, positive);
+//                ev::imshowRescaled(synthesizedFrame, 1, "positive events");
 
-                synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-                Contrast::polarityEventFrame(synthesizedFrame, em, !positive);
-                ev::imshowRescaled(synthesizedFrame, 1, "negative events");
+//                synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
+//                Contrast::polarityEventFrame(synthesizedFrame, em, !positive);
+//                ev::imshowRescaled(synthesizedFrame, 1, "negative events");
 
                 // ground truth
                 okvis::Time begin = em->events.front().timeStamp;
@@ -320,9 +320,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 ev::imshowCallback callback(w);
                 options.callbacks.push_back(&callback);
                 options.minimizer_progress_to_stdout = true;
-                LOG(INFO) << "w :\n" << w[0]
-                          << "\n" << w[1]
-                          << "\n" << w[2];
+
                 ceres::Problem problem;
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
                 problem.AddResidualBlock(cost_function, NULL, w);
@@ -363,13 +361,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 } else {
                     angleAxis_ = Eigen::AngleAxisd(rotation_.norm(), rotation_.normalized());
                 }
-                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
-                double error = difference.angle() / (end.toSec() - begin.toSec());
+                estimatedPose.q = Eigen::Quaterniond(angleAxis_) * estimatedPose.q;
+//                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
+//                double error = difference.angle() / (end.toSec() - begin.toSec());
 
                 LOG(INFO) << "w :\n" << w[0]
                           << "\n" << w[1]
                           << "\n" << w[2];
-                LOG(INFO) << "error: " << error << " rad/s";
+//                LOG(INFO) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 
                 eventFrames.pop_front();

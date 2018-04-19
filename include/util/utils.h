@@ -1,6 +1,5 @@
 #ifndef UTILS_H
 #define UTILS_H
-
 #include "parameters.h"
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/opencv.hpp>
@@ -45,6 +44,7 @@ typedef okvis::Measurement<Pose> MaconMeasurement;
 void imshowRescaled(const cv::Mat& src, int msec = 0, std::string title = "image", std::string text = "");
 void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string title = "image", std::string text = "");
 void quat2eul(Eigen::Quaterniond& q, double* euler);
+Eigen::Matrix3d skew(Eigen::Vector3d& v);
 }
 
 #endif // UTILS_H

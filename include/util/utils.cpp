@@ -80,4 +80,12 @@ void quat2eul(Eigen::Quaterniond& q, double* euler) {
     euler[1] = std::asin( 2*(q.w()*q.y() - q.z()*q.x()));
     euler[2] = std::atan2(2*(q.w()*q.x() + q.y()*q.z()), (1 - 2*(q.x()*q.x() + y2)));
 }
+
+Eigen::Matrix3d skew(Eigen::Vector3d& v){
+    Eigen::Matrix3d m;
+    m << 0, -v(2), v(1),
+        v(2), 0, -v(0),
+        -v(1), v(0), 0;
+    return m;
+}
 }
