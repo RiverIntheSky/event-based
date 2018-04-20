@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/shapes_rotation";
+    std::string path = "/home/weizhen/Documents/dataset/shapes_translation";
 
     // open the events file
     std::string events_line;

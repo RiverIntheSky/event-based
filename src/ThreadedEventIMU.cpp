@@ -274,26 +274,25 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 okvis::Time end = em->events.back().timeStamp;
 
                 // ???
-                Eigen::Vector3d velocity = ((it_gt-1)->measurement.p - it_gt->measurement.p) / (end.toSec() - begin.toSec());
 
-                Eigen::Quaterniond p1 = (it_gt-1)->measurement.q;
-                Eigen::Quaterniond p2 = it_gt->measurement.q;
-
-
+                                             ev::Pose p1, p2;
+                                             interpolateGroundtruth(p1, begin);
+                                             interpolateGroundtruth(p2, end);
+                                             Eigen::Vector3d velocity = (p1.p - p2.p) / (end.toSec() - begin.toSec());
                 // world transition
-                Eigen::Quaterniond transition = p1 * p2.inverse();
-                Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
-                Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
+                // Eigen::Quaterniond transition = p1 * p2.inverse();
+                //Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
+                //Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
 
                 LOG(INFO) << begin;
                 LOG(INFO) << "events: " << em->events.size() << '\n';
                 LOG(INFO) << end << '\n';
 
-                LOG(INFO) << "ground truth:\n" << angularVelocity;
+                LOG(INFO) << "ground truth:\n" << velocity;
 
                 Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
                 //Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity, velocity);
-                Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
+                //Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
 
                 double cost = 0;
                 double mu = groundTruth.mean();
@@ -353,22 +352,22 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 processEventTimer.stop();
 
                 LOG(INFO) << okvis::timing::Timing::print();
-                Eigen::Vector3d rotation_(w[0], w[1], w[2]);
-                rotation_ *= ((end.toSec() - begin.toSec()));
-                Eigen::AngleAxisd angleAxis_;
-                if (rotation_.norm() == 0) {
-                    angleAxis_ = Eigen::AngleAxisd(0, (Eigen::Vector3d() << 0, 0, 1).finished());
-                } else {
-                    angleAxis_ = Eigen::AngleAxisd(rotation_.norm(), rotation_.normalized());
-                }
-                estimatedPose.q = Eigen::Quaterniond(angleAxis_) * estimatedPose.q;
+                //Eigen::Vector3d rotation_(w[0], w[1], w[2]);
+                //rotation_ *= ((end.toSec() - begin.toSec()));
+                //Eigen::AngleAxisd angleAxis_;
+                //if (rotation_.norm() == 0) {
+                //    angleAxis_ = Eigen::AngleAxisd(0, (Eigen::Vector3d() << 0, 0, 1).finished());
+                //} else {
+                //    angleAxis_ = Eigen::AngleAxisd(rotation_.norm(), rotation_.normalized());
+                //}
+                //estimatedPose.q = Eigen::Quaterniond(angleAxis_) * estimatedPose.q;
 //                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
 //                double error = difference.angle() / (end.toSec() - begin.toSec());
-
+                double error = (velocity - (Eigen::Vector3d()<<w[0],w[1],w[2]).finished()).norm();
                 LOG(INFO) << "w :\n" << w[0]
                           << "\n" << w[1]
                           << "\n" << w[2];
-//                LOG(INFO) << "error: " << error << " rad/s";
+               LOG(INFO) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 
                 eventFrames.pop_front();
@@ -449,5 +448,3 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
 }
 
 }
-
-

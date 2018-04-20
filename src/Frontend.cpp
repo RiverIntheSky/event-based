@@ -115,8 +115,7 @@ void ComputeVarianceFunction::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x,
     if (w.norm() == 0) {
         x_w = x_;
     } else {
-        Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
-        x_w = aa.toRotationMatrix() * x_;
+        x_w = x_ + w * t.toSec();
         // x_w = x_ + (w * t.toSec()).cross(x_);
     }
 }
@@ -129,12 +128,9 @@ void ComputeVarianceFunction::warp(Eigen::MatrixXd& dWdw, Eigen::Vector3d& x_w, 
         x_w = x_;
         dWdw = Eigen::MatrixXd::Zero(2, 3);
     } else {
-        Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
-        Eigen::Matrix3d R = aa.toRotationMatrix();
-        x_w =  R * x_;
-        Eigen::Matrix3d dWdw_ = -R*t_*ev::skew(x_)*
-                ((w*w.transpose()+(R.transpose()-Eigen::Matrix3d::Identity())*ev::skew(w)/t_)/w.squaredNorm());
-        dWdw = (dWdw_/x_w(2)-x_w*dWdw_.row(2)/std::pow(x_w(2),2)).block(0, 0, 2, 3);
+        x_w = x_ + w * t_;
+        dWdw = (Eigen::Matrix3d::Identity()*t_-x_w*(Eigen::Vector3d() << 0, 0, t_).finished().transpose()/x_w(2))/x_w(2);
+        dWdw = dWdw.block(0, 0, 2, 3);
     }
 
     //    x_w /= x_w(2);
