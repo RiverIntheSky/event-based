@@ -129,12 +129,14 @@ void ComputeVarianceFunction::warp(Eigen::MatrixXd& dWdw, Eigen::Vector3d& x_w, 
         x_w = x_;
         dWdw = Eigen::MatrixXd::Zero(2, 3);
     } else {
+        Eigen::Matrix3d cameraMatrix_;
+        cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
         Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
         Eigen::Matrix3d R = aa.toRotationMatrix();
         x_w =  R * x_;
         Eigen::Matrix3d dWdw_ = -R*t_*ev::skew(x_)*
                 ((w*w.transpose()+(R.transpose()-Eigen::Matrix3d::Identity())*ev::skew(w)/t_)/w.squaredNorm());
-        dWdw = (dWdw_/x_w(2)-x_w*dWdw_.row(2)/std::pow(x_w(2),2)).block(0, 0, 2, 3);
+        dWdw = (cameraMatrix_ * (dWdw_/x_w(2)-x_w*dWdw_.row(2)/std::pow(x_w(2),2))).block(0, 0, 2, 3);
     }
 
     //    x_w /= x_w(2);
