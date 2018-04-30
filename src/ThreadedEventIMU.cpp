@@ -1,3 +1,4 @@
+
 #include "ThreadedEventIMU.h"
 
 namespace ev {
@@ -153,7 +154,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
      std::default_random_engine gen;
 std::uniform_real_distribution<double> dis(-0.1, 0.1);
-    double w[] = {0, 2, 0};
+    double w[] = {0.1, 1.0, -0.05};
     double t[] = {0, 1, 0};
 
     while (!allGroundtruthAdded_) {}
@@ -205,11 +206,6 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
 
             if (em->counter_w == parameters_.window_size) {
 
-
-//                int size = em->events.size();
-//                for (int i = size / 10; i != size; i++) {
-//                    em->events.pop_back();
-//                }
                 if (estimatedPose.q.norm() == 0) {
                     interpolateGroundtruth(estimatedPose, em->events.begin()->timeStamp);
                 }
@@ -220,27 +216,41 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                     estimatedPoses[i].push_back(std::make_pair(em->events.begin()->timeStamp.toSec(), euler[i]));
                 }
 
-                gp << "plot '-' binary" << gp.binFmt1d(groudtruth[0], "record") << "with lines title 'roll',"
-                   << "'-' binary" << gp.binFmt1d(groudtruth[1], "record") << "with lines title 'pitch',"
-                   << "'-' binary" << gp.binFmt1d(groudtruth[2], "record") << "with lines title 'yaw',"
-                   << "'-' binary" << gp.binFmt1d(estimatedPoses[0], "record") << "with lines title 'roll_',"
-                   << "'-' binary" << gp.binFmt1d(estimatedPoses[1], "record") << "with lines title 'pitch_',"
-                   << "'-' binary" << gp.binFmt1d(estimatedPoses[2], "record") << "with lines title 'yaw_'\n";
+//                gp << "plot '-' binary" << gp.binFmt1d(groudtruth[0], "record") << "with lines title 'roll',"
+//                   << "'-' binary" << gp.binFmt1d(groudtruth[1], "record") << "with lines title 'pitch',"
+//                   << "'-' binary" << gp.binFmt1d(groudtruth[2], "record") << "with lines title 'yaw',"
+//                   << "'-' binary" << gp.binFmt1d(estimatedPoses[0], "record") << "with lines title 'roll_',"
+//                   << "'-' binary" << gp.binFmt1d(estimatedPoses[1], "record") << "with lines title 'pitch_',"
+//                   << "'-' binary" << gp.binFmt1d(estimatedPoses[2], "record") << "with lines title 'yaw_'\n";
 
-                gp.sendBinary1d(groudtruth[0]);
-                gp.sendBinary1d(groudtruth[1]);
-                gp.sendBinary1d(groudtruth[2]);
-                gp.sendBinary1d(estimatedPoses[0]);
-                gp.sendBinary1d(estimatedPoses[1]);
-                gp.sendBinary1d(estimatedPoses[2]);
-                gp.flush();
+//                gp.sendBinary1d(groudtruth[0]);
+//                gp.sendBinary1d(groudtruth[1]);
+//                gp.sendBinary1d(groudtruth[2]);
+//                gp.sendBinary1d(estimatedPoses[0]);
+//                gp.sendBinary1d(estimatedPoses[1]);
+//                gp.sendBinary1d(estimatedPoses[2]);
+//                gp.flush();
 
                 undistortEvents(em);
                 Contrast::em = em;
 
                 Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
                 Contrast::synthesizeEventFrame(synthesizedFrame, em);
-                ev::imshowRescaled(synthesizedFrame, 1, "zero motion");
+                double cost = 0;
+                double mu = synthesizedFrame.mean();
+                for (int x_ = 0; x_ < 240; x_++) {
+                    for (int y_ = 0; y_ < 180; y_++) {
+                        cost += std::pow(synthesizedFrame(y_, x_) - mu, 2);
+                    }
+                }
+                cost /= (240*180);
+
+                // adjust to ceres format
+                cost = 1./std::pow(cost, 2);
+                cost /= 2;
+
+                std::string caption = "cost = " + std::to_string(cost);
+                ev::imshowRescaled(synthesizedFrame, 1, "zero motion", caption);
 
 //                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
 //                Eigen::Matrix3d cameraMatrix_;
@@ -275,10 +285,11 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
 
                 // ???
 
-                                             ev::Pose p1, p2;
-                                             interpolateGroundtruth(p1, begin);
-                                             interpolateGroundtruth(p2, end);
-                                             Eigen::Vector3d velocity = (p1.p - p2.p) / (end.toSec() - begin.toSec());
+                ev::Pose p1, p2;
+                interpolateGroundtruth(p1, begin);
+                interpolateGroundtruth(p2, end);
+                Eigen::Vector3d velocity = (p1.p - p2.p) / (end.toSec() - begin.toSec());
+
                 // world transition
                 // Eigen::Quaterniond transition = p1 * p2.inverse();
                 //Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
@@ -294,8 +305,8 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 //Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity, velocity);
                 //Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
 
-                double cost = 0;
-                double mu = groundTruth.mean();
+                cost = 0;
+                mu = groundTruth.mean();
                 for (int x_ = 0; x_ < 240; x_++) {
                     for (int y_ = 0; y_ < 180; y_++) {
                         cost += std::pow(groundTruth(y_, x_) - mu, 2);
@@ -307,7 +318,7 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 cost = 1./std::pow(cost, 2);
                 cost /= 2;
 
-                std::string caption = "cost = " + std::to_string(cost);
+                caption = "cost = " + std::to_string(cost);
                 ev::imshowRescaled(groundTruth, 1, "ground truth", caption);
 
                 processEventTimer.start();
@@ -319,11 +330,16 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 ev::imshowCallback callback(w);
                 options.callbacks.push_back(&callback);
                 options.minimizer_progress_to_stdout = true;
+//                options.minimizer_type = ceres::LINE_SEARCH;
+//                options.line_search_type = ceres::ARMIJO;
 
                 ceres::Problem problem;
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
                 problem.AddResidualBlock(cost_function, NULL, w);
-
+//                for (int i = 0; i < 3; i++) {
+//                    problem.SetParameterLowerBound(w, i, -5);
+//                    problem.SetParameterUpperBound(w, i, 5);
+//                }
                 ceres::Solve(options, &problem, &summary);
 
                 LOG(INFO) << "Translation";

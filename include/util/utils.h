@@ -17,11 +17,12 @@ public:
 };
 
 struct Pose {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     /// \brief Default constructor.
     Pose(): p(), q() {}
 
     /// \brief Constructor.
-    Pose(Eigen::Vector3d p_, Eigen::Quaterniond q_)
+    Pose(Eigen::Vector3d& p_, Eigen::Quaterniond& q_)
         : p(p_), q(q_) {}
 
 //    /// \brief Copy constructor.

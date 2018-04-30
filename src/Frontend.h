@@ -28,25 +28,23 @@ public:
                           double* residuals,
                           double** jacobians) const;
 
-    void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d point, bool& polarity) const;
-    void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x,
+    void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
+    void warp(Eigen::Vector3d& x_w, Eigen::Vector3d& x,
               okvis::Duration& t, Eigen::Vector3d& w) const;
 
-    void warp(Eigen::MatrixXd &dWdw, Eigen::Vector3d& x_w, Eigen::Vector2d& x,
+    void warp(Eigen::MatrixXd &dWdw, Eigen::Vector3d& x_w, Eigen::Vector3d &x,
               okvis::Duration& t, Eigen::Vector3d& w) const;
 
-    void fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) const;
+    void fuse(Eigen::MatrixXd& image, Eigen::Vector2d &p, bool& polarity) const;
 
-    void Intensity(Eigen::MatrixXd& image, Eigen::Vector3d w) const;
+    void Intensity(Eigen::MatrixXd& image, Eigen::Vector3d& w) const;
 
-    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd& dIdw, Eigen::Vector3d w) const;
+    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd& dIdw, Eigen::Vector3d& w) const;
 
     std::shared_ptr<eventFrameMeasurement> em_;
     Parameters param_;
     int kernelSize = 3;
     static Eigen::MatrixXd intensity;
-
-
 };
 
 

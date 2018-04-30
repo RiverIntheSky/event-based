@@ -2,7 +2,6 @@
 #include <fstream>
 #include "ThreadedEventIMU.h"
 #include <chrono>
-
 std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em = NULL;
 double ev::Contrast::events_number;
 Eigen::MatrixXd ev::Contrast::intensity = Eigen::Matrix3d::Zero();
@@ -102,7 +101,7 @@ int main(int argc, char *argv[])
 //        }
     }
 
-    ev_estimator.allGroundtruthAdded_ = true;
+ev_estimator.allGroundtruthAdded_ = true;
 
     while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(20)) {
 
