@@ -154,7 +154,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
      std::default_random_engine gen;
 std::uniform_real_distribution<double> dis(-0.1, 0.1);
-    double w[] = {0.1, 1.0, -0.05};
+    double w[] = {0.1, 1.0, 0};
     double t[] = {0, 1, 0};
 
     while (!allGroundtruthAdded_) {}
@@ -379,10 +379,10 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 //estimatedPose.q = Eigen::Quaterniond(angleAxis_) * estimatedPose.q;
 //                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
 //                double error = difference.angle() / (end.toSec() - begin.toSec());
-                double error = (velocity - (Eigen::Vector3d()<<w[0],w[1],w[2]).finished()).norm();
+                double error = (velocity - (Eigen::Vector3d()<<w[0],w[1],0).finished()).norm();
                 LOG(INFO) << "w :\n" << w[0]
                           << "\n" << w[1]
-                          << "\n" << w[2];
+                          << "\n" << 0;
                LOG(INFO) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 

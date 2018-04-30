@@ -34,7 +34,8 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     int area = 180 * 240;
     residuals[0] = 0;
     Eigen::Vector3d w;
-    w << (*parameters)[0], (*parameters)[1], (*parameters)[2];
+//    w << (*parameters)[0], (*parameters)[1], (*parameters)[2];
+    w << (*parameters)[0], (*parameters)[1], 0;
     //Eigen::MatrixXd intensity;
     Eigen::MatrixXd dIdw1;
     Eigen::MatrixXd dIdw2;
@@ -104,6 +105,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             //jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
             LOG(INFO) << "j: " << jacobians[0][i];
         }
+        jacobians[0][2] = 0;
     }
 
     return true;
