@@ -157,7 +157,9 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
     double w[] = {0.1, 1.0, -0.05};
     double t[] = {0, 1, 0};
 
+#ifndef NDEBUG
     while (!allGroundtruthAdded_) {}
+#endif
     ev::Pose estimatedPose;
     std::vector<std::vector<std::pair<double, double>>> estimatedPoses(3);
 
@@ -329,17 +331,17 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 ceres::Solver::Summary summary;
                 ev::imshowCallback callback(w);
                 options.callbacks.push_back(&callback);
-                options.minimizer_progress_to_stdout = true;
+                options.minimizer_progress_to_stdout = false;
 //                options.minimizer_type = ceres::LINE_SEARCH;
 //                options.line_search_type = ceres::ARMIJO;
 
                 ceres::Problem problem;
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
                 problem.AddResidualBlock(cost_function, NULL, w);
-//                for (int i = 0; i < 3; i++) {
-//                    problem.SetParameterLowerBound(w, i, -5);
-//                    problem.SetParameterUpperBound(w, i, 5);
-//                }
+                for (int i = 0; i < 3; i++) {
+                    problem.SetParameterLowerBound(w, i, -10);
+                    problem.SetParameterUpperBound(w, i, 10);
+                }
                 ceres::Solve(options, &problem, &summary);
 
                 LOG(INFO) << "Translation";
