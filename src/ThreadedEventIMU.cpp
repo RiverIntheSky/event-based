@@ -338,10 +338,10 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 ceres::Problem problem;
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
                 problem.AddResidualBlock(cost_function, NULL, w);
-                for (int i = 0; i < 3; i++) {
-                    problem.SetParameterLowerBound(w, i, -10);
-                    problem.SetParameterUpperBound(w, i, 10);
-                }
+//                for (int i = 0; i < 3; i++) {
+//                    problem.SetParameterLowerBound(w, i, -10);
+//                    problem.SetParameterUpperBound(w, i, 10);
+//                }
                 ceres::Solve(options, &problem, &summary);
 
                 LOG(INFO) << "Translation";
