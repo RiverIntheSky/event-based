@@ -1,2 +1,4 @@
 CMakeLists.txt.user
 builds/
+include/matlab/
+CMakeLists.3.txt.user
