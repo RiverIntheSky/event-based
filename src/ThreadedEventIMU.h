@@ -330,7 +330,7 @@ private:
      /// The maximum input queue size before events are dropped.
      const size_t maxEventInputQueueSize_;
 public:
-     bool allGroundtruthAdded_;
+     bool allGroundtruthAdded_ = false;
 };
 }
 

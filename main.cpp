@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
     //FLAGS_alsologtostderr = 1;  // output LOG for debugging
     FLAGS_logtostderr = 1;  //Logs are written to standard error instead of to files.
 #endif
+    FLAGS_logtostderr = 3;
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
