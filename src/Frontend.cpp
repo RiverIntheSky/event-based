@@ -103,7 +103,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             // negative??
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
             //jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
-            LOG(INFO) << "j: " << jacobians[0][i];
+//            LOG(INFO) << "j: " << jacobians[0][i];
         }
         jacobians[0][2] = 0;
     }
@@ -132,9 +132,7 @@ void ComputeVarianceFunction::warp(Eigen::MatrixXd& dWdw, Eigen::Vector3d& x_w, 
         Eigen::Matrix3d cameraMatrix_;
         cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
         x_w = x + w * t_;
-        dWdw = (Eigen::Matrix3d::Identity()*t_-x_w*(Eigen::Vector3d() << 0, 0, t_).finished().transpose()/x_w(2))/x_w(2);
-        dWdw = cameraMatrix_ * dWdw;
-        dWdw = dWdw.block(0, 0, 2, 3);
+        dWdw = (cameraMatrix_ * (Eigen::Matrix3d::Identity()*t_-x_w*(Eigen::Vector3d() << 0, 0, t_).finished().transpose()/x_w(2))/x_w(2)).block(0, 0, 2, 3);
     }
 
     //    x_w /= x_w(2);

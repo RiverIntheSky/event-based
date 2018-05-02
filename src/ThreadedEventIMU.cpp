@@ -157,7 +157,7 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
     double w[] = {0.1, 1.0, 0};
     double t[] = {0, 1, 0};
 
-    while (!allGroundtruthAdded_) {}
+    // while (!allGroundtruthAdded_) {}
     ev::Pose estimatedPose;
     std::vector<std::vector<std::pair<double, double>>> estimatedPoses(3);
 
