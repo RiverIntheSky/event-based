@@ -2,6 +2,7 @@
 #include "ThreadedEventIMU.h"
 
 namespace ev {
+int count;
 ThreadedEventIMU::ThreadedEventIMU(Parameters &parameters)
     : speedAndBiases_propagated_(okvis::SpeedAndBias::Zero()),
       parameters_(parameters),
@@ -154,10 +155,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
      std::default_random_engine gen;
 std::uniform_real_distribution<double> dis(-0.1, 0.1);
-    double w[] = {0.1, 1.0, 0};
+    double w[] = {0.0, 0.0, 0.0};
     double t[] = {0, 1, 0};
 
-    // while (!allGroundtruthAdded_) {}
+    while (!allGroundtruthAdded_) {}
     ev::Pose estimatedPose;
     std::vector<std::vector<std::pair<double, double>>> estimatedPoses(3);
 
@@ -180,6 +181,7 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
 //                 << gp.file1d(groudtruth[2]) << "with lines title 'yaw'"
 //                                    << std::endl;
     Contrast::param = parameters_;
+ev::count = 0;
     for (;;) {
         // get data and check for termination request
         if (eventMeasurementsReceived_.PopBlocking(&data) == false) {
@@ -249,7 +251,8 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 cost = 1./std::pow(cost, 2);
                 cost /= 2;
 
-                std::string caption = "cost = " + std::to_string(cost);
+                ev::count++;
+                std::string caption =  std::to_string(ev::count) + " cost = " + std::to_string(cost);
                 ev::imshowRescaled(synthesizedFrame, 1, "zero motion", caption);
 
 //                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
@@ -288,7 +291,7 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 ev::Pose p1, p2;
                 interpolateGroundtruth(p1, begin);
                 interpolateGroundtruth(p2, end);
-                Eigen::Vector3d velocity = (p1.p - p2.p) / (end.toSec() - begin.toSec());
+                Eigen::Vector3d velocity = (p2.p - p1.p) / (end.toSec() - begin.toSec());
 
                 // world transition
                 // Eigen::Quaterniond transition = p1 * p2.inverse();
@@ -301,25 +304,25 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
 
                 LOG(INFO) << "ground truth:\n" << velocity;
 
-                Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-                //Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity, velocity);
-                //Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
+//                Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
+//                // Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity, velocity);
+//                // Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
 
-                cost = 0;
-                mu = groundTruth.mean();
-                for (int x_ = 0; x_ < 240; x_++) {
-                    for (int y_ = 0; y_ < 180; y_++) {
-                        cost += std::pow(groundTruth(y_, x_) - mu, 2);
-                    }
-                }
-                cost /= (240*180);
+//                cost = 0;
+//                mu = groundTruth.mean();
+//                for (int x_ = 0; x_ < 240; x_++) {
+//                    for (int y_ = 0; y_ < 180; y_++) {
+//                        cost += std::pow(groundTruth(y_, x_) - mu, 2);
+//                    }
+//                }
+//                cost /= (240*180);
 
-                // adjust to ceres format
-                cost = 1./std::pow(cost, 2);
-                cost /= 2;
+//                // adjust to ceres format
+//                cost = 1./std::pow(cost, 2);
+//                cost /= 2;
 
-                caption = "cost = " + std::to_string(cost);
-                ev::imshowRescaled(groundTruth, 1, "ground truth", caption);
+//                caption = "cost = " + std::to_string(cost);
+//                ev::imshowRescaled(groundTruth, 1, "ground truth ", caption);
 
                 processEventTimer.start();
 
@@ -329,7 +332,7 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
                 ceres::Solver::Summary summary;
                 ev::imshowCallback callback(w);
                 options.callbacks.push_back(&callback);
-                options.minimizer_progress_to_stdout = true;
+                options.minimizer_progress_to_stdout = false;
 //                options.minimizer_type = ceres::LINE_SEARCH;
 //                options.line_search_type = ceres::ARMIJO;
 
@@ -417,7 +420,7 @@ bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& e
     std::vector<cv::Point2d> inputDistortedPoints;
     std::vector<cv::Point2d> outputUndistortedPoints;
     for (auto it = em->events.begin(); it != em->events.end(); it++) {
-        cv::Point2d point(it->measurement.y, it->measurement.x);
+        cv::Point2d point(it->measurement.x, it->measurement.y);
         inputDistortedPoints.push_back(point);
     }
     cv::undistortPoints(inputDistortedPoints, outputUndistortedPoints,

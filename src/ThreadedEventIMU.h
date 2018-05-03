@@ -14,7 +14,6 @@
 #include "util/gnuplot-iostream.h"
 
 namespace ev {
-
 class ThreadedEventIMU: public okvis::VioInterface
 {
 public:

@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/shapes_translation";
+    std::string path = "/home/weizhen/Documents/dataset/slider_depth";
 
     // open the events file
     std::string events_line;
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
 
-    okvis::Duration deltaT(15);
+    okvis::Duration deltaT(0);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
