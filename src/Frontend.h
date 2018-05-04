@@ -16,7 +16,7 @@
 /// \brief okvis Main namespace of this package.
 namespace ev {
 extern int count;
-class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3> {
+class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 4> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     ComputeVarianceFunction(std::shared_ptr<eventFrameMeasurement> em, Parameters parameters):
@@ -29,17 +29,13 @@ public:
                           double** jacobians) const;
 
     void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
-    void warp(Eigen::Vector3d& x_w, Eigen::Vector3d& x,
-              okvis::Duration& t, Eigen::Vector3d& w) const;
 
-    void warp(Eigen::MatrixXd &dWdw, Eigen::Vector3d& x_w, Eigen::Vector3d &x,
-              okvis::Duration& t, Eigen::Vector3d& w) const;
+    void warp(Eigen::MatrixXd* dWdw, Eigen::Vector3d& x_w, Eigen::Vector3d &x,
+              okvis::Duration& t, Eigen::Vector3d& w, const double z) const;
 
     void fuse(Eigen::MatrixXd& image, Eigen::Vector2d &p, bool& polarity) const;
 
-    void Intensity(Eigen::MatrixXd& image, Eigen::Vector3d& w) const;
-
-    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd& dIdw, Eigen::Vector3d& w) const;
+    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw, Eigen::Vector3d& w, const double * const *z) const;
 
     std::shared_ptr<eventFrameMeasurement> em_;
     Parameters param_;
@@ -133,12 +129,12 @@ struct SE3 : Contrast {
 
 class imshowCallback: public ceres::IterationCallback {
 public:
-    imshowCallback(double* w): w_(w){}
+    imshowCallback(double* w, ComputeVarianceFunction* c): w_(w), c_(c) {}
 
     ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
         if (summary.step_is_successful || summary.iteration == 0) {
             std::string caption =  std::to_string(ev::count) + " cost = " + std::to_string(summary.cost);
-            ev::imshowRescaled(ev::ComputeVarianceFunction::intensity, msec_, s_, caption);
+            ev::imshowRescaled(c_->intensity, msec_, s_, caption);
             LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
         }
         return ceres::SOLVER_CONTINUE;
@@ -146,6 +142,7 @@ public:
 
 private:
     double* w_;
+    ComputeVarianceFunction* c_;
     int msec_ = 1;
     std::string s_ = "optimizing";
 };

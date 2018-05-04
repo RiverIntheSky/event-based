@@ -157,6 +157,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
 std::uniform_real_distribution<double> dis(-0.1, 0.1);
     double w[] = {0.0, 0.0, 0.0};
     double t[] = {0, 1, 0};
+    double z[] = {1.0, 1.0, 1.0, 1.0};
+    std::vector<double*> params;
+    params.push_back(w);
+    params.push_back(z);
 
     while (!allGroundtruthAdded_) {}
     ev::Pose estimatedPose;
@@ -330,15 +334,16 @@ ev::count = 0;
                 options.update_state_every_iteration = true;
                 options.num_threads = 6;
                 ceres::Solver::Summary summary;
-                ev::imshowCallback callback(w);
-                options.callbacks.push_back(&callback);
+
                 options.minimizer_progress_to_stdout = false;
 //                options.minimizer_type = ceres::LINE_SEARCH;
 //                options.line_search_type = ceres::ARMIJO;
 
                 ceres::Problem problem;
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
-                problem.AddResidualBlock(cost_function, NULL, w);
+                ev::imshowCallback callback(w, static_cast<ComputeVarianceFunction*>(cost_function));
+                options.callbacks.push_back(&callback);
+                problem.AddResidualBlock(cost_function, NULL, params);
 //                for (int i = 0; i < 3; i++) {
 //                    problem.SetParameterLowerBound(w, i, -5);
 //                    problem.SetParameterUpperBound(w, i, 5);
@@ -382,10 +387,15 @@ ev::count = 0;
                 //estimatedPose.q = Eigen::Quaterniond(angleAxis_) * estimatedPose.q;
 //                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
 //                double error = difference.angle() / (end.toSec() - begin.toSec());
-                double error = (velocity - (Eigen::Vector3d()<<w[0],w[1],0).finished()).norm();
-                LOG(INFO) << "w :\n" << w[0]
+
+                double error = (velocity - (Eigen::Vector3d()<<w[0],w[1],w[2]).finished()).norm();
+                LOG(INFO) << "\nw :\n" << w[0]
                           << "\n" << w[1]
-                          << "\n" << 0;
+                          << "\n" << w[2]
+                          << "\nz :\n" << z[0]
+                          << "\n" << z[1]
+                          << "\n" << z[2]
+                          << "\n" << z[3];
                LOG(INFO) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 
