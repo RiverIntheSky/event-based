@@ -133,7 +133,7 @@ public:
 
     ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
         if (summary.step_is_successful || summary.iteration == 0) {
-            std::string caption =  std::to_string(ev::count) + " cost = " + std::to_string(summary.cost);
+            std::string caption = "cost = " + std::to_string(summary.cost);
             ev::imshowRescaled(c_->intensity, msec_, s_, caption);
             LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
         }

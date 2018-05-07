@@ -255,8 +255,7 @@ ev::count = 0;
                 cost = 1./std::pow(cost, 2);
                 cost /= 2;
 
-                ev::count++;
-                std::string caption =  std::to_string(ev::count) + " cost = " + std::to_string(cost);
+                std::string caption =  "cost = " + std::to_string(cost);
                 ev::imshowRescaled(synthesizedFrame, 1, "zero motion", caption);
 
 //                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);

@@ -93,9 +93,11 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     if (jacobians != NULL && jacobians[0] != NULL) {
         for (int i = 0; i != 3; i++) {
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
+            LOG(INFO) << "j:" << jacobians[0][i];
         }
         for (int i = 0; i != 4; i++) {
             jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / area);
+            LOG(INFO) << "j:" << jacobians[1][i];
         }
         jacobians[0][2] *= 0;
     }
@@ -104,21 +106,37 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
 
 void ComputeVarianceFunction::warp(Eigen::MatrixXd* dWdw, Eigen::Vector3d& x_w, Eigen::Vector3d& x,
                                    okvis::Duration& t, Eigen::Vector3d& w, const double z) const {
+    // z is the depth value of the first frame
     double t_ = t.toSec();
     if (w.norm() == 0 || t_ == 0) {
         x_w = x;
         //        dWdw = Eigen::MatrixXd::Zero(2, 3);
     } else {
-        x_w = z * x + w * t_;
+        x_w = (z - w(2) * t_) * x + w * t_;
     }
+
+    Eigen::Matrix3d cameraMatrix_;
+    cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
+    // 0.03 heuristic
+//    cameraMatrix_(0, 0) *= (z + 0.1 * w(2)) / z;
+//    cameraMatrix_(1, 1) *= (z + 0.1 * w(2)) / z;
+
     if (dWdw != NULL) {
-        Eigen::Matrix3d cameraMatrix_;
-        cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
-        Eigen::MatrixXd dWdT = (cameraMatrix_ * (Eigen::Matrix3d::Identity()*t_-x_w*(Eigen::Vector3d() << 0, 0, t_).finished().transpose()/x_w(2))/x_w(2)).block(0, 0, 2, 3);
-        Eigen::MatrixXd dWdz = (cameraMatrix_ * (x - x_w) / x_w(2)).block(0, 0, 2, 1);
-        dWdw->resize(dWdT.rows(), 4);
-        (*dWdw) << dWdT, dWdz;
+//        Eigen::MatrixXd dWdT = (cameraMatrix_ * (Eigen::Matrix3d::Identity()*t_-x_w*(Eigen::Vector3d() << 0, 0, t_).finished().transpose()/x_w(2))/x_w(2)).block(0, 0, 2, 3);
+        Eigen::Vector3d dWdTx;
+        dWdTx << t_ / z, 0, 0;
+        Eigen::Vector3d dWdTy;
+        dWdTy << 0, t_ / z, 0;
+        Eigen::Vector3d dWdTz;
+        dWdTz << -(t_*x(0)) / z, -(t_*x(1)) / z, 0;
+        //        dWdT.block(0, 2, 2, 1) += 0.03 / z * (Eigen::Vector2d() << x_w(0)/x_w(2), x_w(1)/x_w(2)).finished();
+        Eigen::Vector3d dWdz =  (t_ * (x * w(2) - w)) / (z * z);
+//        dWdz -= 0.03 * w(2) / (z * z) * (Eigen::Vector2d() << x_w(0)/x_w(2), x_w(1)/x_w(2)).finished();
+        Eigen::MatrixXd dWdw_(3, 4);
+        dWdw_ << dWdTx, dWdTy, dWdTz, dWdz;
+        (*dWdw) = (cameraMatrix_ * dWdw_).block(0, 0, 2, 4);
     }
+    x_w = cameraMatrix_ * x_w;
 }
 
 void ComputeVarianceFunction::fuse(Eigen::MatrixXd& image, Eigen::Vector2d& p, bool& polarity) const {
@@ -171,9 +189,9 @@ void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<int>, d
 void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw, Eigen::Vector3d& w, const double* const* z) const {
     // divide scene into patches
     auto patch = [](double x, double y)  -> int {
-        if (x >= 0 && y >= 0)
-            return 0;
         if (x >= 0 && y < 0)
+            return 0;
+        if (x < 0 && y < 0)
             return 1;
         if (x < 0 && y >= 0)
             return 2;
@@ -203,8 +221,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
 
         // z'/z
         point_warped /= point_warped(2);
-        Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
-        Eigen::Vector2d point_camera_(point_camera(0), point_camera(1));
+        Eigen::Vector2d point_camera_(point_warped(0), point_warped(1));
         if (dIdw != NULL) {
             Eigen::MatrixXd dWdT = dWdw.block(0, 0, 2, 3);
             Eigen::Vector2d dWdz = dWdw.col(3);
@@ -213,8 +230,8 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
             for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
                 std::vector<int> p_ = p_it->first;
                 int patch_nr = patch(p(0), p(1));
-                double dr = point_camera(0) - p_[0];
-                double dc = point_camera(1) - p_[1];
+                double dr = point_warped(0) - p_[0];
+                double dc = point_warped(1) - p_[1];
 
                 if (dr > 0) {
                     dIdw->block(p_[1] * 180 + p_[0], 0, 1, 3) += ((std::abs(dc) - 1) * dWdT.row(0) * it->measurement.p);
@@ -248,7 +265,9 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
 void Contrast::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration& t, Eigen::Vector3d& w) {
     Eigen::Vector3d x_ = x.homogeneous();
     if (w.norm() == 0) {
-        x_w = x_;
+        //x_w = x_;
+//        w(0) = 2;
+        x_w = x_ + w * t.toSec();
     } else {
         Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
         x_w = aa.toRotationMatrix() * x_;
@@ -319,7 +338,7 @@ void Contrast::polarityEventFrame(Eigen::MatrixXd& image, std::shared_ptr<eventF
 }
 
 void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement> &em, Parameters& param, Eigen::Vector3d w) {
-    okvis::Time t1 = em->events.back().timeStamp;
+    okvis::Time t0 = em->events.front().timeStamp;
     Eigen::Matrix3d cameraMatrix_;
     cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
     for(auto it = em->events.begin(); it != em->events.end(); it++) {
@@ -327,7 +346,7 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
         Eigen::Vector3d point_warped;
 
         // project to last frame
-        auto t = t1 - it->timeStamp;
+        auto t = it->timeStamp - t0;
         warp(point_warped, p, t, w);
 
         Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
