@@ -16,7 +16,7 @@
 /// \brief okvis Main namespace of this package.
 namespace ev {
 extern int count;
-class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 4> {
+class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 3, 4> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     ComputeVarianceFunction(std::shared_ptr<eventFrameMeasurement> em, Parameters parameters):
@@ -31,11 +31,11 @@ public:
     void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
 
     void warp(Eigen::MatrixXd* dWdw, Eigen::Vector3d& x_w, Eigen::Vector3d &x,
-              okvis::Duration& t, Eigen::Vector3d& w, const double z) const;
+              okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, const double z) const;
 
     void fuse(Eigen::MatrixXd& image, Eigen::Vector2d &p, bool& polarity) const;
 
-    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw, Eigen::Vector3d& w, const double * const *z) const;
+    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw, Eigen::Vector3d& w, Eigen::Vector3d& v, const double * const *z) const;
 
     std::shared_ptr<eventFrameMeasurement> em_;
     Parameters param_;
@@ -64,6 +64,7 @@ struct Contrast {
 
     static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters& param, Eigen::Vector3d w);
 
+    static void Intensity(Eigen::MatrixXd& image, Eigen::Vector3d& w, Eigen::Vector3d& v, double* z);
     //    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
     //                          Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr);
 
@@ -85,10 +86,10 @@ struct Contrast {
         (*compute_variance)(&w, &f);
         return true;
     }
-    static std::shared_ptr<eventFrameMeasurement> em;
+    static std::shared_ptr<eventFrameMeasurement> em_;
     static double   events_number;
     static Eigen::MatrixXd intensity;
-    static Parameters param;
+    static Parameters param_;
     std::unique_ptr<ceres::CostFunctionToFunctor<1, 1> > compute_variance;
 
 };

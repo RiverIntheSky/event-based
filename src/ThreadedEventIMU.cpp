@@ -156,10 +156,11 @@ void ThreadedEventIMU::eventConsumerLoop() {
      std::default_random_engine gen;
 std::uniform_real_distribution<double> dis(-0.1, 0.1);
     double w[] = {0.0, 0.0, 0.0};
-    double t[] = {0, 1, 0};
+//    double v[] = {1, 0, 0};
     double z[] = {1.0, 1.0, 1.0, 1.0};
     std::vector<double*> params;
     params.push_back(w);
+    params.push_back(v);
     params.push_back(z);
 
     while (!allGroundtruthAdded_) {}
@@ -184,7 +185,7 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
 //                 << gp.file1d(groudtruth[1]) << "with lines title 'pitch',"
 //                 << gp.file1d(groudtruth[2]) << "with lines title 'yaw'"
 //                                    << std::endl;
-    Contrast::param = parameters_;
+    Contrast::param_ = parameters_;
 ev::count = 0;
     for (;;) {
         // get data and check for termination request
@@ -211,6 +212,9 @@ ev::count = 0;
             auto em = eventFrames.front();
 
             if (em->counter_w == parameters_.window_size) {
+                for (int i = 0; i < 4; i++) {
+                     z[i] = 0.8;
+                }
 
                 if (estimatedPose.q.norm() == 0) {
                     interpolateGroundtruth(estimatedPose, em->events.begin()->timeStamp);
@@ -238,7 +242,7 @@ ev::count = 0;
 //                gp.flush();
 
                 undistortEvents(em);
-                Contrast::em = em;
+                Contrast::em_ = em;
 
                 Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
                 Contrast::synthesizeEventFrame(synthesizedFrame, em);
@@ -297,18 +301,25 @@ ev::count = 0;
                 Eigen::Vector3d velocity = (p2.p - p1.p) / (end.toSec() - begin.toSec());
 
                 // world transition
-                // Eigen::Quaterniond transition = p1 * p2.inverse();
-                //Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
-                //Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
+                Eigen::Quaterniond transition = p2.q * (p1.q).inverse();
+                Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
+                Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
 
                 LOG(INFO) << begin;
                 LOG(INFO) << "events: " << em->events.size() << '\n';
                 LOG(INFO) << end << '\n';
 
                 LOG(INFO) << "ground truth:\n" << velocity;
+                v[0] =  velocity(0);
+                v[1] =  velocity(1);
+                v[2] =  velocity(2);
+
+                w[0] = angularVelocity(0);
+                w[1] = angularVelocity(1);
+                w[2] = angularVelocity(2);
 
 //                Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-//                // Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity, velocity);
+//                Contrast::Intensity(groundTruth, angularVelocity, velocity, z);
 //                // Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
 
 //                cost = 0;
@@ -349,29 +360,6 @@ ev::count = 0;
 //                }
                 ceres::Solve(options, &problem, &summary);
 
-                LOG(INFO) << "Translation";
-                //                    {
-                //                        ceres::Problem problem;
-                //                        ceres::CostFunction* cost_function =
-                //                                new ceres::NumericDiffCostFunction<SE3, ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1>(
-                //                                    new SE3());
-                //                        problem.AddResidualBlock(cost_function, NULL, &t1, &t2, &t3, &w1, &w2, &w3);
-
-                //                        ceres::Solve(options, &problem, &summary);
-                //                    }
-
-
-                //                    ceres::Problem problem_t;
-                //                    ceres::CostFunction* cost_function_t =
-                //                            new ceres::NumericDiffCostFunction<SE3, ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1>(
-                //                                new SE3());
-                //                    problem_t.AddResidualBlock(cost_function_t, NULL, &w1, &w2, &w3, &t1, &t2, &t3);
-                //                    ceres::Solver::Options options_t;
-                //                    options_t.update_state_every_iteration = true;
-                //                    options_t.num_threads = 6;
-                //                    ceres::Solver::Summary summary_t;
-                //                    ceres::Solve(options_t, &problem_t, &summary_t);
-
                 processEventTimer.stop();
 
                 LOG(INFO) << okvis::timing::Timing::print();
@@ -388,9 +376,9 @@ ev::count = 0;
 //                double error = difference.angle() / (end.toSec() - begin.toSec());
 
                 double error = (velocity - (Eigen::Vector3d()<<w[0],w[1],w[2]).finished()).norm();
-                LOG(INFO) << "\nw :\n" << w[0]
-                          << "\n" << w[1]
-                          << "\n" << w[2]
+                LOG(INFO) << "\nw :\n" << v[0]
+                          << "\n" << v[1]
+                          << "\n" << v[2]
                           << "\nz :\n" << z[0]
                           << "\n" << z[1]
                           << "\n" << z[2]

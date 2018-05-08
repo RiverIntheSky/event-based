@@ -34,7 +34,9 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     residuals[0] = 0;
     Eigen::Vector3d w;
     w << (*parameters)[0], (*parameters)[1], (*parameters)[2];
-    const double* const* z = parameters + 1;
+    Eigen::Vector3d v;
+    v << (*(parameters + 1))[0], (*(parameters + 1))[1], (*(parameters + 1))[2];
+    const double* const* z = parameters + 2;
 
     // derivatives of intensity with respect to each parameters
     std::vector<Eigen::MatrixXd> dIdw_;
@@ -48,10 +50,12 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
                 jacobians[i][j] = 0;
             }
         }
-        jacobians[1][3] = 0;
+        for (int i = 0; i != 4; i++) {
+            jacobians[2][i] = 0;
+        }
 
         Eigen::MatrixXd dIdw = Eigen::MatrixXd::Zero(param_.array_size_y * param_.array_size_x, 7);
-        Intensity(intensity, &dIdw, w, z);
+        Intensity(intensity, &dIdw, w, v, z);
 
         cv::Mat src, dst;
 
@@ -66,7 +70,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
         }
 
     } else {
-        Intensity(intensity, NULL, w, z);
+        Intensity(intensity, NULL, w, v, z);
     }
 
     double Im = intensity.mean();
@@ -78,10 +82,11 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
 
             if (jacobians != NULL && jacobians[0] != NULL) {
                 for (int i = 0; i != 3; i++) {
-                    jacobians[0][i] += rho * ((dIdw_[i])(y_, x_) - dIm[i]);
+                    jacobians[1][i] += rho * ((dIdw_[i])(y_, x_) - dIm[i]);
                 }
+
                 for (int i = 0; i != 4; i++) {
-                    jacobians[1][i] += rho * ((dIdw_[i + 3])(y_, x_) - dIm[i + 3]);
+                    jacobians[2][i] += rho * ((dIdw_[i + 3])(y_, x_) - dIm[i + 3]);
                 }
             }
 
@@ -93,27 +98,32 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     if (jacobians != NULL && jacobians[0] != NULL) {
         for (int i = 0; i != 3; i++) {
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
-            LOG(INFO) << "j:" << jacobians[0][i];
+            jacobians[0][i] = 0;
+//            LOG(INFO) << "j:" << jacobians[0][i];
+        }
+        for (int i = 0; i != 3; i++) {
+            jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / area);
+//            LOG(INFO) << "j:" << jacobians[1][i];
+//            jacobians[1][i] = 0;
         }
         for (int i = 0; i != 4; i++) {
             jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / area);
-            LOG(INFO) << "j:" << jacobians[1][i];
+//            jacobians[2][i]  = 1000;
         }
-        jacobians[0][2] *= 0;
     }
     return true;
 }
 
 void ComputeVarianceFunction::warp(Eigen::MatrixXd* dWdw, Eigen::Vector3d& x_w, Eigen::Vector3d& x,
-                                   okvis::Duration& t, Eigen::Vector3d& w, const double z) const {
+                                   okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, const double z) const {
     // z is the depth value of the first frame
     double t_ = t.toSec();
     if (w.norm() == 0 || t_ == 0) {
         x_w = x;
-        //        dWdw = Eigen::MatrixXd::Zero(2, 3);
     } else {
-        x_w = (z - w(2) * t_) * x + w * t_;
+        x_w = x + (w * t_).cross(x);
     }
+    x_w = (z - w(2) * t_) * x_w + v * t_;
 
     Eigen::Matrix3d cameraMatrix_;
     cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
@@ -124,17 +134,17 @@ void ComputeVarianceFunction::warp(Eigen::MatrixXd* dWdw, Eigen::Vector3d& x_w, 
     if (dWdw != NULL) {
 //        Eigen::MatrixXd dWdT = (cameraMatrix_ * (Eigen::Matrix3d::Identity()*t_-x_w*(Eigen::Vector3d() << 0, 0, t_).finished().transpose()/x_w(2))/x_w(2)).block(0, 0, 2, 3);
         Eigen::Vector3d dWdTx;
-        dWdTx << t_ / z, 0, 0;
+        dWdTx << 1, 0, 0;
         Eigen::Vector3d dWdTy;
-        dWdTy << 0, t_ / z, 0;
+        dWdTy << 0, 1, 0;
         Eigen::Vector3d dWdTz;
-        dWdTz << -(t_*x(0)) / z, -(t_*x(1)) / z, 0;
+        dWdTz = -x;
         //        dWdT.block(0, 2, 2, 1) += 0.03 / z * (Eigen::Vector2d() << x_w(0)/x_w(2), x_w(1)/x_w(2)).finished();
-        Eigen::Vector3d dWdz =  (t_ * (x * w(2) - w)) / (z * z);
+        Eigen::Vector3d dWdz =  (x * v(2) - v) / z;
 //        dWdz -= 0.03 * w(2) / (z * z) * (Eigen::Vector2d() << x_w(0)/x_w(2), x_w(1)/x_w(2)).finished();
         Eigen::MatrixXd dWdw_(3, 4);
         dWdw_ << dWdTx, dWdTy, dWdTz, dWdz;
-        (*dWdw) = (cameraMatrix_ * dWdw_).block(0, 0, 2, 4);
+        (*dWdw) = (cameraMatrix_ * t_ / z * dWdw_).block(0, 0, 2, 4);
     }
     x_w = cameraMatrix_ * x_w;
 }
@@ -186,7 +196,8 @@ void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<int>, d
     }
 }
 
-void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw, Eigen::Vector3d& w, const double* const* z) const {
+void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw,
+                                        Eigen::Vector3d& w, Eigen::Vector3d& v, const double* const* z) const {
     // divide scene into patches
     auto patch = [](double x, double y)  -> int {
         if (x >= 0 && y < 0)
@@ -212,11 +223,11 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
         auto t = it->timeStamp - t0;
         Eigen::MatrixXd dWdw;
         if (dIdw != NULL) {
-            warp(&dWdw, point_warped, p, t, w, (*z)[patch(p(0), p(1))]);
-            if (patch(p(0), p(1)) == 0)
-                dWdw.col(3) = Eigen::Vector2d::Zero();
+            warp(&dWdw, point_warped, p, t, w, v, (*z)[patch(p(0), p(1))]);
+//            if (patch(p(0), p(1)) == 0)
+//                dWdw.col(3) = Eigen::Vector2d::Zero();
         } else {
-            warp(NULL, point_warped, p, t, w, (*z)[patch(p(0), p(1))]);
+            warp(NULL, point_warped, p, t, w, v, (*z)[patch(p(0), p(1))]);
         }
 
         // z'/z
@@ -312,12 +323,12 @@ void Contrast::fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) {
 }
 
 void Contrast::synthesizeEventFrame(Eigen::MatrixXd &frame, std::shared_ptr<eventFrameMeasurement>& em) {
-    Intensity(frame, em, param, Eigen::Vector3d::Zero());
+    Intensity(frame, em_, param_, Eigen::Vector3d::Zero());
 }
 
 void Contrast::polarityEventFrame(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, bool po) {
     Eigen::Matrix3d cameraMatrix_;
-    cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
+    cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
     for(auto it = em->events.begin(); it != em->events.end(); it++) {
         if (it->measurement.p == po) {
             Eigen::Vector2d p(it->measurement.x, it->measurement.y);
@@ -364,6 +375,32 @@ void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasu
     cv::cv2eigen(dst, image);
 }
 
+//void Contrast::Intensity(Eigen::MatrixXd& image, Eigen::Vector3d& w, Eigen::Vector3d& v, double* z) {
+//    image = Eigen::MatrixXd::Zero(param_.array_size_y, param_.array_size_x);
+//    okvis::Time t0 = em_->events.front().timeStamp;
+//    Eigen::Matrix3d cameraMatrix_;
+//    cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
+//    for(auto it = em_->events.begin(); it != em_->events.end(); it++) {
+//        Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
+//        Eigen::Vector3d point_warped;
+
+//        // project to last frame
+//        auto t = it->timeStamp - t0;
+//        ComputeVarianceFunction::warp(NULL, point_warped, p, t, w, v, *z);
+
+//        // z'/z
+//        point_warped /= point_warped(2);
+//        Eigen::Vector2d point_camera_(point_warped(0), point_warped(1));
+
+//        fuse(image, point_camera_, it->measurement.p);
+
+//    }
+//    cv::Mat src, dst;
+//    cv::eigen2cv(image, src);
+//    cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
+//    cv::cv2eigen(dst, image);
+
+//}
 
 void SE3::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
                     Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr) {
@@ -395,7 +432,7 @@ void SE3::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasuremen
 double Contrast::getIntensity(int x, int y, Eigen::Vector3d& w) {
     if (x == 0 && y == 0) {
         intensity = Eigen::MatrixXd::Zero(180, 240);
-        Intensity(intensity, em, param, w);
+        Intensity(intensity, em_, param_, w);
     }
     return intensity(x, y);
 }
@@ -403,7 +440,7 @@ double Contrast::getIntensity(int x, int y, Eigen::Vector3d& w) {
 double SE3::getIntensity(int x, int y, Eigen::Vector3d& w, Eigen::Vector3d& tr) {
     if (x == 0 && y == 0) {
         intensity = Eigen::MatrixXd::Zero(180, 240);
-        Intensity(intensity, em, param, w, tr);
+        Intensity(intensity, em_, param_, w, tr);
     }
     return intensity(x, y);
 }
