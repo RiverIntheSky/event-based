@@ -2,11 +2,11 @@
 #include <fstream>
 #include "ThreadedEventIMU.h"
 #include <chrono>
-std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em = NULL;
+std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em_ = NULL;
 double ev::Contrast::events_number;
 Eigen::MatrixXd ev::Contrast::intensity = Eigen::Matrix3d::Zero();
 Eigen::MatrixXd ev::ComputeVarianceFunction::intensity = Eigen::Matrix3d::Zero();
-ev::Parameters ev::Contrast::param = ev::Parameters();
+ev::Parameters ev::Contrast::param_ = ev::Parameters();
 
 
 int main(int argc, char *argv[])
@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/slider_depth";
+    std::string path = "/home/weizhen/Documents/dataset/shapes_rotation";
 
     // open the events file
     std::string events_line;
