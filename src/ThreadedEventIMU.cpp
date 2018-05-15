@@ -156,7 +156,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
      std::default_random_engine gen;
 std::uniform_real_distribution<double> dis(-0.1, 0.1);
     double w[] = {0.0, 0.0, 0.0};
-//    double v[] = {1, 0, 0};
+    double v[] = {1, 0, 0};
     double z[] = {1.0, 1.0, 1.0, 1.0};
     std::vector<double*> params;
     params.push_back(w);
@@ -168,22 +168,22 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
     std::vector<std::vector<std::pair<double, double>>> estimatedPoses(3);
 
     Gnuplot gp;
-    std::vector<std::vector<std::pair<double, double>>> groudtruth(3);
+    std::vector<std::vector<std::pair<double, double>>> groundtruth(3);
 
     for (auto it = maconMeasurements_.begin(); it != maconMeasurements_.end(); it++) {
         Eigen::Quaterniond q = it->measurement.q;
         double euler[3];
         ev::quat2eul(q, euler);
         for (int i = 0; i < 3; i++) {
-            groudtruth[i].push_back(std::make_pair(it->timeStamp.toSec(), euler[i]));
+            groundtruth[i].push_back(std::make_pair(it->timeStamp.toSec(), euler[i]));
         }
     }
 
     gp << "set xrange [15:16]\n";
 
-//    gp << "plot" << gp.file1d(groudtruth[0]) << "with lines title 'roll',"
-//                 << gp.file1d(groudtruth[1]) << "with lines title 'pitch',"
-//                 << gp.file1d(groudtruth[2]) << "with lines title 'yaw'"
+//    gp << "plot" << gp.file1d(groundtruth[0]) << "with lines title 'roll',"
+//                 << gp.file1d(groundtruth[1]) << "with lines title 'pitch',"
+//                 << gp.file1d(groundtruth[2]) << "with lines title 'yaw'"
 //                                    << std::endl;
     Contrast::param_ = parameters_;
 ev::count = 0;
@@ -242,26 +242,18 @@ ev::count = 0;
 //                gp.flush();
 
                 undistortEvents(em);
-                Contrast::em_ = em;
+                ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
-                Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-                Contrast::synthesizeEventFrame(synthesizedFrame, em);
-                double cost = 0;
-                double mu = synthesizedFrame.mean();
-                for (int x_ = 0; x_ < 240; x_++) {
-                    for (int y_ = 0; y_ < 180; y_++) {
-                        cost += std::pow(synthesizedFrame(y_, x_) - mu, 2);
-                    }
+                Eigen::MatrixXd zero_motion;
+                double* initial_depth = new double[4];
+                for (int i = 0; i != 4; i++) {
+                    initial_depth[i] = 1.;
                 }
-                cost /= (240*180);
-
-                // adjust to ceres format
-                cost = 1./std::pow(cost, 2);
-                cost /= 2;
-
-                std::string caption =  "cost = " + std::to_string(cost);
-                ev::imshowRescaled(synthesizedFrame, 1, "zero motion", caption);
-
+                Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
+                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &initial_depth);
+                std::string caption =  "cost = " + std::to_string(contrastCost(zero_motion));
+                ev::imshowRescaled(zero_motion, 1, "zero motion", caption);
+                delete initial_depth;
 //                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
 //                Eigen::Matrix3d cameraMatrix_;
 //                cv::cv2eigen(parameters_.cameraMatrix, cameraMatrix_);
@@ -279,7 +271,7 @@ ev::count = 0;
 //                    cv::waitKey(3);
 //                }
 
-                bool positive = true;
+//                bool positive = true;
 
 //                synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
 //                Contrast::polarityEventFrame(synthesizedFrame, em, positive);
@@ -309,7 +301,10 @@ ev::count = 0;
                 LOG(INFO) << "events: " << em->events.size() << '\n';
                 LOG(INFO) << end << '\n';
 
-                LOG(INFO) << "ground truth:\n" << velocity;
+                LOG(INFO) << "\nground truth:\n"
+                          << "\nangular\n" << angularVelocity
+                          << "\nlinear\n" << velocity;
+
                 v[0] =  velocity(0);
                 v[1] =  velocity(1);
                 v[2] =  velocity(2);
@@ -318,25 +313,17 @@ ev::count = 0;
                 w[1] = angularVelocity(1);
                 w[2] = angularVelocity(2);
 
-//                Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-//                Contrast::Intensity(groundTruth, angularVelocity, velocity, z);
-//                // Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
+                Eigen::MatrixXd ground_truth;
+                double* groundtruth_depth = new double[4];
 
-//                cost = 0;
-//                mu = groundTruth.mean();
-//                for (int x_ = 0; x_ < 240; x_++) {
-//                    for (int y_ = 0; y_ < 180; y_++) {
-//                        cost += std::pow(groundTruth(y_, x_) - mu, 2);
-//                    }
-//                }
-//                cost /= (240*180);
+                groundtruth_depth[0] = 2.;
+                groundtruth_depth[1] = 2.;
+                groundtruth_depth[2] = 0.5;
+                groundtruth_depth[3] = 0.5;
 
-//                // adjust to ceres format
-//                cost = 1./std::pow(cost, 2);
-//                cost /= 2;
-
-//                caption = "cost = " + std::to_string(cost);
-//                ev::imshowRescaled(groundTruth, 1, "ground truth ", caption);
+                varianceVisualizer.Intensity(ground_truth, NULL, angularVelocity, velocity, &groundtruth_depth);
+                caption =  "cost = " + std::to_string(contrastCost(ground_truth));
+                ev::imshowRescaled(ground_truth, 1, "ground truth ", caption);
 
                 processEventTimer.start();
 
@@ -346,18 +333,12 @@ ev::count = 0;
                 ceres::Solver::Summary summary;
 
                 options.minimizer_progress_to_stdout = false;
-//                options.minimizer_type = ceres::LINE_SEARCH;
-//                options.line_search_type = ceres::ARMIJO;
 
                 ceres::Problem problem;
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
                 ev::imshowCallback callback(w, static_cast<ComputeVarianceFunction*>(cost_function));
                 options.callbacks.push_back(&callback);
                 problem.AddResidualBlock(cost_function, NULL, params);
-//                for (int i = 0; i < 3; i++) {
-//                    problem.SetParameterLowerBound(w, i, -5);
-//                    problem.SetParameterUpperBound(w, i, 5);
-//                }
                 ceres::Solve(options, &problem, &summary);
 
                 processEventTimer.stop();
@@ -461,6 +442,22 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
     Eigen::Quaterniond q = lo->measurement.q.slerp(dt, hi->measurement.q);
     pose(p, q);
     return true;
+}
+
+double ThreadedEventIMU::contrastCost(Eigen::MatrixXd& image) {
+    double cost = 0;
+    double mu = image.mean();
+    for (int x_ = 0; x_ < 240; x_++) {
+        for (int y_ = 0; y_ < 180; y_++) {
+            cost += std::pow(image(y_, x_) - mu, 2);
+        }
+    }
+    cost /= (240*180);
+
+    // adjust to ceres format
+    cost = 1./std::pow(cost, 2);
+    cost /= 2;
+    return cost;
 }
 
 }

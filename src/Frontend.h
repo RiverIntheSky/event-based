@@ -498,6 +498,7 @@ private:
     /// (re)instantiates feature detectors and descriptor extractors. Used after settings changed or at startup.
     void initialiseBriskFeatureDetectors();
 
+
 };
 
 }  // namespace okvis

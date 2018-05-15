@@ -123,7 +123,7 @@ void ComputeVarianceFunction::warp(Eigen::MatrixXd* dWdw, Eigen::Vector3d& x_w, 
     } else {
         x_w = x + (w * t_).cross(x);
     }
-    x_w = (z - w(2) * t_) * x_w + v * t_;
+//    x_w = (z - w(2) * t_) * x_w + v * t_;
 
     Eigen::Matrix3d cameraMatrix_;
     cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
@@ -210,7 +210,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
             return 3;
     };
 
-    image = Eigen::MatrixXd::Zero(param_.array_size_y, param_.array_size_x);  
+    image = Eigen::MatrixXd::Zero(param_.array_size_y, param_.array_size_x);
     okvis::Time t0 = em_->events.front().timeStamp;
     Eigen::Matrix3d cameraMatrix_;
     cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
