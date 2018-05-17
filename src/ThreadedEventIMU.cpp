@@ -213,7 +213,7 @@ ev::count = 0;
 
             if (em->counter_w == parameters_.window_size) {
                 for (int i = 0; i < 4; i++) {
-                     z[i] = 0.8;
+                     z[i] = 1.;
                 }
 
                 if (estimatedPose.q.norm() == 0) {
@@ -293,7 +293,12 @@ ev::count = 0;
                 Eigen::Vector3d velocity = (p2.p - p1.p) / (end.toSec() - begin.toSec());
 
                 // world transition
-                Eigen::Quaterniond transition = p2.q * (p1.q).inverse();
+                Eigen::Quaterniond transition;
+                if (p1.q.norm() == 0) {
+                    transition = p2.q;
+                } else {
+                    transition = p2.q * (p1.q).inverse();
+                }
                 Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
                 Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
 
@@ -305,9 +310,9 @@ ev::count = 0;
                           << "\nangular\n" << angularVelocity
                           << "\nlinear\n" << velocity;
 
-                v[0] =  velocity(0);
-                v[1] =  velocity(1);
-                v[2] =  velocity(2);
+//                v[0] =  velocity(0);
+//                v[1] =  velocity(1);
+//                v[2] =  velocity(2);
 
                 w[0] = angularVelocity(0);
                 w[1] = angularVelocity(1);
@@ -316,10 +321,10 @@ ev::count = 0;
                 Eigen::MatrixXd ground_truth;
                 double* groundtruth_depth = new double[4];
 
-                groundtruth_depth[0] = 2.;
-                groundtruth_depth[1] = 2.;
-                groundtruth_depth[2] = 0.5;
-                groundtruth_depth[3] = 0.5;
+                groundtruth_depth[0] = 1.63424;
+                groundtruth_depth[1] = 1.63424;
+                groundtruth_depth[2] = 1.63424;
+                groundtruth_depth[3] = 1.63424;
 
                 varianceVisualizer.Intensity(ground_truth, NULL, angularVelocity, velocity, &groundtruth_depth);
                 caption =  "cost = " + std::to_string(contrastCost(ground_truth));
@@ -356,7 +361,7 @@ ev::count = 0;
 //                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
 //                double error = difference.angle() / (end.toSec() - begin.toSec());
 
-                double error = (velocity - (Eigen::Vector3d()<<w[0],w[1],w[2]).finished()).norm();
+                double error = (velocity - (Eigen::Vector3d()<<v[0],v[1],v[2]).finished()).norm();
                 LOG(INFO) << "\nw :\n" << v[0]
                           << "\n" << v[1]
                           << "\n" << v[2]

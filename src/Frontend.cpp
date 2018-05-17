@@ -123,7 +123,7 @@ void ComputeVarianceFunction::warp(Eigen::MatrixXd* dWdw, Eigen::Vector3d& x_w, 
     } else {
         x_w = x + (w * t_).cross(x);
     }
-//    x_w = (z - w(2) * t_) * x_w + v * t_;
+    x_w = (z - v(2) * t_) / x_w(2) * x_w + v * t_;
 
     Eigen::Matrix3d cameraMatrix_;
     cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
