@@ -30,7 +30,7 @@ public:
 
     void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
 
-    void warp(Eigen::MatrixXd* dWdw, Eigen::Vector3d& x_w, Eigen::Vector3d &x,
+    void warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d &x,
               okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, const double z) const;
 
     void fuse(Eigen::MatrixXd& image, Eigen::Vector2d &p, bool& polarity) const;
@@ -136,7 +136,7 @@ public:
         if (summary.step_is_successful || summary.iteration == 0) {
             std::string caption = "cost = " + std::to_string(summary.cost);
             ev::imshowRescaled(c_->intensity, msec_, s_, caption);
-            LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
+//            LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
         }
         return ceres::SOLVER_CONTINUE;
     }

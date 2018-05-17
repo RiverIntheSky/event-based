@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/shapes_rotation";
+    std::string path = "/home/weizhen/Documents/dataset/shapes_translation";
 
     // open the events file
     std::string events_line;
@@ -72,10 +72,10 @@ int main(int argc, char *argv[])
         std::stringstream stream(groundtruth_line);
         std::string s;
         std::getline(stream, s, ' ');
-        std::string nanoseconds = s.substr(s.size() - 9, 9);
-        std::string seconds = s.substr(0, s.size() - 9);
+        std::string nanoseconds = s.substr(s.find("."));
+        std::string seconds = s.substr(0, s.find("."));
 
-        okvis::Time t_gt = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
+        okvis::Time t_gt = okvis::Time(std::stoi(seconds), std::stod(nanoseconds)*1e9);
 
         Eigen::Vector3d position;
         for (int j = 0; j < 3; ++j) {
@@ -137,9 +137,9 @@ ev_estimator.allGroundtruthAdded_ = true;
             std::stringstream stream_ev(events_line);
 
             std::getline(stream_ev, s, ' ');
-            nanoseconds = s.substr(s.size() - 9, 9);
-            seconds = s.substr(0, s.size() - 9);
-            t_ev = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
+            nanoseconds = s.substr(s.find("."));
+            seconds = s.substr(0, s.find("."));
+            t_ev = okvis::Time(std::stoi(seconds), std::stod(nanoseconds)*1e9);
 
             std::getline(stream_ev, s, ' ');
             unsigned int x = std::stoi(s);

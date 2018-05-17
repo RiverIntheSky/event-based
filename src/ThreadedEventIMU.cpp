@@ -147,16 +147,19 @@ void ThreadedEventIMU::imuConsumerLoop() {
 
 // Loop to process event measurements.
 void ThreadedEventIMU::eventConsumerLoop() {
+    std::cout.setf(std::ios::left);
+    std::cout.fill(' ');
+    std::cerr<< std::setw(31) << "e";
     LOG(INFO) << "I am event consumer loop";
 
     ev::EventMeasurement data;
     // ??
     TimerSwitchable processEventTimer("0 processEventMeasurements",true);
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
-     std::default_random_engine gen;
-std::uniform_real_distribution<double> dis(-0.1, 0.1);
+    std::default_random_engine gen;
+    std::uniform_real_distribution<double> dis(-0.1, 0.1);
     double w[] = {0.0, 0.0, 0.0};
-    double v[] = {1, 0, 0};
+    double v[] = {0, 0, 0};
     double z[] = {1.0, 1.0, 1.0, 1.0};
     std::vector<double*> params;
     params.push_back(w);
@@ -213,7 +216,7 @@ ev::count = 0;
 
             if (em->counter_w == parameters_.window_size) {
                 for (int i = 0; i < 4; i++) {
-                     z[i] = 1.;
+                     z[i] = 2;
                 }
 
                 if (estimatedPose.q.norm() == 0) {
@@ -302,21 +305,25 @@ ev::count = 0;
                 Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
                 Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
 
-                LOG(INFO) << begin;
-                LOG(INFO) << "events: " << em->events.size() << '\n';
-                LOG(INFO) << end << '\n';
+//                LOG(INFO) << begin;
+//                LOG(INFO) << "events: " << em->events.size() << '\n';
+//                LOG(INFO) << end << '\n';
 
-                LOG(INFO) << "\nground truth:\n"
-                          << "\nangular\n" << angularVelocity
-                          << "\nlinear\n" << velocity;
+                std::stringstream ss;
+                ss << "\nground truth:\n\n"
+                   << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
+                   << std::setw(15) << angularVelocity(0)  << std::setw(15) << velocity(0) << '\n'
+                   << std::setw(15) << angularVelocity(1)  << std::setw(15) << velocity(1) << '\n'
+                   << std::setw(15) << angularVelocity(2)  << std::setw(15) << velocity(2) << '\n';
 
+                LOG(INFO) << ss.str();
 //                v[0] =  velocity(0);
 //                v[1] =  velocity(1);
 //                v[2] =  velocity(2);
 
-                w[0] = angularVelocity(0);
-                w[1] = angularVelocity(1);
-                w[2] = angularVelocity(2);
+//                w[0] = angularVelocity(0);
+//                w[1] = angularVelocity(1);
+//                w[2] = angularVelocity(2);
 
                 Eigen::MatrixXd ground_truth;
                 double* groundtruth_depth = new double[4];
@@ -361,15 +368,16 @@ ev::count = 0;
 //                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
 //                double error = difference.angle() / (end.toSec() - begin.toSec());
 
+                ss.str(std::string());
+                ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << std::setw(15) << "depth :" << '\n'
+                   << std::setw(15) << w[0]  << std::setw(15) << v[0]  << std::setw(15) << z[0]  << '\n'
+                   << std::setw(15) << w[1]  << std::setw(15) << v[1]  << std::setw(15) << z[1]  << '\n'
+                   << std::setw(15) << w[2]  << std::setw(15) << v[2]  << std::setw(15) << z[2]  << '\n'
+                                             << std::setw(30) << ' ' << std::setw(15) << z[3];
+                LOG(INFO) << ss.str();
+
                 double error = (velocity - (Eigen::Vector3d()<<v[0],v[1],v[2]).finished()).norm();
-                LOG(INFO) << "\nw :\n" << v[0]
-                          << "\n" << v[1]
-                          << "\n" << v[2]
-                          << "\nz :\n" << z[0]
-                          << "\n" << z[1]
-                          << "\n" << z[2]
-                          << "\n" << z[3];
-               LOG(INFO) << "error: " << error << " rad/s";
+                LOG(INFO) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 
                 eventFrames.pop_front();
