@@ -15,6 +15,8 @@ struct Parameters
     unsigned array_size_y{180};
     cv::Mat cameraMatrix{cv::Mat::eye(3, 3, CV_64F)};
     cv::Vec<double, 5> distCoeffs;
+    unsigned patch_width{60};
+    unsigned patch_num{std::ceil(array_size_x/patch_width) * std::ceil(array_size_y/patch_width)};
     Parameters() {}
 };
 }

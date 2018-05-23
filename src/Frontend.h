@@ -16,7 +16,7 @@
 /// \brief okvis Main namespace of this package.
 namespace ev {
 extern int count;
-class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 3, 4> {
+class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 3, 12> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     ComputeVarianceFunction(std::shared_ptr<eventFrameMeasurement> em, Parameters parameters):
@@ -137,7 +137,7 @@ public:
             std::string caption = "cost = " + std::to_string(summary.cost);
             ev::imshowRescaled(c_->intensity, msec_, s_, caption);
 //            LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
-        }
+        }        
         return ceres::SOLVER_CONTINUE;
     }
 

@@ -160,7 +160,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::uniform_real_distribution<double> dis(-0.1, 0.1);
     double w[] = {0.0, 0.0, 0.0};
     double v[] = {0, 0, 0};
-    double z[] = {1.0, 1.0, 1.0, 1.0};
+    double z[parameters_.patch_num] = {};
+    LOG(INFO)<<parameters_.patch_num;
     std::vector<double*> params;
     params.push_back(w);
     params.push_back(v);
@@ -189,7 +190,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //                 << gp.file1d(groundtruth[2]) << "with lines title 'yaw'"
 //                                    << std::endl;
     Contrast::param_ = parameters_;
-ev::count = 0;
+
     for (;;) {
         // get data and check for termination request
         if (eventMeasurementsReceived_.PopBlocking(&data) == false) {
@@ -215,7 +216,7 @@ ev::count = 0;
             auto em = eventFrames.front();
 
             if (em->counter_w == parameters_.window_size) {
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < parameters_.patch_num; i++) {
                      z[i] = 2;
                 }
 
@@ -248,14 +249,16 @@ ev::count = 0;
                 ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
                 Eigen::MatrixXd zero_motion;
-                double* initial_depth = new double[4];
-                for (int i = 0; i != 4; i++) {
+                double* initial_depth = new double[parameters_.patch_num];
+                for (unsigned i = 0; i != parameters_.patch_num; i++) {
                     initial_depth[i] = 1.;
                 }
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
                 varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &initial_depth);
                 std::string caption =  "cost = " + std::to_string(contrastCost(zero_motion));
+#if show_optimizing_result
                 ev::imshowRescaled(zero_motion, 1, "zero motion", caption);
+#endif
                 delete initial_depth;
 //                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
 //                Eigen::Matrix3d cameraMatrix_;
@@ -294,6 +297,8 @@ ev::count = 0;
                 interpolateGroundtruth(p1, begin);
                 interpolateGroundtruth(p2, end);
                 Eigen::Vector3d velocity = (p2.p - p1.p) / (end.toSec() - begin.toSec());
+                // blender coordinate
+                // velocity(1) = -velocity(1);
 
                 // world transition
                 Eigen::Quaterniond transition;
@@ -324,18 +329,19 @@ ev::count = 0;
 //                w[0] = angularVelocity(0);
 //                w[1] = angularVelocity(1);
 //                w[2] = angularVelocity(2);
-
+#if show_optimizing_result
                 Eigen::MatrixXd ground_truth;
-                double* groundtruth_depth = new double[4];
+                double* groundtruth_depth = new double[parameters_.patch_num];
 
-                groundtruth_depth[0] = 1.63424;
-                groundtruth_depth[1] = 1.63424;
-                groundtruth_depth[2] = 1.63424;
-                groundtruth_depth[3] = 1.63424;
+                for (unsigned i = 0; i != parameters_.patch_num; i++) {
+                    groundtruth_depth[i] = 1.63424;
+                }
 
                 varianceVisualizer.Intensity(ground_truth, NULL, angularVelocity, velocity, &groundtruth_depth);
                 caption =  "cost = " + std::to_string(contrastCost(ground_truth));
                 ev::imshowRescaled(ground_truth, 1, "ground truth ", caption);
+                delete groundtruth_depth;
+#endif
 
                 processEventTimer.start();
 
@@ -348,10 +354,17 @@ ev::count = 0;
 
                 ceres::Problem problem;
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
+#if show_optimizing_result
                 ev::imshowCallback callback(w, static_cast<ComputeVarianceFunction*>(cost_function));
                 options.callbacks.push_back(&callback);
+#endif
                 problem.AddResidualBlock(cost_function, NULL, params);
                 ceres::Solve(options, &problem, &summary);
+#if !show_optimizing_result
+                ev::imshowRescaled(zero_motion, 1, "zero motion", caption);
+                ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
+                                   1, "", "cost = " + std::to_string(summary.final_cost));
+#endif
 
                 processEventTimer.stop();
 
@@ -369,11 +382,18 @@ ev::count = 0;
 //                double error = difference.angle() / (end.toSec() - begin.toSec());
 
                 ss.str(std::string());
-                ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << std::setw(15) << "depth :" << '\n'
-                   << std::setw(15) << w[0]  << std::setw(15) << v[0]  << std::setw(15) << z[0]  << '\n'
-                   << std::setw(15) << w[1]  << std::setw(15) << v[1]  << std::setw(15) << z[1]  << '\n'
-                   << std::setw(15) << w[2]  << std::setw(15) << v[2]  << std::setw(15) << z[2]  << '\n'
-                                             << std::setw(30) << ' ' << std::setw(15) << z[3];
+                ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
+                   << std::setw(15) << w[0]  << std::setw(15) << v[0] << '\n'
+                   << std::setw(15) << w[1]  << std::setw(15) << v[1] << '\n'
+                   << std::setw(15) << w[2]  << std::setw(15) << v[2] << '\n';
+
+                LOG(INFO) << ss.str();
+                std::string s("\ndepth :");
+                for (unsigned i = 0; i != parameters_.patch_num; i++) {
+                    s = s + " " + std::to_string(z[i]);
+                }
+                s += '\n';
+                ss.str(s);
                 LOG(INFO) << ss.str();
 
                 double error = (velocity - (Eigen::Vector3d()<<v[0],v[1],v[2]).finished()).norm();

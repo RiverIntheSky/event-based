@@ -37,6 +37,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     Eigen::Vector3d v;
     v << (*(parameters + 1))[0], (*(parameters + 1))[1], (*(parameters + 1))[2];
     const double* const* z = parameters + 2;
+    int patch_num = 12;
 
     // derivatives of intensity with respect to each parameters
     std::vector<Eigen::MatrixXd> dIdw_;
@@ -50,16 +51,16 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
                 jacobians[i][j] = 0;
             }
         }
-        for (int i = 0; i != 4; i++) {
+        for (int i = 0; i != patch_num; i++) {
             jacobians[2][i] = 0;
         }
 
-        Eigen::MatrixXd dIdw = Eigen::MatrixXd::Zero(param_.array_size_y * param_.array_size_x, 10);
+        Eigen::MatrixXd dIdw = Eigen::MatrixXd::Zero(param_.array_size_y * param_.array_size_x, 6+patch_num);
         Intensity(intensity, &dIdw, w, v, z);
 
         cv::Mat src, dst;
 
-        for (int i = 0; i != 10; i++){
+        for (int i = 0; i != 6+patch_num; i++){
             Eigen::MatrixXd d = dIdw.col(i);
             d.resize(180, 240);
             cv::eigen2cv(d, src);
@@ -67,7 +68,6 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             cv::cv2eigen(dst, d);
             dIdw_.push_back(d);
             dIm.push_back(d.mean());
-            LOG(INFO) << "Im:" << d.mean();
         }
 
     } else {
@@ -88,7 +88,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
                 for (int i = 0; i != 3; i++) {
                     jacobians[1][i] += rho * ((dIdw_[i + 3])(y_, x_) - dIm[i + 3]);
                 }
-                for (int i = 0; i != 4; i++) {
+                for (int i = 0; i != patch_num; i++) {
                     jacobians[2][i] += rho * ((dIdw_[i + 6])(y_, x_) - dIm[i + 6]);
                 }
             }
@@ -101,16 +101,17 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     if (jacobians != NULL && jacobians[0] != NULL) {
         for (int i = 0; i != 3; i++) {
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
-             LOG(INFO) << "jw:" << jacobians[0][i];
+//            LOG(INFO) << "jw:" << jacobians[0][i];
+//            jacobians[0][i] = 0;
         }
         for (int i = 0; i != 3; i++) {
             jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / area);
-            LOG(INFO) << "jv:" << jacobians[1][i];
+//            LOG(INFO) << "jv:" << jacobians[1][i];
 //            jacobians[1][i] = 0;
         }
-        for (int i = 0; i != 4; i++) {
+        for (int i = 0; i != patch_num; i++) {
             jacobians[2][i] *= (-2 * std::pow(residuals[0], 2) / area);
-            LOG(INFO) << "jz:" << jacobians[2][i];
+//            LOG(INFO) << "jz:" << jacobians[2][i];
 //            jacobians[2][i]  = 1000;
         }
     }
@@ -215,22 +216,27 @@ void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<int>, d
 
 void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw,
                                         Eigen::Vector3d& w, Eigen::Vector3d& v, const double* const* z) const {
-    // divide scene into patches
-    auto patch = [](double x, double y)  -> int {
-        if (x >= 0 && y < 0)
-            return 0;
-        if (x < 0 && y < 0)
-            return 1;
-        if (x < 0 && y >= 0)
-            return 2;
-        else
-            return 3;
-    };
+
 
     image = Eigen::MatrixXd::Zero(param_.array_size_y, param_.array_size_x);
     okvis::Time t0 = em_->events.front().timeStamp;
     Eigen::Matrix3d cameraMatrix_;
     cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
+
+    // helper function, truncates value outside a range
+    auto truncate = [](int value, int min_value, int max_value) -> int {
+        return std::min(std::max(value, min_value), max_value);
+    };
+
+    // divide scene into patches
+    auto& param = param_;
+    auto patch = [&param, cameraMatrix_, truncate](Eigen::Vector3d p)  -> int {
+        Eigen::Vector3d p_ = cameraMatrix_ * p;
+        int patch_num_x = std::ceil(param.array_size_x / param.patch_width);
+        int patch_num_y = std::ceil(param.array_size_y / param.patch_width);
+        return truncate(std::floor(p_(0)/param.patch_width), 0, patch_num_y-1) * patch_num_y
+                + truncate(std::floor(p_(1)/param.patch_width), 0, patch_num_x-1);
+    };
 
     for(auto it = em_->events.begin(); it != em_->events.end(); it++) {
         Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
@@ -240,11 +246,11 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
         auto t = it->timeStamp - t0;
         Eigen::MatrixXd dW;
         if (dIdw != NULL) {
-            warp(&dW, point_warped, p, t, w, v, (*z)[patch(p(0), p(1))]);
-//            if (patch(p(0), p(1)) == 0)
+            warp(&dW, point_warped, p, t, w, v, (*z)[patch(p)]);
+//            if (patch(p) == 0)
 //                dW.col(6) = Eigen::Vector2d::Zero();
         } else {
-            warp(NULL, point_warped, p, t, w, v, (*z)[patch(p(0), p(1))]);
+            warp(NULL, point_warped, p, t, w, v, (*z)[patch(p)]);
         }
 
         // z'/z
@@ -257,7 +263,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
             biInterp(pixel_weight, point_camera_, it->measurement.p);
             for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
                 std::vector<int> p_ = p_it->first;
-                int patch_nr = patch(p(0), p(1));
+                int patch_nr = patch(p);
                 double dc = point_warped(0) - p_[0];
                 double dr = point_warped(1) - p_[1];
 

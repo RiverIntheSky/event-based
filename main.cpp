@@ -7,7 +7,7 @@ double ev::Contrast::events_number;
 Eigen::MatrixXd ev::Contrast::intensity = Eigen::Matrix3d::Zero();
 Eigen::MatrixXd ev::ComputeVarianceFunction::intensity = Eigen::Matrix3d::Zero();
 ev::Parameters ev::Contrast::param_ = ev::Parameters();
-
+#define show_optimizing_result false;
 
 int main(int argc, char *argv[])
 {

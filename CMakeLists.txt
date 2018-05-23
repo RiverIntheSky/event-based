@@ -20,7 +20,6 @@ include_directories(BEFORE ${OpenCV_INCLUDE_DIRS})
 find_package( okvis REQUIRED)
 include_directories(${OKVIS_INCLUDE_DIRS})
 
-
 # require brisk
 find_package( brisk 2 REQUIRED)
 include_directories(${BRISK_INCLUDE_DIRS})
