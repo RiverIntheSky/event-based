@@ -257,7 +257,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &initial_depth);
                 std::string caption =  "cost = " + std::to_string(contrastCost(zero_motion));
 #if show_optimizing_result
-                ev::imshowRescaled(zero_motion, 1, "zero motion", caption);
+                ev::imshowRescaled(zero_motion, 1e5, "zero motion", caption);
 #endif
                 delete initial_depth;
 //                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
@@ -339,7 +339,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 varianceVisualizer.Intensity(ground_truth, NULL, angularVelocity, velocity, &groundtruth_depth);
                 caption =  "cost = " + std::to_string(contrastCost(ground_truth));
-                ev::imshowRescaled(ground_truth, 1, "ground truth ", caption);
+                ev::imshowRescaled(ground_truth, 1e5, "ground truth ", caption);
                 delete groundtruth_depth;
 #endif
 
@@ -361,9 +361,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 problem.AddResidualBlock(cost_function, NULL, params);
                 ceres::Solve(options, &problem, &summary);
 #if !show_optimizing_result
-                ev::imshowRescaled(zero_motion, 1, "zero motion", caption);
+                ev::imshowRescaled(zero_motion, 1e5, "zero motion", caption);
                 ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
-                                   1, "", "cost = " + std::to_string(summary.final_cost));
+                                   1e5, "optimized", "cost = " + std::to_string(summary.final_cost));
 #endif
 
                 processEventTimer.stop();

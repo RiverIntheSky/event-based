@@ -144,7 +144,7 @@ public:
 private:
     double* w_;
     ComputeVarianceFunction* c_;
-    int msec_ = 1;
+    int msec_ = 1e5;
     std::string s_ = "optimizing";
 };
 
