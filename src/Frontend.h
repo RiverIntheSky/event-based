@@ -39,7 +39,7 @@ public:
 
     void fuse(Eigen::SparseMatrix<double> &image, Eigen::Vector2d &p, bool& polarity) const;
 
-    void Intensity(Eigen::SparseMatrix<double> &image, Eigen::MatrixXd* dIdw, Eigen::Vector3d& w, Eigen::Vector3d& v, const double * const *z) const;
+    void Intensity(Eigen::SparseMatrix<double>& image, Eigen::SparseMatrix<double>* dIdw, Eigen::Vector3d& w, Eigen::Vector3d& v, const double * const *z) const;
 
     std::shared_ptr<eventFrameMeasurement> em_;
     Parameters param_;
