@@ -174,16 +174,16 @@ void ThreadedEventIMU::eventConsumerLoop() {
     Gnuplot gp;
     std::vector<std::vector<std::pair<double, double>>> groundtruth(3);
 
-    for (auto it = maconMeasurements_.begin(); it != maconMeasurements_.end(); it++) {
-        Eigen::Quaterniond q = it->measurement.q;
-        double euler[3];
-        ev::quat2eul(q, euler);
-        for (int i = 0; i < 3; i++) {
-            groundtruth[i].push_back(std::make_pair(it->timeStamp.toSec(), euler[i]));
-        }
-    }
+//    for (auto it = maconMeasurements_.begin(); it != maconMeasurements_.end(); it++) {
+//        Eigen::Quaterniond q = it->measurement.q;
+//        double euler[3];
+//        ev::quat2eul(q, euler);
+//        for (int i = 0; i < 3; i++) {
+//            groundtruth[i].push_back(std::make_pair(it->timeStamp.toSec(), euler[i]));
+//        }
+//    }
 
-    gp << "set xrange [15:16]\n";
+    gp << "set xrange [0:20]\n";
 
 //    gp << "plot" << gp.file1d(groundtruth[0]) << "with lines title 'roll',"
 //                 << gp.file1d(groundtruth[1]) << "with lines title 'pitch',"
@@ -198,6 +198,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
             LOG(INFO) << "size " << eventMeasurementsReceived_.Size();
             return;
         }
+
 
         //        okvis::Time start;
         //        const okvis::Time* end;  // do not need to copy end timestamp
@@ -220,35 +221,21 @@ void ThreadedEventIMU::eventConsumerLoop() {
                      z[i] = 2;
                 }
 
-                if (estimatedPose.q.norm() == 0) {
-                    interpolateGroundtruth(estimatedPose, em->events.begin()->timeStamp);
-                }
-                double euler[3];
-                ev::quat2eul(estimatedPose.q, euler);
+//                if (estimatedPose.q.norm() == 0) {
+//                    interpolateGroundtruth(estimatedPose, em->events.begin()->timeStamp);
+//                }
+//                double euler[3];
+//                ev::quat2eul(estimatedPose.q, euler);
 
-                for (int i = 0; i < 3; i++) {
-                    estimatedPoses[i].push_back(std::make_pair(em->events.begin()->timeStamp.toSec(), euler[i]));
-                }
+//                for (int i = 0; i < 3; i++) {
+//                    estimatedPoses[i].push_back(std::make_pair(em->events.begin()->timeStamp.toSec(), euler[i]));
+//                }
 
-//                gp << "plot '-' binary" << gp.binFmt1d(groudtruth[0], "record") << "with lines title 'roll',"
-//                   << "'-' binary" << gp.binFmt1d(groudtruth[1], "record") << "with lines title 'pitch',"
-//                   << "'-' binary" << gp.binFmt1d(groudtruth[2], "record") << "with lines title 'yaw',"
-//                   << "'-' binary" << gp.binFmt1d(estimatedPoses[0], "record") << "with lines title 'roll_',"
-//                   << "'-' binary" << gp.binFmt1d(estimatedPoses[1], "record") << "with lines title 'pitch_',"
-//                   << "'-' binary" << gp.binFmt1d(estimatedPoses[2], "record") << "with lines title 'yaw_'\n";
-
-//                gp.sendBinary1d(groudtruth[0]);
-//                gp.sendBinary1d(groudtruth[1]);
-//                gp.sendBinary1d(groudtruth[2]);
-//                gp.sendBinary1d(estimatedPoses[0]);
-//                gp.sendBinary1d(estimatedPoses[1]);
-//                gp.sendBinary1d(estimatedPoses[2]);
-//                gp.flush();
 
                 undistortEvents(em);
                 ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
-                Eigen::MatrixXd zero_motion;
+                Eigen::SparseMatrix<double> zero_motion;
                 double* initial_depth = new double[parameters_.patch_num];
                 for (unsigned i = 0; i != parameters_.patch_num; i++) {
                     initial_depth[i] = 1.;
@@ -256,9 +243,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
                 varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &initial_depth);
                 std::string caption =  "cost = " + std::to_string(contrastCost(zero_motion));
-#if show_optimizing_result
-                ev::imshowRescaled(zero_motion, 1e5, "zero motion", caption);
-#endif
+//#if show_optimizing_process
+                ev::imshowRescaled(zero_motion, 20, "zero motion", caption);
+//#endif
                 delete initial_depth;
 //                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
 //                Eigen::Matrix3d cameraMatrix_;
@@ -294,20 +281,21 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 // ???
 
                 ev::Pose p1, p2;
-                interpolateGroundtruth(p1, begin);
-                interpolateGroundtruth(p2, end);
-                Eigen::Vector3d velocity = (p2.p - p1.p) / (end.toSec() - begin.toSec());
-                // blender coordinate
-                // velocity(1) = -velocity(1);
+                // of camera
+                Eigen::Vector3d linear_velocity;
+                Eigen::Quaterniond angular_velocity;
+;
 
-                // world transition
-                Eigen::Quaterniond transition;
-                if (p1.q.norm() == 0) {
-                    transition = p2.q;
+                if (interpolateGroundtruth(p1, begin) && interpolateGroundtruth(p2, end)) {
+                    linear_velocity = (p2.p - p1.p) / (end.toSec() - begin.toSec());
+                    // blender coordinate
+                    // linear_velocity(1) = -linear_velocity(1)
+                    angular_velocity = p2.q * (p1.q).inverse();
                 } else {
-                    transition = p2.q * (p1.q).inverse();
+                    linear_velocity = Eigen::Vector3d(0, 0, 0);
+                    angular_velocity = Eigen::Quaterniond(1, 0, 0, 0);
                 }
-                Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
+                Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(angular_velocity);
                 Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
 
 //                LOG(INFO) << begin;
@@ -317,9 +305,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 std::stringstream ss;
                 ss << "\nground truth:\n\n"
                    << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
-                   << std::setw(15) << angularVelocity(0)  << std::setw(15) << velocity(0) << '\n'
-                   << std::setw(15) << angularVelocity(1)  << std::setw(15) << velocity(1) << '\n'
-                   << std::setw(15) << angularVelocity(2)  << std::setw(15) << velocity(2) << '\n';
+                   << std::setw(15) << angularVelocity(0)  << std::setw(15) << linear_velocity(0) << '\n'
+                   << std::setw(15) << angularVelocity(1)  << std::setw(15) << linear_velocity(1) << '\n'
+                   << std::setw(15) << angularVelocity(2)  << std::setw(15) << linear_velocity(2) << '\n';
 
                 LOG(INFO) << ss.str();
 //                v[0] =  velocity(0);
@@ -329,17 +317,17 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //                w[0] = angularVelocity(0);
 //                w[1] = angularVelocity(1);
 //                w[2] = angularVelocity(2);
-#if show_optimizing_result
-                Eigen::MatrixXd ground_truth;
+#if show_optimizing_process
+                Eigen::SparseMatrix<double> ground_truth;
                 double* groundtruth_depth = new double[parameters_.patch_num];
 
                 for (unsigned i = 0; i != parameters_.patch_num; i++) {
                     groundtruth_depth[i] = 1.63424;
                 }
 
-                varianceVisualizer.Intensity(ground_truth, NULL, angularVelocity, velocity, &groundtruth_depth);
+                varianceVisualizer.Intensity(ground_truth, NULL, angularVelocity, linear_velocity, &groundtruth_depth);
                 caption =  "cost = " + std::to_string(contrastCost(ground_truth));
-                ev::imshowRescaled(ground_truth, 1e5, "ground truth ", caption);
+                ev::imshowRescaled(ground_truth, 1, "ground truth ", caption);
                 delete groundtruth_depth;
 #endif
 
@@ -354,17 +342,35 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 ceres::Problem problem;
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
-#if show_optimizing_result
                 ev::imshowCallback callback(w, static_cast<ComputeVarianceFunction*>(cost_function));
                 options.callbacks.push_back(&callback);
-#endif
                 problem.AddResidualBlock(cost_function, NULL, params);
                 ceres::Solve(options, &problem, &summary);
-#if !show_optimizing_result
-                ev::imshowRescaled(zero_motion, 1e5, "zero motion", caption);
+#if !show_optimizing_process
+                ev::imshowRescaled(zero_motion, 1, "zero motion", caption);
                 ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
-                                   1e5, "optimized", "cost = " + std::to_string(summary.final_cost));
+                                   1, "optimized", "cost = " + std::to_string(summary.final_cost));
 #endif
+
+                for (int i = 0; i < 3; i++) {
+                    groundtruth[i].push_back(std::make_pair(end.toSec(), angularVelocity(i)));
+                    estimatedPoses[i].push_back(std::make_pair(end.toSec(), w[i]));
+                }
+
+                gp << "plot '-' binary" << gp.binFmt1d(groundtruth[0], "record") << "with lines title 'w^1',"
+                   << "'-' binary" << gp.binFmt1d(groundtruth[1], "record") << "with lines title 'w^2',"
+                   << "'-' binary" << gp.binFmt1d(groundtruth[2], "record") << "with lines title 'w^3',"
+                   << "'-' binary" << gp.binFmt1d(estimatedPoses[0], "record") << "with lines title 'w^1_{estimated}',"
+                   << "'-' binary" << gp.binFmt1d(estimatedPoses[1], "record") << "with lines title 'w^2_{estimated}',"
+                   << "'-' binary" << gp.binFmt1d(estimatedPoses[2], "record") << "with lines title 'w^3_{estimated}'\n";
+
+                gp.sendBinary1d(groundtruth[0]);
+                gp.sendBinary1d(groundtruth[1]);
+                gp.sendBinary1d(groundtruth[2]);
+                gp.sendBinary1d(estimatedPoses[0]);
+                gp.sendBinary1d(estimatedPoses[1]);
+                gp.sendBinary1d(estimatedPoses[2]);
+                gp.flush();
 
                 processEventTimer.stop();
 
@@ -396,7 +402,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 ss.str(s);
                 LOG(INFO) << ss.str();
 
-                double error = (velocity - (Eigen::Vector3d()<<v[0],v[1],v[2]).finished()).norm();
+                double error = (linear_velocity - (Eigen::Vector3d()<<v[0],v[1],v[2]).finished()).norm();
                 LOG(INFO) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 
@@ -453,8 +459,18 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
     int stepSize = maconMeasurements_.size();
     auto lo = maconMeasurements_.begin();
     auto hi = lo + stepSize - 1;
-    if (timeStamp > hi->timeStamp || timeStamp < lo->timeStamp)
+    if (timeStamp > hi->timeStamp) {
+        Eigen::Vector3d p = hi->measurement.p;
+        Eigen::Quaterniond q = hi->measurement.q;
+        pose(p, q);
         return false;
+    } else if (timeStamp < lo->timeStamp) {
+        Eigen::Vector3d p = lo->measurement.p;
+        Eigen::Quaterniond q = lo->measurement.q;
+        pose(p, q);
+        return false;
+    }
+
     while (stepSize != 1) {
         stepSize /= 2;
         auto mid = lo + stepSize;
@@ -477,14 +493,20 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
     return true;
 }
 
-double ThreadedEventIMU::contrastCost(Eigen::MatrixXd& image) {
+double ThreadedEventIMU::contrastCost(Eigen::SparseMatrix<double>& image) {
+    // average intensity
+    double mu = image.sum() / (240*180);
+
+    // cost
     double cost = 0;
-    double mu = image.mean();
-    for (int x_ = 0; x_ < 240; x_++) {
-        for (int y_ = 0; y_ < 180; y_++) {
-            cost += std::pow(image(y_, x_) - mu, 2);
+    for (int s = 0; s < image.outerSize(); ++s) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(image, s); it; ++it) {
+            double rho = it.value() - mu;
+            cost += std::pow(rho, 2);
         }
     }
+
+    cost += ((240 * 180) - image.nonZeros()) * std::pow(mu, 2);
     cost /= (240*180);
 
     // adjust to ceres format

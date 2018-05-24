@@ -2,6 +2,8 @@
 
 #include <mutex>
 #include <limits>
+#include <chrono>
+typedef std::chrono::high_resolution_clock Clock;
 
 #include <okvis/assert_macros.hpp>
 #include <okvis/Estimator.hpp>
@@ -9,9 +11,11 @@
 #include <okvis/timing/Timer.hpp>
 #include <okvis/DenseMatcher.hpp>
 #include <Eigen/StdVector>
+#include <Eigen/Sparse>
 #include "parameters.h"
 #include "event.h"
 #include "util/utils.h"
+#define show_optimizing_process true
 
 /// \brief okvis Main namespace of this package.
 namespace ev {
@@ -33,14 +37,14 @@ public:
     void warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d &x,
               okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, const double z) const;
 
-    void fuse(Eigen::MatrixXd& image, Eigen::Vector2d &p, bool& polarity) const;
+    void fuse(Eigen::SparseMatrix<double> &image, Eigen::Vector2d &p, bool& polarity) const;
 
-    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw, Eigen::Vector3d& w, Eigen::Vector3d& v, const double * const *z) const;
+    void Intensity(Eigen::SparseMatrix<double> &image, Eigen::MatrixXd* dIdw, Eigen::Vector3d& w, Eigen::Vector3d& v, const double * const *z) const;
 
     std::shared_ptr<eventFrameMeasurement> em_;
     Parameters param_;
     int kernelSize = 3;
-    static Eigen::MatrixXd intensity;
+    static Eigen::SparseMatrix<double> intensity;
 };
 
 
@@ -133,18 +137,22 @@ public:
     imshowCallback(double* w, ComputeVarianceFunction* c): w_(w), c_(c) {}
 
     ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
+#if show_optimizing_process
         if (summary.step_is_successful || summary.iteration == 0) {
             std::string caption = "cost = " + std::to_string(summary.cost);
             ev::imshowRescaled(c_->intensity, msec_, s_, caption);
 //            LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
-        }        
+        }
+#else
+        LOG(INFO) << "step_solver_time_in_nanoseconds "<< summary.step_solver_time_in_seconds * 1e9;
+#endif
         return ceres::SOLVER_CONTINUE;
     }
 
 private:
     double* w_;
     ComputeVarianceFunction* c_;
-    int msec_ = 1e5;
+    int msec_ = 1;
     std::string s_ = "optimizing";
 };
 

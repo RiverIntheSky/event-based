@@ -5,6 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <ceres/ceres.h>
 #include <okvis/Measurements.hpp>
+#include <Eigen/Sparse>
 
 namespace ev {
 class parameterReader
@@ -44,6 +45,7 @@ typedef okvis::Measurement<Pose> MaconMeasurement;
 // map entries in src to [0, 1]
 void imshowRescaled(const cv::Mat& src, int msec = 0, std::string title = "image", std::string text = "");
 void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string title = "image", std::string text = "");
+void imshowRescaled(Eigen::SparseMatrix<double> &src_, int msec = 0, std::string title = "image", std::string text = "");
 void quat2eul(Eigen::Quaterniond& q, double* euler);
 Eigen::Matrix3d skew(Eigen::Vector3d& v);
 }
