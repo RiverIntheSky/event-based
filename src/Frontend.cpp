@@ -46,7 +46,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     // the mean of the derivatives
     std::vector<double> dIm;
 
-    auto start = Clock::now();
+    // auto start = Clock::now();
 
     if (jacobians != NULL && jacobians[0] != NULL) {
 
@@ -61,8 +61,8 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
 
         Eigen::SparseMatrix<double> dIdw(param_.array_size_y * param_.array_size_x, 6 + patch_num);
         Intensity(intensity, &dIdw, w, v, z);
-        LOG(INFO) << "derivative & intensity " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
-                  << " nanoseconds";
+        /*LOG(INFO) << "derivative & intensity " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
+                  << " nanoseconds";*/
         cv::Mat src, dst;
 
         for (int i = 0; i != 6 + patch_num; i++){
@@ -77,13 +77,13 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
 
     } else {
         Intensity(intensity, NULL, w, v, z);
-        LOG(INFO) << "intensity " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
-                  << " nanoseconds";
+        /*LOG(INFO) << "intensity " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
+                  << " nanoseconds";*/
     }
 
-    start = Clock::now();
-
-    double Im = intensity.sum() / (240*180);
+    // start = Clock::now();
+    // intensity.sum() somehow incorrect?
+    double Im = (intensity * Eigen::VectorXd::Ones(intensity.cols())).sum() / area;
 
     for (int s = 0; s < intensity.outerSize(); ++s) {
         for (Eigen::SparseMatrix<double>::InnerIterator it(intensity, s); it; ++it) {
@@ -107,9 +107,6 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             }
         }
     }
-    LOG(INFO) << "i nonzeros " << intensity.nonZeros();
-    if (jacobians != NULL && jacobians[0] != NULL)
-        LOG(INFO) << "di nonzeros " << (dIdw_[0]).nonZeros();
     residuals[0] += (area - intensity.nonZeros()) * std::pow(Im, 2);
 
     residuals[0] /= area;
@@ -135,13 +132,13 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
 //            jacobians[2][i]  = 1000;
         }
     }
-    if (jacobians != NULL && jacobians[0] != NULL) {
-        LOG(INFO) << "jacobian & residual " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
-                  << " nanoseconds";
-    } else {
-        LOG(INFO) << "residual " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
-                  << " nanoseconds";
-    }
+//    if (jacobians != NULL && jacobians[0] != NULL) {
+//        LOG(INFO) << "jacobian & residual " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
+//                  << " nanoseconds";
+//    } else {
+//        LOG(INFO) << "residual " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
+//                  << " nanoseconds";
+//    }
 
     return true;
 }
@@ -244,7 +241,6 @@ void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<int>, d
 
 void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eigen::SparseMatrix<double>* dIdw,
                                         Eigen::Vector3d& w, Eigen::Vector3d& v, const double* const* z) const {
-
     image = Eigen::SparseMatrix<double>(180, 240);
     okvis::Time t0 = em_->events.front().timeStamp;
     Eigen::Matrix3d cameraMatrix_;
@@ -264,7 +260,6 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
         return truncate(std::floor(p_(0)/param.patch_width), 0, patch_num_y-1) * patch_num_y
                 + truncate(std::floor(p_(1)/param.patch_width), 0, patch_num_x-1);
     };
-
     for(auto it = em_->events.begin(); it != em_->events.end(); it++) {
         Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
         Eigen::Vector3d point_warped;
@@ -273,7 +268,10 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
         auto t = it->timeStamp - t0;
         Eigen::MatrixXd dW;
         if (dIdw != NULL) {
+            //start = Clock::now();
             warp(&dW, point_warped, p, t, w, v, (*z)[patch(p)]);
+            /*LOG(INFO) << "warp " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
+                      << " nanoseconds";*/
 //            if (patch(p) == 0)
 //                dW.col(6) = Eigen::Vector2d::Zero();
         } else {
@@ -284,6 +282,7 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
         point_warped /= point_warped(2);
         Eigen::Vector2d point_camera_(point_warped(0), point_warped(1));
         if (dIdw != NULL) {
+
             Eigen::MatrixXd dWdwv = dW.block(0, 0, 2, 6);
             Eigen::Vector2d dWdz = dW.col(6);
             std::vector<std::pair<std::vector<int>, double>> pixel_weight;
@@ -294,27 +293,36 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
                 double dc = point_warped(0) - p_[0];
                 double dr = point_warped(1) - p_[1];
                 Eigen::VectorXd dwv = Eigen::VectorXd::Zero(6);
+                double dz_ = 0.;
+                int pol = int(it->measurement.p) * 2 - 1;
+                //start = Clock::now();
+
+                double dW;
                 if (dr > 0) {
-                    dwv += ((std::abs(dc) - 1) * dWdwv.row(1) * it->measurement.p);
-                    dIdw->coeffRef(p_[0] * 180 + p_[1], 6 + patch_nr) += ((std::abs(dc) - 1) * dWdz(1) * it->measurement.p);
+                    dW = (std::abs(dc) - 1) * pol;
+                } else if (dr < 0) {
+                    dW = (1 - std::abs(dc)) * pol;
                 }
-                if (dr < 0) {
-                    dwv += ((1 - std::abs(dc)) * dWdwv.row(1) * it->measurement.p);
-                    dIdw->coeffRef(p_[0] * 180 + p_[1], 6 + patch_nr) += ((1 - std::abs(dc)) * dWdz(1) * it->measurement.p);
-                }
+                dwv += dW * dWdwv.row(1);
+                dz_ += dW * dWdz(1);
                 if (dc > 0) {
-                    dwv += ((std::abs(dr) - 1) * dWdwv.row(0) * it->measurement.p);
-                    dIdw->coeffRef(p_[0] * 180 + p_[1], 6 + patch_nr) += ((std::abs(dr) - 1) * dWdz(0) * it->measurement.p);
+                    dW = (std::abs(dr) - 1) * pol;
+                } else if (dc < 0) {
+                    dW = (1 - std::abs(dr)) * pol;
                 }
-                if (dc < 0) {
-                    dwv += ((1 - std::abs(dr)) * dWdwv.row(0) * it->measurement.p);
-                    dIdw->coeffRef(p_[0] * 180 + p_[1], 6 + patch_nr) += ((1 - std::abs(dr)) * dWdz(0) * it->measurement.p);
-                }
+                dwv += dW * dWdwv.row(0);
+                dz_ += dW * dWdz(0);
+
                 for (int i = 0; i != 6; i++) {
                     dIdw->coeffRef(p_[0] * 180 + p_[1], i) += dwv(i);
-                }
+                }                
+                dIdw->coeffRef(p_[0] * 180 + p_[1], 6 + patch_nr) += dz_;
+
                 image.coeffRef(p_[1], p_[0]) += p_it->second;
+                /*LOG(INFO) << "dwdwv " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
+                                                                                   << " nanoseconds";*/
             }
+
         } else {
             fuse(image, point_camera_, it->measurement.p);
         }

@@ -8,6 +8,7 @@
 #include <Eigen/Sparse>
 
 namespace ev {
+extern int count;
 class parameterReader
 {
 public:

@@ -15,7 +15,7 @@ typedef std::chrono::high_resolution_clock Clock;
 #include "parameters.h"
 #include "event.h"
 #include "util/utils.h"
-#define show_optimizing_process true
+#define show_optimizing_process false
 
 /// \brief okvis Main namespace of this package.
 namespace ev {

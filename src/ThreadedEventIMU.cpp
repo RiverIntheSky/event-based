@@ -171,7 +171,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     ev::Pose estimatedPose;
     std::vector<std::vector<std::pair<double, double>>> estimatedPoses(3);
 
-    Gnuplot gp;
+    // Gnuplot gp;
     std::vector<std::vector<std::pair<double, double>>> groundtruth(3);
 
 //    for (auto it = maconMeasurements_.begin(); it != maconMeasurements_.end(); it++) {
@@ -183,14 +183,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //        }
 //    }
 
-    gp << "set xrange [0:20]\n";
+    // gp << "set xrange [0:20]\n";
 
 //    gp << "plot" << gp.file1d(groundtruth[0]) << "with lines title 'roll',"
 //                 << gp.file1d(groundtruth[1]) << "with lines title 'pitch',"
 //                 << gp.file1d(groundtruth[2]) << "with lines title 'yaw'"
 //                                    << std::endl;
     Contrast::param_ = parameters_;
-
+count = 0;
     for (;;) {
         // get data and check for termination request
         if (eventMeasurementsReceived_.PopBlocking(&data) == false) {
@@ -338,7 +338,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 options.num_threads = 6;
                 ceres::Solver::Summary summary;
 
-                options.minimizer_progress_to_stdout = false;
+                options.minimizer_progress_to_stdout = true;
 
                 ceres::Problem problem;
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
@@ -347,9 +347,11 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 problem.AddResidualBlock(cost_function, NULL, params);
                 ceres::Solve(options, &problem, &summary);
 #if !show_optimizing_process
+
                 ev::imshowRescaled(zero_motion, 1, "zero motion", caption);
                 ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
                                    1, "optimized", "cost = " + std::to_string(summary.final_cost));
+                count++;
 #endif
 
                 for (int i = 0; i < 3; i++) {
@@ -357,7 +359,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     estimatedPoses[i].push_back(std::make_pair(end.toSec(), w[i]));
                 }
 
-                gp << "plot '-' binary" << gp.binFmt1d(groundtruth[0], "record") << "with lines title 'w^1',"
+                /*gp << "plot '-' binary" << gp.binFmt1d(groundtruth[0], "record") << "with lines title 'w^1',"
                    << "'-' binary" << gp.binFmt1d(groundtruth[1], "record") << "with lines title 'w^2',"
                    << "'-' binary" << gp.binFmt1d(groundtruth[2], "record") << "with lines title 'w^3',"
                    << "'-' binary" << gp.binFmt1d(estimatedPoses[0], "record") << "with lines title 'w^1_{estimated}',"
@@ -370,7 +372,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 gp.sendBinary1d(estimatedPoses[0]);
                 gp.sendBinary1d(estimatedPoses[1]);
                 gp.sendBinary1d(estimatedPoses[2]);
-                gp.flush();
+                gp.flush();*/
 
                 processEventTimer.stop();
 
@@ -401,8 +403,24 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 s += '\n';
                 ss.str(s);
                 LOG(INFO) << ss.str();
+                std::ofstream myfile("groundtruth.txt", std::ios_base::app);
 
-                double error = (linear_velocity - (Eigen::Vector3d()<<v[0],v[1],v[2]).finished()).norm();
+                Eigen::Vector3d groundtruth_normalized = linear_velocity.normalized();
+                Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
+                if (myfile.is_open()) {
+                    myfile << groundtruth_normalized << "\n";
+                    myfile.close();
+                } else
+                    std::cout << "怎么肥四"<<std::endl;
+
+                std::ofstream  myfile_("estimated.txt", std::ios_base::app);
+                if (myfile_.is_open()) {
+                    myfile_ << estimated_normalized << "\n";
+                    myfile_.close();
+                } else
+                    std::cout << "怎么肥四"<<std::endl;
+
+                double error = std::acos(groundtruth_normalized.dot(estimated_normalized));
                 LOG(INFO) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 
