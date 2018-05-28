@@ -244,7 +244,7 @@ count = 0;
                 varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &initial_depth);
                 std::string caption =  "cost = " + std::to_string(contrastCost(zero_motion));
 //#if show_optimizing_process
-                ev::imshowRescaled(zero_motion, 20, "zero motion", caption);
+                ev::imshowRescaled(zero_motion, 20, "zero motion", NULL);
 //#endif
                 delete initial_depth;
 //                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
@@ -348,9 +348,9 @@ count = 0;
                 ceres::Solve(options, &problem, &summary);
 #if !show_optimizing_process
 
-                ev::imshowRescaled(zero_motion, 1, "zero motion", caption);
+                ev::imshowRescaled(zero_motion, 1, "zero motion", NULL);
                 ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
-                                   1, "optimized", "cost = " + std::to_string(summary.final_cost));
+                                   1, "optimized", z);
                 count++;
 #endif
 
@@ -403,22 +403,27 @@ count = 0;
                 s += '\n';
                 ss.str(s);
                 LOG(INFO) << ss.str();
-                std::ofstream myfile("groundtruth.txt", std::ios_base::app);
 
+                std::ofstream  myfile("groundtruth.txt", std::ios_base::app);
                 Eigen::Vector3d groundtruth_normalized = linear_velocity.normalized();
                 Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
                 if (myfile.is_open()) {
-                    myfile << groundtruth_normalized << "\n";
-                    myfile.close();
+                    myfile << groundtruth_normalized(0) << " "
+                           << groundtruth_normalized(1) << " "
+                           << groundtruth_normalized(2) << "\n";
                 } else
                     std::cout << "怎么肥四"<<std::endl;
 
                 std::ofstream  myfile_("estimated.txt", std::ios_base::app);
                 if (myfile_.is_open()) {
-                    myfile_ << estimated_normalized << "\n";
-                    myfile_.close();
+                    myfile_ << estimated_normalized(0) << " "
+                            << estimated_normalized(1) << " "
+                            << estimated_normalized(2) << "\n";
+                    LOG(INFO)<<estimated_normalized;
                 } else
                     std::cout << "怎么肥四"<<std::endl;
+                myfile.close();
+                myfile_.close();
 
                 double error = std::acos(groundtruth_normalized.dot(estimated_normalized));
                 LOG(INFO) << "error: " << error << " rad/s";
@@ -430,6 +435,7 @@ count = 0;
         }
         // LOG(INFO) << okvis::timing::Timing::print();
     }
+
 }
 
 // Set the blocking variable that indicates whether the addMeasurement() functions
