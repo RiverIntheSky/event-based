@@ -58,7 +58,7 @@ endif()
 
 find_package(glog REQUIRED)
 
-#find_package(Gnuplot REQUIRED)
+find_package(Gnuplot REQUIRED)
 
 FIND_PACKAGE(Boost COMPONENTS filesystem system iostreams REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})

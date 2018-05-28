@@ -117,19 +117,19 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             jacobians[0][i] += (area - intensity.nonZeros()) * Im * dIm[i];
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
 //            LOG(INFO) << "jw:" << jacobians[0][i];
-            jacobians[0][i] = 0;
+//            jacobians[0][i] = 0;
         }
         for (int i = 0; i != 3; i++) {
             jacobians[1][i] += (area - intensity.nonZeros()) * Im * dIm[i + 3];
             jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / area);
 //            LOG(INFO) << "jv:" << jacobians[1][i];
-            // jacobians[1][i] = 0;
+//            jacobians[1][i] = 0;
         }
         for (int i = 0; i != patch_num; i++) {
             jacobians[2][i] += (area - intensity.nonZeros()) * Im * dIm[i + 6];
             jacobians[2][i] *= (-2 * std::pow(residuals[0], 2) / area);
 //            LOG(INFO) << "jz:" << jacobians[2][i];
-//            jacobians[2][i]  = 1000;
+//            jacobians[2][i]  = 0;
         }
     }
 //    if (jacobians != NULL && jacobians[0] != NULL) {

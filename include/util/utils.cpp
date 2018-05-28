@@ -59,31 +59,31 @@ void imshowRescaled(const cv::Mat &src, int msec, std::string title, double* tex
     cv::subtract(src, cv::Mat(src.rows, src.cols, CV_64F, cv::Scalar(min)), dst);
 
     dst /= (max - min);
-    dst *= 255;
+//    dst *= 255;
 #else
     dst = src;
 #endif
-    if (text != NULL) {
-        for (int i = 0; i != 12; i++) {
-            auto divresult = div(i, 3);
-            std::string depth = std::to_string(text[i]);
-            auto pos = depth.find(".");
-            cv::putText(dst, depth.substr(0, pos + 2), cvPoint(divresult.quot * 60 + 20, divresult.rem * 60 + 30),
-                        cv::FONT_HERSHEY_COMPLEX_SMALL, 0.6, cvScalar(255,255,255), 1, CV_AA);
-            cv::line(dst, cvPoint(60, 0), cvPoint(60, 180), cvScalar(200, 200, 250), 1);
-            cv::line(dst, cvPoint(120, 0), cvPoint(120, 180), cvScalar(200, 200, 250), 1);
-            cv::line(dst, cvPoint(180, 0), cvPoint(180, 180), cvScalar(200, 200, 250), 1);
-            cv::line(dst, cvPoint(0, 60), cvPoint(240, 60), cvScalar(200, 200, 250), 1);
-            cv::line(dst, cvPoint(0, 120), cvPoint(240, 120), cvScalar(200, 200, 250), 1);
-            cv::line(dst, cvPoint(0, 179), cvPoint(240, 180), cvScalar(200, 200, 250), 1);
-        }
-    }
+//    if (text != NULL) {
+//        for (int i = 0; i != 12; i++) {
+//            auto divresult = div(i, 3);
+//            std::string depth = std::to_string(text[i]);
+//            auto pos = depth.find(".");
+//            cv::putText(dst, depth.substr(0, pos + 2), cvPoint(divresult.quot * 60 + 20, divresult.rem * 60 + 30),
+//                        cv::FONT_HERSHEY_COMPLEX_SMALL, 0.6, cvScalar(255,255,255), 1, CV_AA);
+//            cv::line(dst, cvPoint(60, 0), cvPoint(60, 180), cvScalar(200, 200, 250), 1);
+//            cv::line(dst, cvPoint(120, 0), cvPoint(120, 180), cvScalar(200, 200, 250), 1);
+//            cv::line(dst, cvPoint(180, 0), cvPoint(180, 180), cvScalar(200, 200, 250), 1);
+//            cv::line(dst, cvPoint(0, 60), cvPoint(240, 60), cvScalar(200, 200, 250), 1);
+//            cv::line(dst, cvPoint(0, 120), cvPoint(240, 120), cvScalar(200, 200, 250), 1);
+//            cv::line(dst, cvPoint(0, 179), cvPoint(240, 180), cvScalar(200, 200, 250), 1);
+//        }
+//    }
 
 
-    // cv::imshow(title, dst);
-    // cv::waitKey(msec);
-    std::string file_name = "./images/" + title + "_" + std::to_string(count) + ".jpg";
-    cv::imwrite(file_name, dst);
+     cv::imshow(title, dst);
+     cv::waitKey(msec);
+//    std::string file_name = "./shapes_translation/images/" + title + "_" + std::to_string(count) + ".jpg";
+//    cv::imwrite(file_name, dst);
 }
 
 void imshowRescaled(Eigen::MatrixXd &src_, int msec, std::string title, double *text) {

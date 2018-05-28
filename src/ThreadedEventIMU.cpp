@@ -218,7 +218,7 @@ count = 0;
 
             if (em->counter_w == parameters_.window_size) {
                 for (int i = 0; i < parameters_.patch_num; i++) {
-                     z[i] = 2;
+                     z[i] = 1;
                 }
 
 //                if (estimatedPose.q.norm() == 0) {
@@ -238,12 +238,12 @@ count = 0;
                 Eigen::SparseMatrix<double> zero_motion;
                 double* initial_depth = new double[parameters_.patch_num];
                 for (unsigned i = 0; i != parameters_.patch_num; i++) {
-                    initial_depth[i] = 1.;
+                    initial_depth[i] = 2.;
                 }
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
                 varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &initial_depth);
                 double cost = contrastCost(zero_motion);
-                std::string caption =  "cost = " + std::to_string(cost);
+                //std::string caption =  "cost = " + std::to_string(cost);
 //#if show_optimizing_process
 //                ev::imshowRescaled(zero_motion, 20, "zero motion", NULL);
 //#endif
@@ -288,10 +288,11 @@ count = 0;
 ;
 
                 if (interpolateGroundtruth(p1, begin) && interpolateGroundtruth(p2, end)) {
-                    linear_velocity = (p2.p - p1.p) / (end.toSec() - begin.toSec());
+                    linear_velocity = (p1.q).inverse().toRotationMatrix() * (p2.p - p1.p) / (end.toSec() - begin.toSec());
                     // blender coordinate
                     // linear_velocity(1) = -linear_velocity(1)
-                    angular_velocity = p2.q * (p1.q).inverse();
+                    // (p1.q).inverse() * (p2.q * (p1.q).inverse()) * p1.q
+                    angular_velocity =  (p1.q).inverse() * p2.q ;
                 } else {
                     linear_velocity = Eigen::Vector3d(0, 0, 0);
                     angular_velocity = Eigen::Quaterniond(1, 0, 0, 0);
@@ -311,14 +312,14 @@ count = 0;
                    << std::setw(15) << angularVelocity(2)  << std::setw(15) << linear_velocity(2) << '\n';
 
                 LOG(INFO) << ss.str();
-//                v[0] =  velocity(0);
+//                v[0] =  linear_velocity(0);
 //                v[1] =  velocity(1);
 //                v[2] =  velocity(2);
 
 //                w[0] = angularVelocity(0);
 //                w[1] = angularVelocity(1);
 //                w[2] = angularVelocity(2);
-#if show_optimizing_process
+#if 1
                 Eigen::SparseMatrix<double> ground_truth;
                 double* groundtruth_depth = new double[parameters_.patch_num];
 
@@ -327,11 +328,11 @@ count = 0;
                 }
 
                 varianceVisualizer.Intensity(ground_truth, NULL, angularVelocity, linear_velocity, &groundtruth_depth);
-                caption =  "cost = " + std::to_string(contrastCost(ground_truth));
-                ev::imshowRescaled(ground_truth, 1, "ground truth ", caption);
+                // caption =  "cost = " + std::to_string(contrastCost(ground_truth));
+                ev::imshowRescaled(ground_truth, 1, "ground truth ", NULL);
                 delete groundtruth_depth;
 #endif
-
+/*
                 processEventTimer.start();
 
                 ceres::Solver::Options options;
@@ -370,13 +371,11 @@ count = 0;
             {
                 problem.AddResidualBlock(cost_function, NULL, params);
                 ceres::Solve(options, &problem, &summary);
-                LOG(INFO) << "1";
             }
 //#pragma omp section
             if (summary.final_cost > cost) {
                 problem_.AddResidualBlock(cost_function_, NULL, params_);
                 ceres::Solve(options_, &problem_, &summary_);
-                LOG(INFO) << "2";
             }
         }
     }
@@ -411,20 +410,20 @@ count = 0;
                     estimatedPoses[i].push_back(std::make_pair(end.toSec(), w[i]));
                 }
 
-                /*gp << "plot '-' binary" << gp.binFmt1d(groundtruth[0], "record") << "with lines title 'w^1',"
-                   << "'-' binary" << gp.binFmt1d(groundtruth[1], "record") << "with lines title 'w^2',"
-                   << "'-' binary" << gp.binFmt1d(groundtruth[2], "record") << "with lines title 'w^3',"
-                   << "'-' binary" << gp.binFmt1d(estimatedPoses[0], "record") << "with lines title 'w^1_{estimated}',"
-                   << "'-' binary" << gp.binFmt1d(estimatedPoses[1], "record") << "with lines title 'w^2_{estimated}',"
-                   << "'-' binary" << gp.binFmt1d(estimatedPoses[2], "record") << "with lines title 'w^3_{estimated}'\n";
+//                gp << "plot '-' binary" << gp.binFmt1d(groundtruth[0], "record") << "with lines title 'w^1',"
+//                   << "'-' binary" << gp.binFmt1d(groundtruth[1], "record") << "with lines title 'w^2',"
+//                   << "'-' binary" << gp.binFmt1d(groundtruth[2], "record") << "with lines title 'w^3',"
+//                   << "'-' binary" << gp.binFmt1d(estimatedPoses[0], "record") << "with lines title 'w^1_{estimated}',"
+//                   << "'-' binary" << gp.binFmt1d(estimatedPoses[1], "record") << "with lines title 'w^2_{estimated}',"
+//                   << "'-' binary" << gp.binFmt1d(estimatedPoses[2], "record") << "with lines title 'w^3_{estimated}'\n";
 
-                gp.sendBinary1d(groundtruth[0]);
-                gp.sendBinary1d(groundtruth[1]);
-                gp.sendBinary1d(groundtruth[2]);
-                gp.sendBinary1d(estimatedPoses[0]);
-                gp.sendBinary1d(estimatedPoses[1]);
-                gp.sendBinary1d(estimatedPoses[2]);
-                gp.flush();*/
+//                gp.sendBinary1d(groundtruth[0]);
+//                gp.sendBinary1d(groundtruth[1]);
+//                gp.sendBinary1d(groundtruth[2]);
+//                gp.sendBinary1d(estimatedPoses[0]);
+//                gp.sendBinary1d(estimatedPoses[1]);
+//                gp.sendBinary1d(estimatedPoses[2]);
+//                gp.flush();
 
                 processEventTimer.stop();
 
@@ -456,31 +455,59 @@ count = 0;
                 ss.str(s);
                 LOG(INFO) << ss.str();
 
-                std::ofstream  myfile("groundtruth.txt", std::ios_base::app);
-                Eigen::Vector3d groundtruth_normalized = linear_velocity.normalized();
-                Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
+                std::ofstream  myfile("./shapes_translation/groundtruth_rotation.txt", std::ios_base::app);
                 if (myfile.is_open()) {
-                    myfile << groundtruth_normalized(0) << " "
-                           << groundtruth_normalized(1) << " "
-                           << groundtruth_normalized(2) << "\n";
+                    myfile << angularVelocity(0) << " "
+                           << angularVelocity(1) << " "
+                           << angularVelocity(2) << "\n";
+                    myfile.close();
                 } else
                     std::cout << "怎么肥四"<<std::endl;
 
-                std::ofstream  myfile_("estimated.txt", std::ios_base::app);
+                std::ofstream  myfile_("./shapes_translation/estimated_rotation.txt", std::ios_base::app);
                 if (myfile_.is_open()) {
-                    myfile_ << estimated_normalized(0) << " "
-                            << estimated_normalized(1) << " "
-                            << estimated_normalized(2) << "\n";
-                    LOG(INFO)<<estimated_normalized;
+                    myfile_ << w[0] << " "
+                            << w[1] << " "
+                            << w[2] << "\n";
+                    myfile_.close();
                 } else
                     std::cout << "怎么肥四"<<std::endl;
-                myfile.close();
-                myfile_.close();
 
-                double error = std::acos(groundtruth_normalized.dot(estimated_normalized));
+                std::ofstream  myfilet("./shapes_translation/groundtruth_translation.txt", std::ios_base::app);
+                if (myfilet.is_open()) {
+                    myfilet << linear_velocity(0) << " "
+                            << linear_velocity(1) << " "
+                            << linear_velocity(2) << '\n';
+                    myfilet.close();
+                } else
+                    std::cout << "怎么肥四"<<std::endl;
+
+                std::ofstream  myfile_t("./shapes_translation/estimated_translation.txt", std::ios_base::app);
+                if (myfile_t.is_open()) {
+                    myfile_t << v[0] << " "
+                             << v[1] << " "
+                             << v[2] << " ";
+                    for (int i = 0; i!= 12; i++) {
+                        myfile_t << z[i] << " ";
+                    }
+                    myfile_t << '\n';
+                    myfile_t.close();
+                } else
+                    std::cout << "怎么肥四"<<std::endl;
+
+                Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
+                double error = std::acos(linear_velocity.normalized().dot(estimated_normalized));
+
+                std::ofstream  error_file("./shapes_translation/error.txt", std::ios_base::app);
+                if (error_file.is_open()) {
+                    error_file << error << '\n';
+                    error_file.close();
+                } else
+                    std::cout << "怎么肥四"<<std::endl;
+
                 LOG(INFO) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
-
+                */
                 eventFrames.pop_front();
             }
             counter_s_ = (counter_s_ + 1) % parameters_.step_size;

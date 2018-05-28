@@ -18,7 +18,8 @@ int main(int argc, char *argv[])
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/shapes_translation";
+    std::string path = "/home/weizhen/Documents/dataset/shapes_6dof";
+    LOG(INFO) << "dataset: " + path;
 
     // open the events file
     std::string events_line;
