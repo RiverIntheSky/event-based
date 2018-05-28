@@ -29,6 +29,21 @@ list(APPEND CMAKE_PREFIX_PATH ${OKVIS_INSTALLATION})
 find_package( Ceres REQUIRED )
 include_directories(${CERES_INCLUDE_DIRS})
 
+# require OpenMP
+OPTION (USE_OpenMP "Use OpenMP to enamble <omp.h>" ON)
+
+
+if(USE_OpenMP)
+  find_package(OpenMP REQUIRED)
+endif(USE_OpenMP)
+
+if(OPENMP_FOUND)
+message("OPENMP FOUND")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
+
 # require OpenGV
 find_package(opengv REQUIRED)
 
@@ -43,7 +58,7 @@ endif()
 
 find_package(glog REQUIRED)
 
-find_package(Gnuplot REQUIRED)
+#find_package(Gnuplot REQUIRED)
 
 FIND_PACKAGE(Boost COMPONENTS filesystem system iostreams REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})

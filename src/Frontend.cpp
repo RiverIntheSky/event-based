@@ -315,7 +315,8 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
 
                 for (int i = 0; i != 6; i++) {
                     dIdw->coeffRef(p_[0] * 180 + p_[1], i) += dwv(i);
-                }                
+                }
+
                 dIdw->coeffRef(p_[0] * 180 + p_[1], 6 + patch_nr) += dz_;
 
                 image.coeffRef(p_[1], p_[0]) += p_it->second;

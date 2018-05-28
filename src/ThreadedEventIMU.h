@@ -6,6 +6,8 @@
 #include <condition_variable>
 #include <atomic>
 #include <iomanip>
+#include <omp.h>
+
 
 #include <okvis/ImuFrameSynchronizer.hpp>
 #include <okvis/FrameSynchronizer.hpp>

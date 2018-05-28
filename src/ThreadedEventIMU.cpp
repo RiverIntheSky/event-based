@@ -242,9 +242,10 @@ count = 0;
                 }
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
                 varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &initial_depth);
-                std::string caption =  "cost = " + std::to_string(contrastCost(zero_motion));
+                double cost = contrastCost(zero_motion);
+                std::string caption =  "cost = " + std::to_string(cost);
 //#if show_optimizing_process
-                ev::imshowRescaled(zero_motion, 20, "zero motion", NULL);
+//                ev::imshowRescaled(zero_motion, 20, "zero motion", NULL);
 //#endif
                 delete initial_depth;
 //                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
@@ -334,18 +335,69 @@ count = 0;
                 processEventTimer.start();
 
                 ceres::Solver::Options options;
-                options.update_state_every_iteration = true;
-                options.num_threads = 6;
+                options.minimizer_progress_to_stdout = false;
+
                 ceres::Solver::Summary summary;
-
-                options.minimizer_progress_to_stdout = true;
-
                 ceres::Problem problem;
+
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
-                ev::imshowCallback callback(w, static_cast<ComputeVarianceFunction*>(cost_function));
-                options.callbacks.push_back(&callback);
+
+                // identity initialization
+                double w_[] = {.0, .0, .0};
+                double v_[] = {.0, .0, .0};
+                double z_[parameters_.patch_num] = {};
+                for (int i = 0; i < parameters_.patch_num; i++) {
+                     z_[i] = 2.;
+                }
+                std::vector<double*> params_;
+                params_.push_back(w_);
+                params_.push_back(v_);
+                params_.push_back(z_);
+
+                ceres::Solver::Options options_;
+                options_.minimizer_progress_to_stdout = false;
+
+                ceres::Solver::Summary summary_;
+                ceres::Problem problem_;
+
+                ceres::CostFunction* cost_function_ = new ComputeVarianceFunction(em, parameters_);
+
+//#pragma omp parallel
+    {
+//#pragma omp sections
+        {
+//#pragma omp section
+            {
                 problem.AddResidualBlock(cost_function, NULL, params);
                 ceres::Solve(options, &problem, &summary);
+                LOG(INFO) << "1";
+            }
+//#pragma omp section
+            if (summary.final_cost > cost) {
+                problem_.AddResidualBlock(cost_function_, NULL, params_);
+                ceres::Solve(options_, &problem_, &summary_);
+                LOG(INFO) << "2";
+            }
+        }
+    }
+    if (summary.final_cost > cost && summary_.final_cost < summary.final_cost) {
+        for (int i = 0; i != 3; i++) {
+            w[i] = w_[i];
+        }
+        for (int i = 0; i != 3; i++) {
+            v[i] = v_[i];
+        }
+        for (int i = 0; i != parameters_.patch_num; i++) {
+            z[i] = z_[i];
+        }
+        cost_function = cost_function_;
+        LOG(ERROR) << "change of direction";
+    }
+
+                // ev::imshowCallback callback(w, static_cast<ComputeVarianceFunction*>(cost_function));
+                // options.callbacks.push_back(&callback);
+
+
 #if !show_optimizing_process
 
                 ev::imshowRescaled(zero_motion, 1, "zero motion", NULL);
