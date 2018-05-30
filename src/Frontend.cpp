@@ -24,9 +24,8 @@
 #include <opengv/sac_problems/relative_pose/FrameRotationOnlySacProblem.hpp>
 
 
-
 namespace ev {
-
+int max_patch;
 bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
                                        double* residuals,
                                        double** jacobians) const {
@@ -107,26 +106,26 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             }
         }
     }
-    residuals[0] += (area - intensity.nonZeros()) * std::pow(Im, 2);
+//    residuals[0] += (area - intensity.nonZeros()) * std::pow(Im, 2);
 
     residuals[0] /= area;
     residuals[0] = 1./residuals[0];
 
     if (jacobians != NULL && jacobians[0] != NULL) {
         for (int i = 0; i != 3; i++) {
-            jacobians[0][i] += (area - intensity.nonZeros()) * Im * dIm[i];
+//            jacobians[0][i] += (area - intensity.nonZeros()) * Im * dIm[i];
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
 //            LOG(INFO) << "jw:" << jacobians[0][i];
 //            jacobians[0][i] = 0;
         }
         for (int i = 0; i != 3; i++) {
-            jacobians[1][i] += (area - intensity.nonZeros()) * Im * dIm[i + 3];
+//            jacobians[1][i] += (area - intensity.nonZeros()) * Im * dIm[i + 3];
             jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / area);
 //            LOG(INFO) << "jv:" << jacobians[1][i];
 //            jacobians[1][i] = 0;
         }
         for (int i = 0; i != patch_num; i++) {
-            jacobians[2][i] += (area - intensity.nonZeros()) * Im * dIm[i + 6];
+//            jacobians[2][i] += (area - intensity.nonZeros()) * Im * dIm[i + 6];
             jacobians[2][i] *= (-2 * std::pow(residuals[0], 2) / area);
 //            LOG(INFO) << "jz:" << jacobians[2][i];
 //            jacobians[2][i]  = 0;
@@ -272,8 +271,8 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
             warp(&dW, point_warped, p, t, w, v, (*z)[patch(p)]);
             /*LOG(INFO) << "warp " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
                       << " nanoseconds";*/
-//            if (patch(p) == 0)
-//                dW.col(6) = Eigen::Vector2d::Zero();
+            if (patch(p) == max_patch)
+                dW.col(6) = Eigen::Vector2d::Zero();
         } else {
             warp(NULL, point_warped, p, t, w, v, (*z)[patch(p)]);
         }

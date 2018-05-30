@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     FLAGS_colorlogtostderr = 1;
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/shapes_6dof";
+    std::string path = "/home/weizhen/Documents/dataset/shapes_translation";
     LOG(INFO) << "dataset: " + path;
 
     // open the events file
@@ -153,7 +153,6 @@ ev_estimator.allGroundtruthAdded_ = true;
             // ???
             if (t_ev - start > deltaT) {
                 ev_estimator.addEventMeasurement(t_ev, x, y, p);
-
             }
 
         } while (t_ev <= t_imu);
@@ -164,8 +163,6 @@ ev_estimator.allGroundtruthAdded_ = true;
             ev_estimator.addImuMeasurement(t_imu, acc, gyr);
         }
     }
-
-
 
     return 0;
 }

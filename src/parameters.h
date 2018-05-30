@@ -3,13 +3,13 @@
 
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
-
+#define optimize false
 namespace ev {
 struct Parameters
 {
     // EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // camera parameters
-    unsigned window_size{20000};
+    unsigned window_size{10000};
     unsigned step_size{window_size-1};
     unsigned array_size_x{240};
     unsigned array_size_y{180};

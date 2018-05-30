@@ -17,9 +17,11 @@ typedef std::chrono::high_resolution_clock Clock;
 #include "util/utils.h"
 #define show_optimizing_process false
 
+
 /// \brief okvis Main namespace of this package.
 namespace ev {
 extern int count;
+extern int max_patch;
 class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 3, 12> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
