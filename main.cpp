@@ -2,26 +2,35 @@
 #include <fstream>
 #include "ThreadedEventIMU.h"
 #include <chrono>
-
-std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em = NULL;
+std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em_ = NULL;
 double ev::Contrast::events_number;
 Eigen::MatrixXd ev::Contrast::intensity = Eigen::Matrix3d::Zero();
-Eigen::MatrixXd ev::ComputeVarianceFunction::intensity = Eigen::Matrix3d::Zero();
-ev::Parameters ev::Contrast::param = ev::Parameters();
-
+Eigen::SparseMatrix<double> ev::ComputeVarianceFunction::intensity = Eigen::SparseMatrix<double>(180, 240);
+ev::Parameters ev::Contrast::param_ = ev::Parameters();
 
 int main(int argc, char *argv[])
 {
+
+
     google::InitGoogleLogging(argv[0]);
 #ifndef NDEBUG
     //FLAGS_alsologtostderr = 1;  // output LOG for debugging
     FLAGS_logtostderr = 1;  //Logs are written to standard error instead of to files.
 #endif
-    FLAGS_logtostderr = 3;
     FLAGS_colorlogtostderr = 1;
+    FLAGS_logtostderr = 1;
+
+    if (argc <= 1) {
+        LOG(ERROR) << "\nusage: " << "./ev dataset_name window_size experiment_name\n"
+                  << "example: " << "./ev "
+                  << "'/home/weizhen/Documents/dataset/slider_hdr_close'"
+                  << " 10000 'x_only'\n";
+        return 1;
+    }
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/shapes_rotation";
+    std::string path = argv[1];
+    LOG(INFO) << "dataset: " + path;
 
     // open the events file
     std::string events_line;
@@ -51,12 +60,28 @@ int main(int argc, char *argv[])
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
 
-    okvis::Duration deltaT(15);
+    okvis::Duration deltaT(0);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
     ev::Parameters parameters;
     pr.getParameter(parameters);
+
+
+    parameters.path = path;
+    if (argc > 2) {
+        parameters.window_size = atoi(argv[2]);
+        if (argc > 3) {
+            parameters.experiment_name = argv[3];
+            parameters.write_to_file = true;
+            std::string files_path;
+            files_path = parameters.path + "/" + parameters.experiment_name + "/" + std::to_string(parameters.window_size);
+            system(("rm -rf " + files_path).c_str());
+            system(("mkdir -p " + files_path).c_str());
+        }
+    }
+
+    LOG(INFO) << "window_size: " << parameters.window_size;
 
     ev::ThreadedEventIMU ev_estimator(parameters);
 
@@ -74,10 +99,10 @@ int main(int argc, char *argv[])
         std::stringstream stream(groundtruth_line);
         std::string s;
         std::getline(stream, s, ' ');
-        std::string nanoseconds = s.substr(s.size() - 9, 9);
-        std::string seconds = s.substr(0, s.size() - 9);
+        std::string nanoseconds = s.substr(s.find("."));
+        std::string seconds = s.substr(0, s.find("."));
 
-        okvis::Time t_gt = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
+        okvis::Time t_gt = okvis::Time(std::stoi(seconds), std::stod(nanoseconds)*1e9);
 
         Eigen::Vector3d position;
         for (int j = 0; j < 3; ++j) {
@@ -103,7 +128,7 @@ int main(int argc, char *argv[])
 //        }
     }
 
-    ev_estimator.allGroundtruthAdded_ = true;
+ev_estimator.allGroundtruthAdded_ = true;
 
     while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(20)) {
 
@@ -139,9 +164,9 @@ int main(int argc, char *argv[])
             std::stringstream stream_ev(events_line);
 
             std::getline(stream_ev, s, ' ');
-            nanoseconds = s.substr(s.size() - 9, 9);
-            seconds = s.substr(0, s.size() - 9);
-            t_ev = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
+            nanoseconds = s.substr(s.find("."));
+            seconds = s.substr(0, s.find("."));
+            t_ev = okvis::Time(std::stoi(seconds), std::stod(nanoseconds)*1e9);
 
             std::getline(stream_ev, s, ' ');
             unsigned int x = std::stoi(s);
@@ -155,7 +180,6 @@ int main(int argc, char *argv[])
             // ???
             if (t_ev - start > deltaT) {
                 ev_estimator.addEventMeasurement(t_ev, x, y, p);
-
             }
 
         } while (t_ev <= t_imu);
@@ -166,8 +190,6 @@ int main(int argc, char *argv[])
             ev_estimator.addImuMeasurement(t_imu, acc, gyr);
         }
     }
-
-
 
     return 0;
 }
