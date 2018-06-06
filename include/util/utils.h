@@ -49,6 +49,9 @@ void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string title = "im
 void imshowRescaled(Eigen::SparseMatrix<double> &src_, int msec = 0, std::string title = "image", double *text = NULL);
 void quat2eul(Eigen::Quaterniond& q, double* euler);
 Eigen::Matrix3d skew(Eigen::Vector3d& v);
+inline int truncate(int value, int min_value, int max_value) {
+    return std::min(std::max(value, min_value), max_value);
+}
 }
 
 #endif // UTILS_H

@@ -159,8 +159,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::default_random_engine gen;
     std::uniform_real_distribution<double> dis(-0.1, 0.1);
     double v[] = {0, 0, 0};
+    double z[parameters_.patch_num] = {};
     std::vector<double*> params;
     params.push_back(v);
+    params.push_back(z);
 
     while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
     ev::Pose estimatedPose;
@@ -169,8 +171,33 @@ void ThreadedEventIMU::eventConsumerLoop() {
     // Gnuplot gp;
     std::vector<std::vector<std::pair<double, double>>> groundtruth(3);
 
-    Contrast::param_ = parameters_;
     count = 0;
+
+    // helper function, divide scene into patches
+
+    auto& param = parameters_;
+    Eigen::Matrix3d cameraMatrix_;
+    cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
+
+    int patch_num_x = std::ceil(param.array_size_x / param.patch_width);
+    int patch_num_y = std::ceil(param.array_size_y / param.patch_width);
+
+    auto patch = [&param, cameraMatrix_, patch_num_x, patch_num_y](Eigen::Vector3d p)  -> int {
+        Eigen::Vector3d p_ = cameraMatrix_ * p;
+        return truncate(std::floor(p_(0)/param.patch_width), 0, patch_num_x-1) * patch_num_y
+                + truncate(std::floor(p_(1)/param.patch_width), 0, patch_num_y-1);
+    };
+
+    for (int i = 0; i < parameters_.patch_num; i++) {
+        z[i] = 1;
+    }
+
+    double* groundtruth_depth = new double[parameters_.patch_num];
+    for (int i = 0; i < parameters_.patch_num; i++) {
+        groundtruth_depth[i] = 1;
+    }
+
+
     for (;;) {
         // get data and check for termination request
         if (eventMeasurementsReceived_.PopBlocking(&data) == false) {
@@ -199,12 +226,29 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 undistortEvents(em);
 
+                for (int i = 0; i < parameters_.patch_num; i++) {
+                    z[i] = 1;
+                }
+
+                // find patch with the most events
+                int patch_num[parameters_.patch_num] = {};
+                for (auto it = em->events.begin(); it != em->events.end(); it++) {
+                    Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
+                    patch_num[patch(p)]++;
+                }
+                max_patch = 0;
+                for  (int i = 0; i != 12; i++) {
+                    LOG(ERROR)<<patch_num[i];
+                    if (patch_num[i] > patch_num[max_patch])
+                        max_patch = i;
+                }
+
                 ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
                 Eigen::SparseMatrix<double> zero_motion;
 
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
-                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3);
+                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, &groundtruth_depth);
                 double cost = contrastCost(zero_motion);
 
                 // ground truth
@@ -236,9 +280,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                    << std::setw(15) << angularVelocity(2)  << std::setw(15) << linear_velocity(2) << '\n';
 
                 LOG(INFO) << ss.str();
-                //                v[0] =  linear_velocity(0);
-                //                v[1] =  velocity(1);
-                //                v[2] =  velocity(2);
+                v[0] =  linear_velocity(0);
+                v[1] =  linear_velocity(1);
+                v[2] =  linear_velocity(2);
 
                 //                w[0] = angularVelocity(0);
                 //                w[1] = angularVelocity(1);
@@ -246,30 +290,31 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 Eigen::SparseMatrix<double> ground_truth;
                 std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
-#if !optimize
-
+//#if !optimize
+#if 0
                 std::ofstream  myfile(files_path + "z.txt", std::ios_base::app);
-                if (myfile.is_open() && linear_velocity(0) > 0.162) {
-                    varianceVisualizer.Intensity(ground_truth, NULL, linear_velocity);
+                if (myfile.is_open() && linear_velocity(0) > 0.3) {
+                    for (double i=-10.; i<10.;i++){
+                        groundtruth_depth[2] = i/10+0.01;
+                        groundtruth_depth[5] = i/10+0.01;
+                        groundtruth_depth[8] = i/10+0.01;
+                        groundtruth_depth[11] = i/10+0.01;
+                        varianceVisualizer.Intensity(ground_truth, NULL, linear_velocity, &groundtruth_depth);
 
-                    double cost_zero = contrastCost(ground_truth);
-                    for (double z = -linear_velocity(0); z < linear_velocity(0)*2; z += 0.01) {
-                        linear_velocity(2) = z;
-                        varianceVisualizer.Intensity(ground_truth, NULL, linear_velocity);
-                        ev::imshowRescaled(ground_truth, 10, "groudtruth", NULL);
-                        cost = contrastCost(ground_truth)/cost_zero;
-                        myfile << z/linear_velocity(0) << " " << cost << '\n';
+                        double cost_zero = contrastCost(ground_truth);
+                        ev::imshowRescaled(ground_truth, 10, files_path+std::to_string(cost_zero), groundtruth_depth);
                     }
+
                     LOG(INFO) << "sleep";
                     system("sleep 10");
                     myfile.close();
                 }
 
 #else
-                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3);
+                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, &groundtruth_depth);
                 cost = contrastCost(ground_truth);
                 std::string caption =  "cost = " + std::to_string(cost);
-                ev::imshowRescaled(ground_truth, 10, "zero_motion", NULL);
+                ev::imshowRescaled(ground_truth, 10, files_path + "zero_motion", NULL);
 
 
                 processEventTimer.start();
@@ -287,11 +332,15 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 // identity initialization
                 double v_[] = {.0, .0, .0};
+                double z_[parameters_.patch_num] = {};
+                for (int i = 0; i < parameters_.patch_num; i++) {
+                    z_[i] = 1.;
+                }
 
                 std::vector<double*> params_;
 
                 params_.push_back(v_);
-
+                params_.push_back(z_);
 
                 ceres::Solver::Options options_;
                 options_.minimizer_progress_to_stdout = false;
@@ -324,21 +373,23 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 if (summary.final_cost > cost && summary_.final_cost < summary.final_cost) {
                     for (int i = 0; i != 3; i++) {
                         v[i] = v_[i];
-
-                        cost_function = cost_function_;
-                        LOG(ERROR) << "change of direction";
                     }
+                    for (int i = 0; i != parameters_.patch_num; i++) {
+                        z[i] = z_[i];
+                    }
+                    cost_function = cost_function_;
+                    LOG(ERROR) << "change of direction";
+
                 }
 
 
 #if !show_optimizing_process
 
                 ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
-                                   1, "optimized", NULL);
+                                   1, files_path + "optimized", z);
                 count++;
 
 #endif
-
 
                 processEventTimer.stop();
 

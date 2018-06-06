@@ -16,7 +16,7 @@ struct Parameters
     cv::Mat cameraMatrix{cv::Mat::eye(3, 3, CV_64F)};
     cv::Vec<double, 5> distCoeffs;
     unsigned patch_width{60};
-    unsigned patch_num{std::ceil(array_size_x/patch_width) * std::ceil(array_size_y/patch_width)};
+    int patch_num{std::ceil(array_size_x/patch_width) * std::ceil(array_size_y/patch_width)};
     bool write_to_file = false;
     std::string experiment_name;
     std::string path;
