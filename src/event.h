@@ -27,6 +27,8 @@ namespace ev {
     struct eventFrameMeasurement {
         std::vector<EventMeasurement> events;
         unsigned counter_w{0}; // counter for temporal window size
+        int max_patch;
+
         eventFrameMeasurement() {}
     };
 }

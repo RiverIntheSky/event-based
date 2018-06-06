@@ -2,6 +2,8 @@
 
 #include <mutex>
 #include <limits>
+#include <chrono>
+typedef std::chrono::high_resolution_clock Clock;
 
 #include <okvis/assert_macros.hpp>
 #include <okvis/Estimator.hpp>
@@ -9,13 +11,16 @@
 #include <okvis/timing/Timer.hpp>
 #include <okvis/DenseMatcher.hpp>
 #include <Eigen/StdVector>
+#include <Eigen/Sparse>
 #include "parameters.h"
 #include "event.h"
 #include "util/utils.h"
+#define show_optimizing_process false
 
 /// \brief okvis Main namespace of this package.
 namespace ev {
-
+extern int count;
+extern int max_patch;
 class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -28,25 +33,19 @@ public:
                           double* residuals,
                           double** jacobians) const;
 
-    void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d point, bool& polarity) const;
-    void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x,
-              okvis::Duration& t, Eigen::Vector3d& w) const;
+    inline void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
 
-    void warp(Eigen::MatrixXd &dWdw, Eigen::Vector3d& x_w, Eigen::Vector2d& x,
-              okvis::Duration& t, Eigen::Vector3d& w) const;
+    inline void warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d &x,
+              okvis::Duration& t, Eigen::Vector3d& v) const;
 
-    void fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) const;
+    void fuse(Eigen::SparseMatrix<double> &image, Eigen::Vector2d &p, bool& polarity) const;
 
-    void Intensity(Eigen::MatrixXd& image, Eigen::Vector3d w) const;
-
-    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd& dIdw, Eigen::Vector3d w) const;
+    void Intensity(Eigen::SparseMatrix<double>& image, Eigen::SparseMatrix<double>* dIdw, Eigen::Vector3d& v) const;
 
     std::shared_ptr<eventFrameMeasurement> em_;
     Parameters param_;
-    int kernelSize = 3;
-    static Eigen::MatrixXd intensity;
-
-
+    int sigma = 1;
+    static Eigen::SparseMatrix<double> intensity;
 };
 
 
@@ -70,6 +69,7 @@ struct Contrast {
 
     static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters& param, Eigen::Vector3d w);
 
+    static void Intensity(Eigen::MatrixXd& image, Eigen::Vector3d& w, Eigen::Vector3d& v, double* z);
     //    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
     //                          Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr);
 
@@ -91,10 +91,10 @@ struct Contrast {
         (*compute_variance)(&w, &f);
         return true;
     }
-    static std::shared_ptr<eventFrameMeasurement> em;
+    static std::shared_ptr<eventFrameMeasurement> em_;
     static double   events_number;
     static Eigen::MatrixXd intensity;
-    static Parameters param;
+    static Parameters param_;
     std::unique_ptr<ceres::CostFunctionToFunctor<1, 1> > compute_variance;
 
 };
@@ -135,19 +135,24 @@ struct SE3 : Contrast {
 
 class imshowCallback: public ceres::IterationCallback {
 public:
-    imshowCallback(double* w): w_(w){}
+    imshowCallback(double* w, ComputeVarianceFunction* c): w_(w), c_(c) {}
 
     ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
-        if (summary.step_is_successful) {
+#if show_optimizing_process
+        if (summary.step_is_successful || summary.iteration == 0) {
             std::string caption = "cost = " + std::to_string(summary.cost);
-            ev::imshowRescaled(ev::ComputeVarianceFunction::intensity, msec_, s_, caption);
-            LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
+            ev::imshowRescaled(c_->intensity, msec_, s_, NULL);
+//            LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
         }
+#else
+        LOG(INFO) << "step_solver_time_in_nanoseconds "<< summary.step_solver_time_in_seconds * 1e9;
+#endif
         return ceres::SOLVER_CONTINUE;
     }
 
 private:
     double* w_;
+    ComputeVarianceFunction* c_;
     int msec_ = 1;
     std::string s_ = "optimizing";
 };
@@ -501,6 +506,7 @@ private:
 
     /// (re)instantiates feature detectors and descriptor extractors. Used after settings changed or at startup.
     void initialiseBriskFeatureDetectors();
+
 
 };
 

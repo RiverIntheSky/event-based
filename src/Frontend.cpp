@@ -24,139 +24,128 @@
 #include <opengv/sac_problems/relative_pose/FrameRotationOnlySacProblem.hpp>
 
 
-
 namespace ev {
-
-
+int max_patch;
 bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
                                        double* residuals,
                                        double** jacobians) const {
+
+
     int area = 180 * 240;
     residuals[0] = 0;
-    Eigen::Vector3d w;
-    w << (*parameters)[0], (*parameters)[1], (*parameters)[2];
-    //Eigen::MatrixXd intensity;
-    Eigen::MatrixXd dIdw1;
-    Eigen::MatrixXd dIdw2;
-    Eigen::MatrixXd dIdw3;
-    double dIm1;
-    double dIm2;
-    double dIm3;
+    Eigen::Vector3d v;
+    v << (*parameters)[0], (*parameters)[1], (*parameters)[2];
+
+    // derivatives of intensity with respect to each parameters
+    std::vector<Eigen::SparseMatrix<double>> dIdw_;
+    // the mean of the derivatives
+    std::vector<double> dIm;
+
     if (jacobians != NULL && jacobians[0] != NULL) {
 
-        jacobians[0][0] = 0;
-        jacobians[0][1] = 0;
-        jacobians[0][2] = 0;
+        for (int i = 0; i != 3; i++) {
+                jacobians[0][i] = 0;
+        }
 
-        Eigen::MatrixXd dIdw(area, 3);
-        Intensity(intensity, dIdw, w);
-
+        Eigen::SparseMatrix<double> dIdw(param_.array_size_y * param_.array_size_x, 3);
+        Intensity(intensity, &dIdw, v);
         cv::Mat src, dst;
 
-        dIdw1 = dIdw.col(0);
-        dIdw1.resize(180, 240);
-        cv::eigen2cv(dIdw1, src);
-        cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
-        cv::cv2eigen(dst, dIdw1);
+        for (int i = 0; i != 3; i++){
+            Eigen::MatrixXd d = dIdw.col(i);
+            d.resize(180, 240);
+            cv::eigen2cv(d, src);
 
-        dIdw2 = dIdw.col(1);
-        dIdw2.resize(180, 240);
-        cv::eigen2cv(dIdw2, src);
-        cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
-        cv::cv2eigen(dst, dIdw2);
-
-        dIdw3 = dIdw.col(2);
-        dIdw3.resize(180, 240);
-        cv::eigen2cv(dIdw3, src);
-        cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
-        cv::cv2eigen(dst, dIdw3);
-
-        dIm1 = dIdw1.mean();
-        dIm2 = dIdw2.mean();
-        dIm3 = dIdw3.mean();
+            cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
+            cv::cv2eigen(dst, d);
+            Eigen::SparseMatrix<double> s = d.sparseView();
+            dIdw_.push_back(s);
+            dIm.push_back(cv::mean(dst)[0]);
+        }
 
     } else {
-        Intensity(intensity,w);
+        Intensity(intensity, NULL, v);
     }
 
-    double Im = intensity.mean();
+    double Im = (intensity * Eigen::VectorXd::Ones(intensity.cols())).sum() / area;
 
-    for (int x_ = 0; x_ < 240; x_++) {
-        for (int y_ = 0; y_ < 180; y_++) {
-            double rho = intensity(y_, x_) - Im;
+    for (int s = 0; s < intensity.outerSize(); ++s) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(intensity, s); it; ++it) {
+            double rho = it.value() - Im;
             residuals[0] += std::pow(rho, 2);
 
-            if (jacobians != NULL && jacobians[0] != NULL) {
-                jacobians[0][0] += rho * (dIdw1(y_, x_) - dIm1);
-                jacobians[0][1] += rho * (dIdw2(y_, x_) - dIm2);
-                jacobians[0][2] += rho * (dIdw3(y_, x_) - dIm3);
-            }
 
+            int y_ = it.row();
+            int x_ = it.col();
+
+            if (jacobians != NULL && jacobians[0] != NULL) {
+                for (int i = 0; i != 3; i++) {
+                    jacobians[0][i] += rho * ((dIdw_[i]).coeffRef(y_, x_) - dIm[i]);
+
+                }
+            }
         }
     }
+    residuals[0] += (area - intensity.nonZeros()) * std::pow(Im, 2);
+
     residuals[0] /= area;
     residuals[0] = 1./residuals[0];
 
     if (jacobians != NULL && jacobians[0] != NULL) {
         for (int i = 0; i != 3; i++) {
-            // negative??
+            jacobians[0][i] += (area - intensity.nonZeros()) * Im * dIm[i];
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
-            //jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
-            LOG(INFO) << "j: " << jacobians[0][i];
+            LOG(INFO)<<jacobians[0][i];
         }
     }
+//    if (jacobians != NULL && jacobians[0] != NULL) {
+//        LOG(INFO) << "jacobian & residual " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
+//                  << " nanoseconds";
+//    } else {
+//        LOG(INFO) << "residual " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
+//                  << " nanoseconds";
+//    }
 
     return true;
 }
 
-void ComputeVarianceFunction::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x,
-                                   okvis::Duration& t, Eigen::Vector3d& w) const {
-    Eigen::Vector3d x_ = x.homogeneous();
-    if (w.norm() == 0) {
-        x_w = x_;
-    } else {
-//        Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
-//        x_w = aa.toRotationMatrix() * x_;
-        x_w = x_ + (w * t.toSec()).cross(x_);
-    }
-}
-
-void ComputeVarianceFunction::warp(Eigen::MatrixXd& dWdw, Eigen::Vector3d& x_w, Eigen::Vector2d& x,
-                                   okvis::Duration& t, Eigen::Vector3d& w) const {
-    Eigen::Vector3d x_ = x.homogeneous();
+inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d& x,
+                                   okvis::Duration& t, Eigen::Vector3d& v) const {
+    // z is the depth value of the first frame
     double t_ = t.toSec();
-    if (w.norm() == 0 || t_ == 0) {
-        x_w = x_;
-        dWdw = Eigen::MatrixXd::Zero(2, 3);
-    } else {
-        Eigen::Matrix3d cameraMatrix_;
-        cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
-//        Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
-//        Eigen::Matrix3d R = aa.toRotationMatrix();
-//        x_w =  R * x_;
-//        Eigen::Matrix3d dWdw_ = -R*t_*ev::skew(x_)*
-//                ((w*w.transpose()+(R.transpose()-Eigen::Matrix3d::Identity())*ev::skew(w)/t_)/w.squaredNorm());
-//        dWdw = (cameraMatrix_ * (dWdw_/x_w(2)-x_w*dWdw_.row(2)/std::pow(x_w(2),2))).block(0, 0, 2, 3);
-        Eigen::Vector3d w_ = w*t.toSec();
-        x_w = x_ + (w * t.toSec()).cross(x_);
-        dWdw = (cameraMatrix_ * (Eigen::Matrix3d::Identity() + ev::skew(w_))).block(0, 0, 2, 3);
+    double z = 0.231;
+    x_v = (z - v(2) * t_) * x + v * t_;
+    x_v /= x_v(2);
+
+    Eigen::Matrix3d cameraMatrix_;
+
+    cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
+
+
+    if (dW != NULL) {
+        Eigen::MatrixXd dW_(3, 3);
+        dW_ << 1, 0, -x(0),
+               0, 1, -x(1),
+               0, 0, 0;
+
+        (*dW) = (cameraMatrix_ * t_ / z * dW_).block(0, 0, 2, 3);
+
     }
 
-    //    x_w /= x_w(2);
+    x_v = cameraMatrix_ * x_v;
 }
 
-void ComputeVarianceFunction::fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) const {
+void ComputeVarianceFunction::fuse(Eigen::SparseMatrix<double>& image, Eigen::Vector2d& p, bool& polarity) const {
     std::vector<std::pair<std::vector<int>, double>> pixels;
     biInterp(pixels, p, polarity);
     for (auto p_it = pixels.begin(); p_it != pixels.end(); p_it++) {
-        // ev::Contrast::events_number+=std::abs(p_it->second);
-        image((p_it->first)[0], (p_it->first)[1]) += p_it->second;
+        image.coeffRef((p_it->first)[1], (p_it->first)[0]) += p_it->second;
     }
 }
 
-void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d point, bool& polarity) const {
+inline void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const {
     auto valid = [](int x, int y)  -> bool {
-        return (x >= 0 && x  < 180 && y >= 0 && y < 240);
+        return (x >= 0 && x  < 240 && y >= 0 && y < 180);
     };
 
     pixel_weight.clear();
@@ -193,223 +182,113 @@ void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<int>, d
     }
 }
 
-void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::Vector3d w) const {
-    image = Eigen::MatrixXd::Zero(param_.array_size_y, param_.array_size_x);
+void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eigen::SparseMatrix<double>* dIdw,
+                                        Eigen::Vector3d& v) const {
+    image = Eigen::SparseMatrix<double>(180, 240);
     okvis::Time t0 = em_->events.front().timeStamp;
     Eigen::Matrix3d cameraMatrix_;
     cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
-//     ev::Contrast::events_number = .0;
+
     for(auto it = em_->events.begin(); it != em_->events.end(); it++) {
-        Eigen::Vector2d p(it->measurement.x, it->measurement.y);
+        Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
         Eigen::Vector3d point_warped;
 
         // project to last frame
         auto t = it->timeStamp - t0;
-        warp(point_warped, p, t, w);
-
-        // z'/z
-        it->measurement.z = point_warped(2);
-        point_warped /= point_warped(2);
-        Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
-
-
-        fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
-
-    }
-    cv::Mat src, dst;
-    cv::eigen2cv(image, src);
-    cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
-    cv::cv2eigen(dst, image);
-}
-
-void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd& dIdw, Eigen::Vector3d w) const {
-    image = Eigen::MatrixXd::Zero(param_.array_size_y, param_.array_size_x);
-    dIdw = Eigen::MatrixXd::Zero(param_.array_size_y * param_.array_size_x, 3);
-    okvis::Time t0 = em_->events.front().timeStamp;
-    Eigen::Matrix3d cameraMatrix_;
-    cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
-    std::vector<std::pair<std::vector<int>, double>> pixel_weight;
-//    ev::Contrast::events_number = .0;
-    for(auto it = em_->events.begin(); it != em_->events.end(); it++) {
-        Eigen::Vector2d p(it->measurement.x, it->measurement.y);
-        Eigen::Vector3d point_warped;
-
-        // project to last frame
-        auto t = it->timeStamp - t0;
-        Eigen::MatrixXd dWdw;
-        warp(dWdw, point_warped, p, t, w);
-
-        // z'/z
-        it->measurement.z = point_warped(2);
-        point_warped /= point_warped(2);
-        Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
-
-        // delta_x'
-        biInterp(pixel_weight, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
-        for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
-            double dr = point_camera(0) - (p_it->first)[0];
-            double dc = point_camera(1) - (p_it->first)[1];
-            if (dr > 0)
-                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((std::abs(dc) - 1) * dWdw.row(0) * it->measurement.p);
-            if (dr < 0)
-                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((1 - std::abs(dc)) * dWdw.row(0) * it->measurement.p);
-            if (dc > 0)
-                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((1 - std::abs(dr)) * dWdw.row(1) * it->measurement.p);
-            if (dc < 0)
-                dIdw.row((p_it->first)[0] * 240 + (p_it->first)[1]) += ((std::abs(dr) - 1) * dWdw.row(1) * it->measurement.p);
-            image((p_it->first)[0], (p_it->first)[1]) += p_it->second;
+        Eigen::MatrixXd dWdv;
+        if (dIdw != NULL) {
+            warp(&dWdv, point_warped, p, t, v);
+        } else {
+            warp(NULL, point_warped, p, t, v);
         }
-        // fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
-    }
-    cv::Mat src, dst;
-    cv::eigen2cv(image, src);
-    cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
-    cv::cv2eigen(dst, image);
+            Eigen::Vector2d point_camera(point_warped(0), point_warped(1));
 
-}
+        if (dIdw != NULL) {
 
-void Contrast::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration& t, Eigen::Vector3d& w) {
-    Eigen::Vector3d x_ = x.homogeneous();
-    if (w.norm() == 0) {
-        x_w = x_;
-    } else {
-        Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
-        x_w = aa.toRotationMatrix() * x_;
-    }
-    // x_w = x_ + (w * t.toSec()).cross(x_);
-    x_w /= x_w(2);
-}
-
-void SE3::warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w, Eigen::Vector3d& tr) {
-    Eigen::Vector3d x_ = x.homogeneous();
-    if (w.norm() == 0) {
-        x_w = x_ + tr * t.toSec();
-    } else {
-        Eigen::AngleAxisd aa(w.norm()* t.toSec(), w.normalized());
-        x_w = aa.toRotationMatrix() * x_ + tr * t.toSec();
-    }
-    // x_w(2) = z_w/z;
-    x_w /= x_w(2);
-}
-
-void Contrast::fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity) {
+            std::vector<std::pair<std::vector<int>, double>> pixel_weight;
 #if 1
-    int pol = int(polarity) * 2 - 1;
+
+            biInterp(pixel_weight, point_camera, it->measurement.p);
+            for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
+                std::vector<int> p_ = p_it->first;               
+                double dc = point_warped(0) - p_[0];
+                double dr = point_warped(1) - p_[1];
+                int pol = int(it->measurement.p) * 2 - 1;
+                double dW;
+                Eigen::Vector3d dwv = Eigen::Vector3d::Zero();
+                if (dr > 0) {
+                    dW = (std::abs(dc) - 1) * pol;
+                } else if (dr < 0) {
+                    dW = (1 - std::abs(dc)) * pol;
+                }
+                dwv += dW * dWdv.row(1);
+                if (dc > 0) {
+                    dW = (std::abs(dr) - 1) * pol;
+                } else if (dc < 0) {
+                    dW = (1 - std::abs(dr)) * pol;
+                }
+                dwv += dW * dWdv.row(0);
+
+                for (int i = 0; i != 3; i++) {
+                    dIdw->coeffRef(p_[0] * 180 + p_[1], i) += dwv(i);
+                }
+
+                image.coeffRef(p_[1], p_[0]) += p_it->second;
+            }
 #else
-    int pol = 1;
+            // delta_y
+
+            Eigen::Vector2d h1(point_camera(1) + .5, point_camera(0));
+            biInterp(pixel_weight, h1, it->measurement.p);
+            for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
+                Eigen::VectorXd dwv = p_it->second * dWdv.row(1);
+                for (int i = 0; i != 3; i++) {
+                    dIdw->coeffRef((p_it->first)[0] * 180 + (p_it->first)[1], i) += dwv(i);
+                }
+            }
+            Eigen::Vector2d h2(point_camera(1) - .5, point_camera(0));
+            biInterp(pixel_weight, h2, it->measurement.p);
+            for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
+                Eigen::VectorXd dwv = p_it->second * dWdv.row(1);
+                for (int i = 0; i != 3; i++) {
+                    dIdw->coeffRef((p_it->first)[0] * 180 + (p_it->first)[1], i) -= dwv(i);
+                }
+            }
+
+            // delta_x
+            Eigen::Vector2d h3(point_camera(1), point_camera(0) + .5);
+            biInterp(pixel_weight, h3, it->measurement.p);
+            for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
+                Eigen::VectorXd dwv = p_it->second * dWdv.row(0);
+                for (int i = 0; i != 3; i++) {
+                    dIdw->coeffRef((p_it->first)[0] * 180 + (p_it->first)[1], i) += dwv(i);
+                }
+
+            }
+            Eigen::Vector2d h4(point_camera(1), point_camera(0) - .5);
+            biInterp(pixel_weight, h4, it->measurement.p);
+            for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
+                Eigen::VectorXd dwv = p_it->second * dWdv.row(0);
+                for (int i = 0; i != 3; i++) {
+                    dIdw->coeffRef((p_it->first)[0] * 180 + (p_it->first)[1], i) -= dwv(i);
+                }
+
+            }
+
+            fuse(image, point_camera, it->measurement.p);
 #endif
 
-    Eigen::Vector2d p1(std::floor(p(0)), std::floor(p(1)));
-    Eigen::Vector2d p2(p1(0), p1(1) + 1);
-    Eigen::Vector2d p3(p1(0) + 1, p1(1));
-    Eigen::Vector2d p4(p1(0) + 1, p1(1) + 1);
-
-    double a1 = (p4(0) - p(0)) * (p4(1) - p(1));
-    double a2 = -(p3(0) - p(0)) * (p3(1) - p(1));
-    double a3 = -(p2(0) - p(0)) * (p2(1) - p(1));
-    double a4 =  (p1(0) - p(0)) * (p1(1) - p(1));
-
-    image(p1(0), p1(1)) += a1 * pol;
-    image(p2(0), p2(1)) += a2 * pol;
-    image(p3(0), p3(1)) += a3 * pol;
-    image(p4(0), p4(1)) += a4 * pol;
-}
-
-void Contrast::synthesizeEventFrame(Eigen::MatrixXd &frame, std::shared_ptr<eventFrameMeasurement>& em) {
-    Intensity(frame, em, param, Eigen::Vector3d::Zero());
-}
-
-void Contrast::polarityEventFrame(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, bool po) {
-    Eigen::Matrix3d cameraMatrix_;
-    cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
-    for(auto it = em->events.begin(); it != em->events.end(); it++) {
-        if (it->measurement.p == po) {
-            Eigen::Vector2d p(it->measurement.x, it->measurement.y);
-            Eigen::Vector3d point_camera = cameraMatrix_ * p.homogeneous();
-
-            // discard point outside frustum
-            if (point_camera(0) > 0 && point_camera(0) < 179
-                    && point_camera(1) > 0 && point_camera(1) < 239) {
-                fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
-            }
-        }
-    }
-    cv::Mat src, dst;
-    cv::eigen2cv(image, src);
-    int kernelSize = 3;
-    cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
-    cv::cv2eigen(dst, image);
-}
-
-void Contrast::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement> &em, Parameters& param, Eigen::Vector3d w) {
-    okvis::Time t1 = em->events.back().timeStamp;
-    Eigen::Matrix3d cameraMatrix_;
-    cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
-    for(auto it = em->events.begin(); it != em->events.end(); it++) {
-        Eigen::Vector2d p(it->measurement.x, it->measurement.y);
-        Eigen::Vector3d point_warped;
-
-        // project to last frame
-        auto t = t1 - it->timeStamp;
-        warp(point_warped, p, t, w);
-
-        Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
-        if (point_camera(0) > 0 && point_camera(0) < 179
-                && point_camera(1) > 0 && point_camera(1) < 239) {
-            fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
         } else {
-            // LOG(INFO) << "discard point outside frustum";
+            fuse(image, point_camera, it->measurement.p);
         }
     }
+    Eigen::MatrixXd image_ = image.toDense();
     cv::Mat src, dst;
-    cv::eigen2cv(image, src);
-    int kernelSize = 3;
-    cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
-    cv::cv2eigen(dst, image);
-}
+    cv::eigen2cv(image_, src);
+    cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
+    cv::cv2eigen(dst, image_);
+    image = image_.sparseView();
 
-
-void SE3::Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
-                    Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr) {
-    okvis::Time t1 = em->events.back().timeStamp;
-    for(auto it = em->events.begin(); it != em->events.end(); it++) {
-        Eigen::Vector2d p(it->measurement.x, it->measurement.y);
-        Eigen::Vector3d point_warped;
-
-        // project to last frame
-        auto t = t1 - it->timeStamp;
-        warp(point_warped, p, t, w, tr);
-        Eigen::Matrix3d cameraMatrix_;
-        cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
-        Eigen::Vector3d point_camera = cameraMatrix_ * point_warped;
-        if (point_camera(0) > 0 && point_camera(0) < 179
-                && point_camera(1) > 0 && point_camera(1) < 239) {
-            fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
-        } else {
-            // LOG(INFO) << "discard point outside frustum";
-        }
-    }
-    cv::Mat src, dst;
-    cv::eigen2cv(image, src);
-    int kernelSize = 3;
-    cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0, 0);
-    cv::cv2eigen(dst, image);
-}
-
-double Contrast::getIntensity(int x, int y, Eigen::Vector3d& w) {
-    if (x == 0 && y == 0) {
-        intensity = Eigen::MatrixXd::Zero(180, 240);
-        Intensity(intensity, em, param, w);
-    }
-    return intensity(x, y);
-}
-
-double SE3::getIntensity(int x, int y, Eigen::Vector3d& w, Eigen::Vector3d& tr) {
-    if (x == 0 && y == 0) {
-        intensity = Eigen::MatrixXd::Zero(180, 240);
-        Intensity(intensity, em, param, w, tr);
-    }
-    return intensity(x, y);
 }
 
 // Constructor.

@@ -1,6 +1,8 @@
+
 #include "ThreadedEventIMU.h"
 
 namespace ev {
+int count = 0;
 ThreadedEventIMU::ThreadedEventIMU(Parameters &parameters)
     : speedAndBiases_propagated_(okvis::SpeedAndBias::Zero()),
       parameters_(parameters),
@@ -145,40 +147,30 @@ void ThreadedEventIMU::imuConsumerLoop() {
 
 // Loop to process event measurements.
 void ThreadedEventIMU::eventConsumerLoop() {
+    std::cout.setf(std::ios::left);
+    std::cout.fill(' ');
+    std::cerr<< std::setw(31) << "e";
     LOG(INFO) << "I am event consumer loop";
 
     ev::EventMeasurement data;
     // ??
     TimerSwitchable processEventTimer("0 processEventMeasurements",true);
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
-     std::default_random_engine gen;
-std::uniform_real_distribution<double> dis(-0.1, 0.1);
-    double w[] = {0, 2, 0};
-    double t[] = {0, 1, 0};
+    std::default_random_engine gen;
+    std::uniform_real_distribution<double> dis(-0.1, 0.1);
+    double v[] = {0, 0, 0};
+    std::vector<double*> params;
+    params.push_back(v);
 
-    while (!allGroundtruthAdded_) {LOG(INFO) << "waiting";}
+    while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
     ev::Pose estimatedPose;
     std::vector<std::vector<std::pair<double, double>>> estimatedPoses(3);
 
-    Gnuplot gp;
-    std::vector<std::vector<std::pair<double, double>>> groudtruth(3);
+    // Gnuplot gp;
+    std::vector<std::vector<std::pair<double, double>>> groundtruth(3);
 
-    for (auto it = maconMeasurements_.begin(); it != maconMeasurements_.end(); it++) {
-        Eigen::Quaterniond q = it->measurement.q;
-        double euler[3];
-        ev::quat2eul(q, euler);
-        for (int i = 0; i < 3; i++) {
-            groudtruth[i].push_back(std::make_pair(it->timeStamp.toSec(), euler[i]));
-        }
-    }
-
-    gp << "set xrange [15:16]\n";
-
-//    gp << "plot" << gp.file1d(groudtruth[0]) << "with lines title 'roll',"
-//                 << gp.file1d(groudtruth[1]) << "with lines title 'pitch',"
-//                 << gp.file1d(groudtruth[2]) << "with lines title 'yaw'"
-//                                    << std::endl;
-    Contrast::param = parameters_;
+    Contrast::param_ = parameters_;
+    count = 0;
     for (;;) {
         // get data and check for termination request
         if (eventMeasurementsReceived_.PopBlocking(&data) == false) {
@@ -187,9 +179,9 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
             return;
         }
 
-        //        okvis::Time start;
-        //        const okvis::Time* end;  // do not need to copy end timestamp
+
         {
+
             std::lock_guard<std::mutex> lock(eventMeasurements_mutex_);
 
             if (counter_s_ == 0) {
@@ -205,177 +197,231 @@ std::uniform_real_distribution<double> dis(-0.1, 0.1);
 
             if (em->counter_w == parameters_.window_size) {
 
-
-//                int size = em->events.size();
-//                for (int i = size / 10; i != size; i++) {
-//                    em->events.pop_back();
-//                }
-                if (estimatedPose.q.norm() == 0) {
-                    interpolateGroundtruth(estimatedPose, em->events.begin()->timeStamp);
-                }
-                double euler[3];
-                ev::quat2eul(estimatedPose.q, euler);
-
-                for (int i = 0; i < 3; i++) {
-                    estimatedPoses[i].push_back(std::make_pair(em->events.begin()->timeStamp.toSec(), euler[i]));
-                }
-
-                gp << "plot '-' binary" << gp.binFmt1d(groudtruth[0], "record") << "with lines title 'roll',"
-                   << "'-' binary" << gp.binFmt1d(groudtruth[1], "record") << "with lines title 'pitch',"
-                   << "'-' binary" << gp.binFmt1d(groudtruth[2], "record") << "with lines title 'yaw',"
-                   << "'-' binary" << gp.binFmt1d(estimatedPoses[0], "record") << "with lines title 'roll_',"
-                   << "'-' binary" << gp.binFmt1d(estimatedPoses[1], "record") << "with lines title 'pitch_',"
-                   << "'-' binary" << gp.binFmt1d(estimatedPoses[2], "record") << "with lines title 'yaw_'\n";
-
-                gp.sendBinary1d(groudtruth[0]);
-                gp.sendBinary1d(groudtruth[1]);
-                gp.sendBinary1d(groudtruth[2]);
-                gp.sendBinary1d(estimatedPoses[0]);
-                gp.sendBinary1d(estimatedPoses[1]);
-                gp.sendBinary1d(estimatedPoses[2]);
-                gp.flush();
-
                 undistortEvents(em);
-                Contrast::em = em;
 
-                Eigen::MatrixXd synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-                Contrast::synthesizeEventFrame(synthesizedFrame, em);
-                ev::imshowRescaled(synthesizedFrame, 1, "zero motion");
+                ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
-//                Eigen::MatrixXd image = Eigen::MatrixXd::Constant(parameters_.array_size_y, parameters_.array_size_x, 0.5);
-//                Eigen::Matrix3d cameraMatrix_;
-//                cv::cv2eigen(parameters_.cameraMatrix, cameraMatrix_);
-//                for(auto it = em->events.begin(); it != em->events.end(); it++) {
-//                    Eigen::Vector2d p(it->measurement.x, it->measurement.y);
-//                    Eigen::Vector3d point_camera = cameraMatrix_ * p.homogeneous();
+                Eigen::SparseMatrix<double> zero_motion;
 
-//                    if (point_camera(0) > 0 && point_camera(0) < 179
-//                            && point_camera(1) > 0 && point_camera(1) < 239) {
-//                        Contrast::fuse(image, Eigen::Vector2d(point_camera(0), point_camera(1)), it->measurement.p);
-//                    }
-//                    cv::Mat dst;
-//                    cv::eigen2cv(image, dst);
-//                    cv::imshow("animation", dst);
-//                    cv::waitKey(3);
-//                }
-
-                bool positive = true;
-
-//                synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-//                Contrast::polarityEventFrame(synthesizedFrame, em, positive);
-//                ev::imshowRescaled(synthesizedFrame, 1, "positive events");
-
-//                synthesizedFrame = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-//                Contrast::polarityEventFrame(synthesizedFrame, em, !positive);
-//                ev::imshowRescaled(synthesizedFrame, 1, "negative events");
+                Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
+                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3);
+                double cost = contrastCost(zero_motion);
 
                 // ground truth
                 okvis::Time begin = em->events.front().timeStamp;
                 okvis::Time end = em->events.back().timeStamp;
 
                 // ???
-                Eigen::Vector3d velocity = ((it_gt-1)->measurement.p - it_gt->measurement.p) / (end.toSec() - begin.toSec());
 
-                Eigen::Quaterniond p1 = (it_gt-1)->measurement.q;
-                Eigen::Quaterniond p2 = it_gt->measurement.q;
+                ev::Pose p1, p2;
+                // of camera
+                Eigen::Vector3d linear_velocity;
+                Eigen::Quaterniond angular_velocity;
+                if (interpolateGroundtruth(p1, begin) && interpolateGroundtruth(p2, end)) {
+                    linear_velocity = (p1.q).inverse().toRotationMatrix() * (p2.p - p1.p) / (end.toSec() - begin.toSec());
+                    angular_velocity =  (p1.q).inverse() * p2.q ;
 
-
-                // world transition
-                Eigen::Quaterniond transition = p1 * p2.inverse();
-                Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(transition);
+                } else {
+                    linear_velocity = Eigen::Vector3d(0, 0, 0);
+                    angular_velocity = Eigen::Quaterniond(1, 0, 0, 0);
+                }
+                Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(angular_velocity);
                 Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
 
-                LOG(INFO) << begin;
-                LOG(INFO) << "events: " << em->events.size() << '\n';
-                LOG(INFO) << end << '\n';
+                std::stringstream ss;
+                ss << "\nground truth:\n\n"
+                   << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
+                   << std::setw(15) << angularVelocity(0)  << std::setw(15) << linear_velocity(0) << '\n'
+                   << std::setw(15) << angularVelocity(1)  << std::setw(15) << linear_velocity(1) << '\n'
+                   << std::setw(15) << angularVelocity(2)  << std::setw(15) << linear_velocity(2) << '\n';
 
-                LOG(INFO) << "ground truth:\n" << angularVelocity;
+                LOG(INFO) << ss.str();
+                //                v[0] =  linear_velocity(0);
+                //                v[1] =  velocity(1);
+                //                v[2] =  velocity(2);
 
-                Eigen::MatrixXd groundTruth = Eigen::MatrixXd::Zero(parameters_.array_size_y, parameters_.array_size_x);
-                //Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity, velocity);
-                Contrast::Intensity(groundTruth, em, Contrast::param, angularVelocity);
+                //                w[0] = angularVelocity(0);
+                //                w[1] = angularVelocity(1);
+                //                w[2] = angularVelocity(2);
 
-                double cost = 0;
-                double mu = groundTruth.mean();
-                for (int x_ = 0; x_ < 240; x_++) {
-                    for (int y_ = 0; y_ < 180; y_++) {
-                        cost += std::pow(groundTruth(y_, x_) - mu, 2);
+                Eigen::SparseMatrix<double> ground_truth;
+                std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
+#if !optimize
+
+                std::ofstream  myfile(files_path + "z.txt", std::ios_base::app);
+                if (myfile.is_open() && linear_velocity(0) > 0.162) {
+                    varianceVisualizer.Intensity(ground_truth, NULL, linear_velocity);
+
+                    double cost_zero = contrastCost(ground_truth);
+                    for (double z = -linear_velocity(0); z < linear_velocity(0)*2; z += 0.01) {
+                        linear_velocity(2) = z;
+                        varianceVisualizer.Intensity(ground_truth, NULL, linear_velocity);
+                        ev::imshowRescaled(ground_truth, 10, "groudtruth", NULL);
+                        cost = contrastCost(ground_truth)/cost_zero;
+                        myfile << z/linear_velocity(0) << " " << cost << '\n';
                     }
+                    LOG(INFO) << "sleep";
+                    system("sleep 10");
+                    myfile.close();
                 }
-                cost /= (240*180);
 
-                // adjust to ceres format
-                cost = 1./std::pow(cost, 2);
-                cost /= 2;
+#else
+                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3);
+                cost = contrastCost(ground_truth);
+                std::string caption =  "cost = " + std::to_string(cost);
+                ev::imshowRescaled(ground_truth, 10, "zero_motion", NULL);
 
-                std::string caption = "cost = " + std::to_string(cost);
-                ev::imshowRescaled(groundTruth, 1, "ground truth", caption);
 
                 processEventTimer.start();
 
                 ceres::Solver::Options options;
-                options.update_state_every_iteration = true;
-                options.num_threads = 6;
+                options.minimizer_progress_to_stdout = false;
+
+
                 ceres::Solver::Summary summary;
-                ev::imshowCallback callback(w);
-                options.callbacks.push_back(&callback);
-                options.minimizer_progress_to_stdout = true;
-
                 ceres::Problem problem;
+
                 ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
-                problem.AddResidualBlock(cost_function, NULL, w);
+                //                ev::imshowCallback callback(w, static_cast<ComputeVarianceFunction*>(cost_function));
+                //                options.callbacks.push_back(&callback);
 
-                ceres::Solve(options, &problem, &summary);
+                // identity initialization
+                double v_[] = {.0, .0, .0};
 
-                LOG(INFO) << "Translation";
-                //                    {
-                //                        ceres::Problem problem;
-                //                        ceres::CostFunction* cost_function =
-                //                                new ceres::NumericDiffCostFunction<SE3, ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1>(
-                //                                    new SE3());
-                //                        problem.AddResidualBlock(cost_function, NULL, &t1, &t2, &t3, &w1, &w2, &w3);
+                std::vector<double*> params_;
 
-                //                        ceres::Solve(options, &problem, &summary);
-                //                    }
+                params_.push_back(v_);
 
 
-                //                    ceres::Problem problem_t;
-                //                    ceres::CostFunction* cost_function_t =
-                //                            new ceres::NumericDiffCostFunction<SE3, ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1>(
-                //                                new SE3());
-                //                    problem_t.AddResidualBlock(cost_function_t, NULL, &w1, &w2, &w3, &t1, &t2, &t3);
-                //                    ceres::Solver::Options options_t;
-                //                    options_t.update_state_every_iteration = true;
-                //                    options_t.num_threads = 6;
-                //                    ceres::Solver::Summary summary_t;
-                //                    ceres::Solve(options_t, &problem_t, &summary_t);
+                ceres::Solver::Options options_;
+                options_.minimizer_progress_to_stdout = false;
+
+                ceres::Solver::Summary summary_;
+                ceres::Problem problem_;
+
+                ceres::CostFunction* cost_function_ = new ComputeVarianceFunction(em, parameters_);
+
+
+                //#pragma omp parallel
+                {
+                    //#pragma omp sections
+                    {
+                        //#pragma omp section
+                        {
+                            problem.AddResidualBlock(cost_function, NULL, params);
+                            // auto start_ = Clock::now();
+                            ceres::Solve(options, &problem, &summary);
+                            /* LOG(INFO) << "solve " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_).count()/1e9
+                                                                << " seconds";*/
+                        }
+                        //#pragma omp section
+                        if (summary.final_cost > cost) {
+                            problem_.AddResidualBlock(cost_function_, NULL, params_);
+                            ceres::Solve(options_, &problem_, &summary_);
+                        }
+                    }
+                }
+                if (summary.final_cost > cost && summary_.final_cost < summary.final_cost) {
+                    for (int i = 0; i != 3; i++) {
+                        v[i] = v_[i];
+
+                        cost_function = cost_function_;
+                        LOG(ERROR) << "change of direction";
+                    }
+                }
+
+
+#if !show_optimizing_process
+
+                ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
+                                   1, "optimized", NULL);
+                count++;
+
+#endif
+
 
                 processEventTimer.stop();
 
                 LOG(INFO) << okvis::timing::Timing::print();
-                Eigen::Vector3d rotation_(w[0], w[1], w[2]);
-                rotation_ *= ((end.toSec() - begin.toSec()));
-                Eigen::AngleAxisd angleAxis_;
-                if (rotation_.norm() == 0) {
-                    angleAxis_ = Eigen::AngleAxisd(0, (Eigen::Vector3d() << 0, 0, 1).finished());
-                } else {
-                    angleAxis_ = Eigen::AngleAxisd(rotation_.norm(), rotation_.normalized());
-                }
-                estimatedPose.q = Eigen::Quaterniond(angleAxis_) * estimatedPose.q;
-//                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
-//                double error = difference.angle() / (end.toSec() - begin.toSec());
 
-                LOG(INFO) << "w :\n" << w[0]
-                          << "\n" << w[1]
-                          << "\n" << w[2];
-//                LOG(INFO) << "error: " << error << " rad/s";
+                ss.str(std::string());
+                ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
+                   << std::setw(15) << 0 << std::setw(15) << v[0] << '\n'
+                   << std::setw(15) << 0 << std::setw(15) << v[1] << '\n'
+                   << std::setw(15) << 0 << std::setw(15) << v[2] << '\n';
+
+                LOG(INFO) << ss.str();
+
+                Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
+                //double error = std::acos(linear_velocity.normalized().dot(estimated_normalized));
+                double error = std::abs((v[0] - linear_velocity(0))/linear_velocity(0));
+
+                LOG(ERROR) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 
+            if (parameters_.write_to_file) {
+
+                std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
+
+                std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
+                if (error_file.is_open()) {
+                    error_file << begin.toSec() << " " << error << '\n';
+                    error_file.close();
+                } else
+                    std::cout << "怎么肥四"<<std::endl;
+
+//                std::ofstream  g_file(files_path + "ground_truth.txt", std::ios_base::app);
+//                if (g_file.is_open()) {
+//                    g_file << begin.toSec() << " " << linear_velocity(0) << '\n';
+//                    g_file.close();
+//                } else
+//                    std::cout << "怎么肥四"<<std::endl;
+
+//                std::ofstream  myfile(files_path + "groundtruth_rotation.txt", std::ios_base::app);
+//                if (myfile.is_open()) {
+//                    myfile << angularVelocity(0) << " "
+//                           << angularVelocity(1) << " "
+//                           << angularVelocity(2) << "\n";
+//                    myfile.close();
+//                } else
+//                    std::cout << "怎么肥四"<<std::endl;
+
+
+                std::ofstream  myfilet(files_path + "groundtruth_translation.txt", std::ios_base::app);
+                if (myfilet.is_open()) {
+                    myfilet << begin.toSec() << " " << linear_velocity(0) << " "
+                            << linear_velocity(1) << " "
+                            << linear_velocity(2) << '\n';
+                    myfilet.close();
+                } else
+                    std::cout << "怎么肥四"<<std::endl;
+
+                std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
+                if (myfile_t.is_open()) {
+                    myfile_t<< begin.toSec() << " " << v[0] << " "
+                                     << v[1] << " "
+                                     << v[2] << " ";
+                    myfile_t << '\n';
+                    myfile_t.close();
+                } else
+                    std::cout << "怎么肥四"<<std::endl;
+
+//                std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
+//                if (error_file.is_open()) {
+//                    error_file << error << '\n';
+//                    error_file.close();
+//                } else
+//                    std::cout << "怎么肥四"<<std::endl;
+}
+
+#endif
                 eventFrames.pop_front();
             }
             counter_s_ = (counter_s_ + 1) % parameters_.step_size;
+
         }
         // LOG(INFO) << okvis::timing::Timing::print();
+
     }
 }
 
@@ -402,7 +448,7 @@ bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& e
     std::vector<cv::Point2d> inputDistortedPoints;
     std::vector<cv::Point2d> outputUndistortedPoints;
     for (auto it = em->events.begin(); it != em->events.end(); it++) {
-        cv::Point2d point(it->measurement.y, it->measurement.x);
+        cv::Point2d point(it->measurement.x, it->measurement.y);
         inputDistortedPoints.push_back(point);
     }
     cv::undistortPoints(inputDistortedPoints, outputUndistortedPoints,
@@ -424,8 +470,18 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
     int stepSize = maconMeasurements_.size();
     auto lo = maconMeasurements_.begin();
     auto hi = lo + stepSize - 1;
-    if (timeStamp > hi->timeStamp || timeStamp < lo->timeStamp)
+    if (timeStamp > hi->timeStamp) {
+        Eigen::Vector3d p = hi->measurement.p;
+        Eigen::Quaterniond q = hi->measurement.q;
+        pose(p, q);
         return false;
+    } else if (timeStamp < lo->timeStamp) {
+        Eigen::Vector3d p = lo->measurement.p;
+        Eigen::Quaterniond q = lo->measurement.q;
+        pose(p, q);
+        return false;
+    }
+
     while (stepSize != 1) {
         stepSize /= 2;
         auto mid = lo + stepSize;
@@ -448,6 +504,26 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
     return true;
 }
 
+double ThreadedEventIMU::contrastCost(Eigen::SparseMatrix<double>& image) {
+    // average intensity
+    double mu = image.sum() / (240*180);
+
+    // cost
+    double cost = 0;
+    for (int s = 0; s < image.outerSize(); ++s) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(image, s); it; ++it) {
+            double rho = it.value() - mu;
+            cost += std::pow(rho, 2);
+        }
+    }
+
+    cost += ((240 * 180) - image.nonZeros()) * std::pow(mu, 2);
+    cost /= (240*180);
+
+    // adjust to ceres format
+    cost = 1./std::pow(cost, 2);
+    cost /= 2;
+    return cost;
 }
 
-
+}

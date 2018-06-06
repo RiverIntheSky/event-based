@@ -5,8 +5,10 @@
 #include <opencv2/opencv.hpp>
 #include <ceres/ceres.h>
 #include <okvis/Measurements.hpp>
+#include <Eigen/Sparse>
 
 namespace ev {
+extern int count;
 class parameterReader
 {
 public:
@@ -17,11 +19,12 @@ public:
 };
 
 struct Pose {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     /// \brief Default constructor.
     Pose(): p(), q() {}
 
     /// \brief Constructor.
-    Pose(Eigen::Vector3d p_, Eigen::Quaterniond q_)
+    Pose(Eigen::Vector3d& p_, Eigen::Quaterniond& q_)
         : p(p_), q(q_) {}
 
 //    /// \brief Copy constructor.
@@ -41,8 +44,9 @@ struct Pose {
 typedef okvis::Measurement<Pose> MaconMeasurement;
 
 // map entries in src to [0, 1]
-void imshowRescaled(const cv::Mat& src, int msec = 0, std::string title = "image", std::string text = "");
-void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string title = "image", std::string text = "");
+void imshowRescaled(const cv::Mat& src, int msec = 0, std::string title = "image", double *text = NULL);
+void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string title = "image", double* text = NULL);
+void imshowRescaled(Eigen::SparseMatrix<double> &src_, int msec = 0, std::string title = "image", double *text = NULL);
 void quat2eul(Eigen::Quaterniond& q, double* euler);
 Eigen::Matrix3d skew(Eigen::Vector3d& v);
 }

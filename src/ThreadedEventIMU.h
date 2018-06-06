@@ -5,6 +5,9 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <iomanip>
+#include <omp.h>
+
 
 #include <okvis/ImuFrameSynchronizer.hpp>
 #include <okvis/FrameSynchronizer.hpp>
@@ -13,8 +16,8 @@
 #include "ceres/ceres.h"
 #include "util/gnuplot-iostream.h"
 
-namespace ev {
 
+namespace ev {
 class ThreadedEventIMU: public okvis::VioInterface
 {
 public:
@@ -23,16 +26,7 @@ public:
 
     typedef okvis::timing::Timer TimerSwitchable;
 
-//    // DAVIS
-//    typedef Eigen::Matrix<double, 2, 2> eventFrame;
-
-
-
-
-//    bool correctEvent(cv::Mat& frame, eventFrameMeasurement* em);
     bool undistortEvents(std::shared_ptr<eventFrameMeasurement>& em);
-
-    //void fuse(cv::Mat& image, cv::Vec2d point, bool polarity);
 
     ThreadedEventIMU(Parameters& parameters);
 
@@ -221,6 +215,8 @@ private:
 
     bool allGroundtruthAdded();
 
+    double contrastCost(Eigen::SparseMatrix<double>& image);
+
      /// @name Measurement input queues
      /// @{
 
@@ -231,8 +227,8 @@ private:
      okvis::threadsafe::ThreadSafeQueue<ev::EventMeasurement> eventMeasurementsReceived_;
 
      /// ground truth queue. added first, no need to be thread-safe
-     std::vector<ev::MaconMeasurement> maconMeasurements_;
-     std::vector<ev::MaconMeasurement>::iterator it_gt;
+     std::vector<ev::MaconMeasurement, Eigen::aligned_allocator<ev::MaconMeasurement>> maconMeasurements_;
+     std::vector<ev::MaconMeasurement, Eigen::aligned_allocator<ev::MaconMeasurement>>::iterator it_gt;
 
 
      /// @brief This struct contains the results of the optimization for ease of publication.
