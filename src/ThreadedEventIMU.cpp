@@ -231,17 +231,17 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 }
 
                 // find patch with the most events
-                int patch_num[parameters_.patch_num] = {};
-                for (auto it = em->events.begin(); it != em->events.end(); it++) {
-                    Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
-                    patch_num[patch(p)]++;
-                }
-                max_patch = 0;
-                for  (int i = 0; i != 12; i++) {
-                    LOG(ERROR)<<patch_num[i];
-                    if (patch_num[i] > patch_num[max_patch])
-                        max_patch = i;
-                }
+//                int patch_num[parameters_.patch_num] = {};
+//                for (auto it = em->events.begin(); it != em->events.end(); it++) {
+//                    Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
+//                    patch_num[patch(p)]++;
+//                }
+//                max_patch = 0;
+//                for  (int i = 0; i != 12; i++) {
+//                    LOG(ERROR)<<patch_num[i];
+//                    if (patch_num[i] > patch_num[max_patch])
+//                        max_patch = i;
+//                }
 
                 ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
@@ -359,18 +359,28 @@ void ThreadedEventIMU::eventConsumerLoop() {
                         {
                             problem.AddResidualBlock(cost_function, NULL, params);
                             // auto start_ = Clock::now();
-                            ceres::Solve(options, &problem, &summary);
+                            if (std::abs(begin.toSec() - 0.615304)<0.001){
+                                for (double i = -5; i < 5; i+=0.1) {
+                                    z[0] = i;
+                                    ceres::Solve(options, &problem, &summary);
+                                }
+                                for (double i = 0.131; i < 0.331; i+=0.01) {
+                                    z[0] = i;
+                                    ceres::Solve(options, &problem, &summary);
+                                }
+                            }
+
                             /* LOG(INFO) << "solve " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_).count()/1e9
                                                                 << " seconds";*/
                         }
                         //#pragma omp section
-                        if (summary.final_cost > cost) {
+                        /*if (summary.final_cost > cost) {
                             problem_.AddResidualBlock(cost_function_, NULL, params_);
                             ceres::Solve(options_, &problem_, &summary_);
-                        }
+                        }*/
                     }
                 }
-                if (summary.final_cost > cost && summary_.final_cost < summary.final_cost) {
+                /*if (summary.final_cost > cost && summary_.final_cost < summary.final_cost) {
                     for (int i = 0; i != 3; i++) {
                         v[i] = v_[i];
                     }
@@ -380,7 +390,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     cost_function = cost_function_;
                     LOG(ERROR) << "change of direction";
 
-                }
+                }*/
 
 
 #if !show_optimizing_process

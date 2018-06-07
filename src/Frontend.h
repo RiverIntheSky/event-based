@@ -21,7 +21,7 @@ typedef std::chrono::high_resolution_clock Clock;
 namespace ev {
 extern int count;
 extern int max_patch;
-class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 12> {
+class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 1> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     ComputeVarianceFunction(std::shared_ptr<eventFrameMeasurement> em, Parameters parameters):

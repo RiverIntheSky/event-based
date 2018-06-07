@@ -78,7 +78,7 @@ void imshowRescaled(const cv::Mat &src, int msec, std::string title, double* tex
             cv::line(dst, cvPoint(0, 179), cvPoint(240, 180), cvScalar(200, 200, 250), 1);
     }
     std::string file_name = title + "_" + std::to_string(count) + ".jpg";
-    cv::imwrite(file_name, dst);
+    //cv::imwrite(file_name, dst);
 #else
     dst *= 255;
     cv::putText(dst, title, cvPoint(30,30),

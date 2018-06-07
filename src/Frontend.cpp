@@ -30,7 +30,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
                                        double* residuals,
                                        double** jacobians) const {
 
-
+    std::string files_path = param_.path + "/" + param_.experiment_name + "/" + std::to_string(param_.window_size) + "/";
     int area = 180 * 240;
     residuals[0] = 0;
     Eigen::Vector3d v;
@@ -113,7 +113,22 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             LOG(INFO) << "jz:" << jacobians[1][i];
         }
         LOG(INFO) << "------------------";
+
+        std::ofstream  c_file(files_path + "jacobian.txt", std::ios_base::app);
+        if (c_file.is_open()) {
+            c_file << (*z)[0] << " " << residuals[0] << ' ' << std::pow(residuals[0], 2)/2<< ' ' << jacobians[1][0] << '\n';
+            c_file.close();
+        } else
+            std::cout << "怎么肥四"<<std::endl;
     }
+
+    std::ofstream  c_file(files_path + "residual.txt", std::ios_base::app);
+    if (c_file.is_open()) {
+        c_file << (*z)[0] << " " << residuals[0] << ' ' << std::pow(residuals[0], 2)/2 << '\n';
+        c_file.close();
+    } else
+        std::cout << "怎么肥四"<<std::endl;
+
 //    if (jacobians != NULL && jacobians[0] != NULL) {
 //        LOG(INFO) << "jacobian & residual " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()
 //                  << " nanoseconds";
@@ -221,7 +236,8 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
         // project to last frame
         auto t = it->timeStamp - t0;
         Eigen::MatrixXd dWdvz;
-        int patch_nr = patch(p);
+        //int patch_nr = patch(p);
+        int patch_nr = 0;
         if (dIdw != NULL) {
             warp(&dWdvz, point_warped, p, t, v, (*z)[patch_nr]);
 //            if (patch(p) == max_patch)
