@@ -23,8 +23,8 @@ int main(int argc, char *argv[])
     if (argc <= 1) {
         LOG(ERROR) << "\nusage: " << "./ev dataset_name window_size experiment_name\n"
                   << "example: " << "./ev "
-                  << "'/home/weizhen/Documents/dataset/slider_hdr_close'"
-                  << " 10000 'x_only'\n";
+                  << "/home/weizhen/Documents/dataset/slider_hdr_close"
+                  << " 10000 x_only\n";
         return 1;
     }
 
