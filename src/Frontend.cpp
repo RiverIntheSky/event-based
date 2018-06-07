@@ -82,7 +82,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             int x_ = it.col();
 
             if (jacobians != NULL && jacobians[0] != NULL) {
-                for (int i = 0; i != 1; i++) {
+                for (int i = 0; i != 2; i++) {
                     jacobians[0][i] += rho * ((dIdw_[i]).coeffRef(y_, x_) - dIm[i]);
                 }
 
@@ -98,36 +98,31 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     residuals[0] = 1./residuals[0];
 
     if (jacobians != NULL && jacobians[0] != NULL) {
-        for (int i = 0; i != 1; i++) {
+        for (int i = 0; i != 2; i++) {
             jacobians[0][i] += (area - intensity.nonZeros()) * Im * dIm[i];
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
-            jacobians[0][i] = 0;
-#ifndef NDEBUG
             LOG(INFO)<< "jv:" << jacobians[0][i];
-#endif
         }
 
         for (int i = 0; i != param_.patch_num; i++) {
             jacobians[1][i] += (area - intensity.nonZeros()) * Im * dIm[i + 3];
             jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / area);
+            jacobians[1][i] = 0;
+#ifndef NDEBUG
             LOG(INFO) << "jz:" << jacobians[1][i];
+#endif
         }
         LOG(INFO) << "------------------";
 
         std::ofstream  c_file(files_path + "jacobian.txt", std::ios_base::app);
         if (c_file.is_open()) {
-            c_file << (*z)[0] << " " << residuals[0] << ' ' << std::pow(residuals[0], 2)/2<< ' ' << jacobians[1][0] << '\n';
+            c_file << residuals[0] << ' '
+                   << parameters[0][0] << ' '<< parameters[0][1] << ' '
+                   << jacobians[0][0] << ' ' << jacobians[0][1] << '\n';
             c_file.close();
         } else
             std::cout << "怎么肥四"<<std::endl;
     }
-
-    std::ofstream  c_file(files_path + "residual.txt", std::ios_base::app);
-    if (c_file.is_open()) {
-        c_file << (*z)[0] << " " << residuals[0] << ' ' << std::pow(residuals[0], 2)/2 << '\n';
-        c_file.close();
-    } else
-        std::cout << "怎么肥四"<<std::endl;
 
 //    if (jacobians != NULL && jacobians[0] != NULL) {
 //        LOG(INFO) << "jacobian & residual " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count()

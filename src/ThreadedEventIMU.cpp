@@ -227,7 +227,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 undistortEvents(em);
 
                 for (int i = 0; i < parameters_.patch_num; i++) {
-                    z[i] = 1;
+                    z[i] = 0.231;
                 }
 
                 // find patch with the most events
@@ -360,13 +360,13 @@ void ThreadedEventIMU::eventConsumerLoop() {
                             problem.AddResidualBlock(cost_function, NULL, params);
                             // auto start_ = Clock::now();
                             if (std::abs(begin.toSec() - 0.615304)<0.001){
-                                for (double i = -5; i < 5; i+=0.1) {
-                                    z[0] = i;
-                                    ceres::Solve(options, &problem, &summary);
-                                }
-                                for (double i = 0.131; i < 0.331; i+=0.01) {
-                                    z[0] = i;
-                                    ceres::Solve(options, &problem, &summary);
+
+                                for (double i = 0.06; i < 0.26; i+=0.001) {
+                                    for (double j = -0.2; j < 0.2; j+=0.001) {
+                                        v[0] = i;
+                                        v[1] = j;
+                                        ceres::Solve(options, &problem, &summary);
+                                    }
                                 }
                             }
 
