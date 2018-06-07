@@ -157,7 +157,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     TimerSwitchable processEventTimer("0 processEventMeasurements",true);
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
     std::default_random_engine gen;
-    std::uniform_real_distribution<double> dis(-0.1, 0.1);
+    std::uniform_real_distribution<double> dis(-0.02, 0.02);
     double v[] = {0, 0, 0};
     double z[parameters_.patch_num] = {};
     std::vector<double*> params;
@@ -280,9 +280,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                    << std::setw(15) << angularVelocity(2)  << std::setw(15) << linear_velocity(2) << '\n';
 
                 LOG(INFO) << ss.str();
-                v[0] =  linear_velocity(0);
-                v[1] =  linear_velocity(1);
-                v[2] =  linear_velocity(2);
+                v[0] =  linear_velocity(0) + dis(gen);
+                v[1] =  linear_velocity(1) + dis(gen);
+                v[2] =  linear_velocity(2) + dis(gen);
 
                 //                w[0] = angularVelocity(0);
                 //                w[1] = angularVelocity(1);
@@ -405,7 +405,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
                 //double error = std::acos(linear_velocity.normalized().dot(estimated_normalized));
-                double error = std::abs((v[0] - linear_velocity(0))/linear_velocity(0));
+                double x_relative = linear_velocity(0) / 0.231;
+                double error = std::abs(v[0] - x_relative)/x_relative;
 
                 LOG(ERROR) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();

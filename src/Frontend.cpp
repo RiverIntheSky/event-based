@@ -39,8 +39,6 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
 
     // derivatives of intensity with respect to each parameters
     std::vector<Eigen::SparseMatrix<double>> dIdw_;
-    // the mean of the derivatives
-    std::vector<double> dIm;
 
     if (jacobians != NULL && jacobians[0] != NULL) {
 
@@ -64,53 +62,48 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             cv::cv2eigen(dst, d);
             Eigen::SparseMatrix<double> s = d.sparseView();
             dIdw_.push_back(s);
-            dIm.push_back(cv::mean(dst)[0]);
         }
 
     } else {
         Intensity(intensity, NULL, v, z);
     }
 
-    double Im = (intensity * Eigen::VectorXd::Ones(intensity.cols())).sum() / area;
-
     for (int s = 0; s < intensity.outerSize(); ++s) {
         for (Eigen::SparseMatrix<double>::InnerIterator it(intensity, s); it; ++it) {
-            double rho = it.value() - Im;
+            double rho = it.value();
             residuals[0] += std::pow(rho, 2);
 
             int y_ = it.row();
             int x_ = it.col();
 
             if (jacobians != NULL && jacobians[0] != NULL) {
-                for (int i = 0; i != 1; i++) {
-                    jacobians[0][i] += rho * ((dIdw_[i]).coeffRef(y_, x_) - dIm[i]);
+                for (int i = 0; i != 3; i++) {
+                    jacobians[0][i] += rho * (dIdw_[i]).coeffRef(y_, x_);
                 }
 
                 for (int i = 0; i != param_.patch_num; i++) {
-                    jacobians[1][i] += rho * ((dIdw_[i + 3]).coeffRef(y_, x_) - dIm[i + 3]);
+                    jacobians[1][i] += rho * (dIdw_[i + 3]).coeffRef(y_, x_);
                 }
             }
         }
     }
-    residuals[0] += (area - intensity.nonZeros()) * std::pow(Im, 2);
 
-    residuals[0] /= area;
+    residuals[0] /= intensity.nonZeros();
     residuals[0] = 1./residuals[0];
 
     if (jacobians != NULL && jacobians[0] != NULL) {
-        for (int i = 0; i != 1; i++) {
-            jacobians[0][i] += (area - intensity.nonZeros()) * Im * dIm[i];
-            jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / area);
-            jacobians[0][i] = 0;
+        for (int i = 0; i != 3; i++) {
+            jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / intensity.nonZeros());
 #ifndef NDEBUG
             LOG(INFO)<< "jv:" << jacobians[0][i];
 #endif
         }
 
         for (int i = 0; i != param_.patch_num; i++) {
-            jacobians[1][i] += (area - intensity.nonZeros()) * Im * dIm[i + 3];
-            jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / area);
+            jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / intensity.nonZeros());
+//#ifndef NDEBUG
             LOG(INFO) << "jz:" << jacobians[1][i];
+//#endif
         }
         LOG(INFO) << "------------------";
     }
