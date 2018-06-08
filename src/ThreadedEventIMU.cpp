@@ -361,12 +361,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
                             // auto start_ = Clock::now();
                             if (std::abs(begin.toSec() - 0.615304)<0.001){
 
-                                for (double i = 0.06; i < 0.26; i+=0.01) {
-                                    for (double j = -0.2; j < 0.2; j+=0.01) {
-                                        v[0] = i;
-                                        v[1] = j;
+                                for (double i = -1; i < 1; i+=0.01) {
+                                        v[2] = i;
                                         ceres::Solve(options, &problem, &summary);
-                                    }
+
                                 }
                             }
 

@@ -77,7 +77,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             int x_ = it.col();
 
             if (jacobians != NULL && jacobians[0] != NULL) {
-                for (int i = 0; i != 2; i++) {
+                for (int i = 2; i != 3; i++) {
                     jacobians[0][i] += rho * (dIdw_[i]).coeffRef(y_, x_);
                 }
 
@@ -92,7 +92,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
     residuals[0] = 1./residuals[0];
 
     if (jacobians != NULL && jacobians[0] != NULL) {
-        for (int i = 0; i != 2; i++) {
+        for (int i = 2; i != 3; i++) {
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / intensity.nonZeros());
             LOG(INFO)<< "jv:" << jacobians[0][i];
         }
@@ -109,8 +109,7 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
         std::ofstream  c_file(files_path + "jacobian.txt", std::ios_base::app);
         if (c_file.is_open()) {
             c_file << residuals[0] << ' '
-                   << parameters[0][0] << ' '<< parameters[0][1] << ' '
-                   << jacobians[0][0] << ' ' << jacobians[0][1] << '\n';
+                   << parameters[0][2]  << ' ' << jacobians[0][2] << '\n';
             c_file.close();
         } else
             std::cout << "怎么肥四"<<std::endl;
