@@ -10,15 +10,26 @@ ev::Parameters ev::Contrast::param_ = ev::Parameters();
 
 int main(int argc, char *argv[])
 {
+
+
     google::InitGoogleLogging(argv[0]);
 #ifndef NDEBUG
     //FLAGS_alsologtostderr = 1;  // output LOG for debugging
     FLAGS_logtostderr = 1;  //Logs are written to standard error instead of to files.
 #endif
     FLAGS_colorlogtostderr = 1;
+    FLAGS_logtostderr = 1;
+
+    if (argc <= 1) {
+        LOG(ERROR) << "\nusage: " << "./ev dataset_name window_size experiment_name\n"
+                  << "example: " << "./ev "
+                  << "/home/weizhen/Documents/dataset/slider_hdr_close"
+                  << " 10000 x_only\n";
+        return 1;
+    }
 
     // Measurement data path
-    std::string path = "/home/weizhen/Documents/dataset/shapes_translation";
+    std::string path = argv[1];
     LOG(INFO) << "dataset: " + path;
 
     // open the events file
@@ -49,12 +60,28 @@ int main(int argc, char *argv[])
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
 
-    okvis::Duration deltaT(0);
+    okvis::Duration deltaT(0.6);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
     ev::Parameters parameters;
     pr.getParameter(parameters);
+
+
+    parameters.path = path;
+    if (argc > 2) {
+        parameters.window_size = atoi(argv[2]);
+        if (argc > 3) {
+            parameters.experiment_name = argv[3];
+            parameters.write_to_file = true;
+            std::string files_path;
+            files_path = parameters.path + "/" + parameters.experiment_name + "/" + std::to_string(parameters.window_size);
+            system(("rm -rf " + files_path).c_str());
+            system(("mkdir -p " + files_path).c_str());
+        }
+    }
+
+    LOG(INFO) << "window_size: " << parameters.window_size;
 
     ev::ThreadedEventIMU ev_estimator(parameters);
 

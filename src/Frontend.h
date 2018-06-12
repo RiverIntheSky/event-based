@@ -17,12 +17,11 @@ typedef std::chrono::high_resolution_clock Clock;
 #include "util/utils.h"
 #define show_optimizing_process false
 
-
 /// \brief okvis Main namespace of this package.
 namespace ev {
 extern int count;
 extern int max_patch;
-class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 3, 12> {
+class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3, 3> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     ComputeVarianceFunction(std::shared_ptr<eventFrameMeasurement> em, Parameters parameters):
@@ -34,18 +33,18 @@ public:
                           double* residuals,
                           double** jacobians) const;
 
-    void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
+    inline void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
 
-    void warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d &x,
-              okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, const double z) const;
+    inline void warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, Eigen::Vector3d &x,
+              okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v) const;
 
-    void fuse(Eigen::SparseMatrix<double> &image, Eigen::Vector2d &p, bool& polarity) const;
+    inline void fuse(Eigen::SparseMatrix<double> &image, Eigen::Vector2d &p, bool& polarity) const;
 
-    void Intensity(Eigen::SparseMatrix<double>& image, Eigen::SparseMatrix<double>* dIdw, Eigen::Vector3d& w, Eigen::Vector3d& v, const double * const *z) const;
+    void Intensity(Eigen::SparseMatrix<double>& image, Eigen::SparseMatrix<double>* dIdw, Eigen::Vector3d& w, Eigen::Vector3d& v) const;
 
     std::shared_ptr<eventFrameMeasurement> em_;
     Parameters param_;
-    int kernelSize = 3;
+    int sigma = 1;
     static Eigen::SparseMatrix<double> intensity;
 };
 
@@ -142,7 +141,7 @@ public:
 #if show_optimizing_process
         if (summary.step_is_successful || summary.iteration == 0) {
             std::string caption = "cost = " + std::to_string(summary.cost);
-            ev::imshowRescaled(c_->intensity, msec_, s_, caption);
+            ev::imshowRescaled(c_->intensity, msec_, s_, NULL);
 //            LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
         }
 #else
