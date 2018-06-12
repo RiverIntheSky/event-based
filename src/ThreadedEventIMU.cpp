@@ -159,46 +159,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::default_random_engine gen;
     std::uniform_real_distribution<double> dis(-0.02, 0.02); 
     double w[] = {0, 0, 0};
-    double v[] = {0, 0, 0};
-    double z[parameters_.patch_num] = {};
     std::vector<double*> params;
     params.push_back(w);
-    params.push_back(v);
-    params.push_back(z);
 
     while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
-    ev::Pose estimatedPose;
-    std::vector<std::vector<std::pair<double, double>>> estimatedPoses(3);
-
-    // Gnuplot gp;
-    std::vector<std::vector<std::pair<double, double>>> groundtruth(3);
 
     count = 0;
 
     // helper function, divide scene into patches
-
-    auto& param = parameters_;
-    Eigen::Matrix3d cameraMatrix_;
-    cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
-
-    int patch_num_x = std::ceil(param.array_size_x / param.patch_width);
-    int patch_num_y = std::ceil(param.array_size_y / param.patch_width);
-
-    auto patch = [&param, cameraMatrix_, patch_num_x, patch_num_y](Eigen::Vector3d p)  -> int {
-        Eigen::Vector3d p_ = cameraMatrix_ * p;
-        return truncate(std::floor(p_(0)/param.patch_width), 0, patch_num_x-1) * patch_num_y
-                + truncate(std::floor(p_(1)/param.patch_width), 0, patch_num_y-1);
-    };
-
-    for (int i = 0; i < parameters_.patch_num; i++) {
-        z[i] = 1;
-    }
-
-    double* groundtruth_depth = new double[parameters_.patch_num];
-    for (int i = 0; i < parameters_.patch_num; i++) {
-        groundtruth_depth[i] = 1;
-    }
-
 
     for (;;) {
         // get data and check for termination request
@@ -228,29 +196,12 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 undistortEvents(em);
 
-                for (int i = 0; i < parameters_.patch_num; i++) {
-                    z[i] = 0.231;
-                }
-
-                // find patch with the most events
-                int patch_num[parameters_.patch_num] = {};
-                for (auto it = em->events.begin(); it != em->events.end(); it++) {
-                    Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
-                    patch_num[patch(p)]++;
-                }
-                max_patch = 0;
-                for  (int i = 0; i != 12; i++) {
-//                    LOG(ERROR)<<patch_num[i];
-                    if (patch_num[i] > patch_num[max_patch])
-                        max_patch = i;
-                }
-
                 ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
                 Eigen::SparseMatrix<double> zero_motion;
 
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
-                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &groundtruth_depth);
+                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3);
                 double cost = contrastCost(zero_motion);
 
                 // ground truth
@@ -282,13 +233,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
                    << std::setw(15) << angularVelocity(2)  << std::setw(15) << linear_velocity(2) << '\n';
 
                 LOG(INFO) << ss.str();
-                v[0] =  linear_velocity(0);
-                v[1] =  linear_velocity(1);
-                v[2] =  linear_velocity(2);
 
-                                w[0] = angularVelocity(0);
-                                w[1] = angularVelocity(1);
-                                w[2] = angularVelocity(2);
+                w[0] = angularVelocity(0);
+                w[1] = angularVelocity(1);
+                w[2] = angularVelocity(2);
 
                 Eigen::SparseMatrix<double> ground_truth;
                 std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
@@ -314,7 +262,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
 #else
 
-                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, zero_vec3, &groundtruth_depth);
+                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3);
                 cost = contrastCost(ground_truth);
                 std::string caption =  "cost = " + std::to_string(cost);
                 ev::imshowRescaled(ground_truth, 10, files_path + "zero_motion", NULL);
@@ -335,17 +283,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 // identity initialization
                 double w_[] = {.0, .0, .0};
-                double v_[] = {.0, .0, .0};
-                double z_[parameters_.patch_num] = {};
-                for (int i = 0; i < parameters_.patch_num; i++) {
-                    z_[i] = 1.;
-                }
 
                 std::vector<double*> params_;
 
                 params_.push_back(w_);
-                params_.push_back(v_);
-                params_.push_back(z_);
 
                 ceres::Solver::Options options_;
                 options_.minimizer_progress_to_stdout = false;
@@ -379,12 +320,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     for (int i = 0; i != 3; i++) {
                         w[i] = w_[i];
                     }
-                    for (int i = 0; i != 3; i++) {
-                        v[i] = v_[i];
-                    }
-                    for (int i = 0; i != parameters_.patch_num; i++) {
-                        z[i] = z_[i];
-                    }
                     cost_function = cost_function_;
                     LOG(ERROR) << "change of direction";
 
@@ -394,7 +329,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 #if !show_optimizing_process
 
                 ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
-                                   1, files_path + "optimized", z);
+                                   1, files_path + "optimized");
                 count++;
 
 #endif
@@ -405,9 +340,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 ss.str(std::string());
                 ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
-                   << std::setw(15) << w[0] << std::setw(15) << v[0] << '\n'
-                   << std::setw(15) << w[1] << std::setw(15) << v[1] << '\n'
-                   << std::setw(15) << w[2] << std::setw(15) << v[2] << '\n';
+                   << std::setw(15) << w[0] << '\n'
+                   << std::setw(15) << w[1]  << '\n'
+                   << std::setw(15) << w[2]  << '\n';
 
                 LOG(INFO) << ss.str();
 
@@ -422,13 +357,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
                 double error = difference.angle() / (end.toSec() - begin.toSec());
 
-//                Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
-
-               //                double error = difference.angle() / (end.toSec() - begin.toSec());
-                //double error = std::acos(linear_velocity.normalized().dot(estimated_normalized));
-//                double x_relative = linear_velocity(0) / 0.231;
-//                double error = std::abs(v[0] - x_relative)/x_relative;
-
                 LOG(ERROR) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 
@@ -436,12 +364,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                     std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
-                    //                        std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
-                    //                        if (error_file.is_open()) {
-                    //                            error_file << begin.toSec() << " " << error << '\n';
-                    //                            error_file.close();
-                    //                        } else
-                    //                            std::cout << "怎么肥四"<<std::endl;
 
                     std::ofstream  myfile(files_path + "groundtruth_rotation.txt", std::ios_base::app);
                     if (myfile.is_open()) {
@@ -462,34 +384,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
                         myfile_.close();
                     } else
                         std::cout << "怎么肥四"<<std::endl;
-
-                    std::ofstream  myfilet(files_path + "groundtruth_translation.txt", std::ios_base::app);
-                    if (myfilet.is_open()) {
-                        myfilet << begin.toSec() << " "
-                                << linear_velocity(0) << " "
-                                << linear_velocity(1) << " "
-                                << linear_velocity(2) << '\n';
-                        myfilet.close();
-                    } else
-                        std::cout << "怎么肥四"<<std::endl;
-
-                    std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
-                    if (myfile_t.is_open()) {
-                        myfile_t<< begin.toSec() << " "
-                                << v[0] << " "
-                                << v[1] << " "
-                                << v[2] << " ";
-                        myfile_t << '\n';
-                        myfile_t.close();
-                    } else
-                        std::cout << "怎么肥四"<<std::endl;
-
-                    //                        std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
-                    //                        if (error_file.is_open()) {
-                    //                            error_file << error << '\n';
-                    //                            error_file.close();
-                    //                        } else
-                    //                            std::cout << "怎么肥四"<<std::endl;
                 }
 #endif         
                 eventFrames.pop_front();
@@ -500,7 +394,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
         // LOG(INFO) << okvis::timing::Timing::print();
 
     }
-    delete groundtruth_depth;
 }
 
 // Set the blocking variable that indicates whether the addMeasurement() functions
