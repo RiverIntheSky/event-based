@@ -157,10 +157,12 @@ void ThreadedEventIMU::eventConsumerLoop() {
     TimerSwitchable processEventTimer("0 processEventMeasurements",true);
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
     std::default_random_engine gen;
-    std::uniform_real_distribution<double> dis(-0.02, 0.02);
+    std::uniform_real_distribution<double> dis(-0.02, 0.02); 
+    double w[] = {0, 0, 0};
     double v[] = {0, 0, 0};
     double z[parameters_.patch_num] = {};
     std::vector<double*> params;
+    params.push_back(w);
     params.push_back(v);
     params.push_back(z);
 
@@ -227,7 +229,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 undistortEvents(em);
 
                 for (int i = 0; i < parameters_.patch_num; i++) {
-                    z[i] = 1;
+                    z[i] = 0.231;
                 }
 
                 // find patch with the most events
@@ -238,7 +240,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 }
                 max_patch = 0;
                 for  (int i = 0; i != 12; i++) {
-                    LOG(ERROR)<<patch_num[i];
+//                    LOG(ERROR)<<patch_num[i];
                     if (patch_num[i] > patch_num[max_patch])
                         max_patch = i;
                 }
@@ -248,7 +250,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Eigen::SparseMatrix<double> zero_motion;
 
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
-                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, &groundtruth_depth);
+                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &groundtruth_depth);
                 double cost = contrastCost(zero_motion);
 
                 // ground truth
@@ -280,13 +282,13 @@ void ThreadedEventIMU::eventConsumerLoop() {
                    << std::setw(15) << angularVelocity(2)  << std::setw(15) << linear_velocity(2) << '\n';
 
                 LOG(INFO) << ss.str();
-                v[0] =  linear_velocity(0) + dis(gen);
-                v[1] =  linear_velocity(1) + dis(gen);
-                v[2] =  linear_velocity(2) + dis(gen);
+                v[0] =  linear_velocity(0);
+                v[1] =  linear_velocity(1);
+                v[2] =  linear_velocity(2);
 
-                //                w[0] = angularVelocity(0);
-                //                w[1] = angularVelocity(1);
-                //                w[2] = angularVelocity(2);
+                                w[0] = angularVelocity(0);
+                                w[1] = angularVelocity(1);
+                                w[2] = angularVelocity(2);
 
                 Eigen::SparseMatrix<double> ground_truth;
                 std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
@@ -299,7 +301,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                         groundtruth_depth[5] = i/10+0.01;
                         groundtruth_depth[8] = i/10+0.01;
                         groundtruth_depth[11] = i/10+0.01;
-                        varianceVisualizer.Intensity(ground_truth, NULL, linear_velocity, &groundtruth_depth);
+                        varianceVisualizer.Intensity(ground_truth, NULL, angularVelocity, linear_velocity, &groundtruth_depth);
 
                         double cost_zero = contrastCost(ground_truth);
                         ev::imshowRescaled(ground_truth, 10, files_path+std::to_string(cost_zero), groundtruth_depth);
@@ -311,7 +313,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 }
 
 #else
-                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, &groundtruth_depth);
+
+                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, zero_vec3, &groundtruth_depth);
                 cost = contrastCost(ground_truth);
                 std::string caption =  "cost = " + std::to_string(cost);
                 ev::imshowRescaled(ground_truth, 10, files_path + "zero_motion", NULL);
@@ -331,6 +334,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 //                options.callbacks.push_back(&callback);
 
                 // identity initialization
+                double w_[] = {.0, .0, .0};
                 double v_[] = {.0, .0, .0};
                 double z_[parameters_.patch_num] = {};
                 for (int i = 0; i < parameters_.patch_num; i++) {
@@ -339,6 +343,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 std::vector<double*> params_;
 
+                params_.push_back(w_);
                 params_.push_back(v_);
                 params_.push_back(z_);
 
@@ -372,6 +377,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 }
                 if (summary.final_cost > cost && summary_.final_cost < summary.final_cost) {
                     for (int i = 0; i != 3; i++) {
+                        w[i] = w_[i];
+                    }
+                    for (int i = 0; i != 3; i++) {
                         v[i] = v_[i];
                     }
                     for (int i = 0; i != parameters_.patch_num; i++) {
@@ -397,76 +405,93 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 ss.str(std::string());
                 ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
-                   << std::setw(15) << 0 << std::setw(15) << v[0] << '\n'
-                   << std::setw(15) << 0 << std::setw(15) << v[1] << '\n'
-                   << std::setw(15) << 0 << std::setw(15) << v[2] << '\n';
+                   << std::setw(15) << w[0] << std::setw(15) << v[0] << '\n'
+                   << std::setw(15) << w[1] << std::setw(15) << v[1] << '\n'
+                   << std::setw(15) << w[2] << std::setw(15) << v[2] << '\n';
 
                 LOG(INFO) << ss.str();
 
-                Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
+                Eigen::Vector3d rotation_(w[0], w[1], w[2]);
+                Eigen::AngleAxisd angleAxis_;
+                rotation_ *= ((end.toSec() - begin.toSec()));
+                if (rotation_.norm() == 0) {
+                    angleAxis_ = Eigen::AngleAxisd(0, (Eigen::Vector3d() << 0, 0, 1).finished());
+                } else {
+                    angleAxis_ = Eigen::AngleAxisd(rotation_.norm(), rotation_.normalized());
+                }
+                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
+                double error = difference.angle() / (end.toSec() - begin.toSec());
+
+//                Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
+
+               //                double error = difference.angle() / (end.toSec() - begin.toSec());
                 //double error = std::acos(linear_velocity.normalized().dot(estimated_normalized));
-                double x_relative = linear_velocity(0) / 0.231;
-                double error = std::abs(v[0] - x_relative)/x_relative;
+//                double x_relative = linear_velocity(0) / 0.231;
+//                double error = std::abs(v[0] - x_relative)/x_relative;
 
                 LOG(ERROR) << "error: " << error << " rad/s";
                 LOG(INFO) << summary.BriefReport();
 
-            if (parameters_.write_to_file) {
+                if (parameters_.write_to_file) {
 
-                std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
+                    std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
-                std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
-                if (error_file.is_open()) {
-                    error_file << begin.toSec() << " " << error << '\n';
-                    error_file.close();
-                } else
-                    std::cout << "怎么肥四"<<std::endl;
+                    //                        std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
+                    //                        if (error_file.is_open()) {
+                    //                            error_file << begin.toSec() << " " << error << '\n';
+                    //                            error_file.close();
+                    //                        } else
+                    //                            std::cout << "怎么肥四"<<std::endl;
 
-//                std::ofstream  g_file(files_path + "ground_truth.txt", std::ios_base::app);
-//                if (g_file.is_open()) {
-//                    g_file << begin.toSec() << " " << linear_velocity(0) << '\n';
-//                    g_file.close();
-//                } else
-//                    std::cout << "怎么肥四"<<std::endl;
+                    std::ofstream  myfile(files_path + "groundtruth_rotation.txt", std::ios_base::app);
+                    if (myfile.is_open()) {
+                        myfile << begin.toSec() << " "
+                               << angularVelocity(0) << " "
+                               << angularVelocity(1) << " "
+                               << angularVelocity(2) << "\n";
+                        myfile.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
-//                std::ofstream  myfile(files_path + "groundtruth_rotation.txt", std::ios_base::app);
-//                if (myfile.is_open()) {
-//                    myfile << angularVelocity(0) << " "
-//                           << angularVelocity(1) << " "
-//                           << angularVelocity(2) << "\n";
-//                    myfile.close();
-//                } else
-//                    std::cout << "怎么肥四"<<std::endl;
+                    std::ofstream  myfile_(files_path + "estimated_rotation.txt", std::ios_base::app);
+                    if (myfile_.is_open()) {
+                        myfile_ << begin.toSec() << " "
+                                << w[0] << " "
+                                << w[1] << " "
+                                << w[2] << "\n";
+                        myfile_.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
+                    std::ofstream  myfilet(files_path + "groundtruth_translation.txt", std::ios_base::app);
+                    if (myfilet.is_open()) {
+                        myfilet << begin.toSec() << " "
+                                << linear_velocity(0) << " "
+                                << linear_velocity(1) << " "
+                                << linear_velocity(2) << '\n';
+                        myfilet.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
-                std::ofstream  myfilet(files_path + "groundtruth_translation.txt", std::ios_base::app);
-                if (myfilet.is_open()) {
-                    myfilet << begin.toSec() << " " << linear_velocity(0) << " "
-                            << linear_velocity(1) << " "
-                            << linear_velocity(2) << '\n';
-                    myfilet.close();
-                } else
-                    std::cout << "怎么肥四"<<std::endl;
+                    std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
+                    if (myfile_t.is_open()) {
+                        myfile_t<< begin.toSec() << " "
+                                << v[0] << " "
+                                << v[1] << " "
+                                << v[2] << " ";
+                        myfile_t << '\n';
+                        myfile_t.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
-                std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
-                if (myfile_t.is_open()) {
-                    myfile_t<< begin.toSec() << " " << v[0] << " "
-                                     << v[1] << " "
-                                     << v[2] << " ";
-                    myfile_t << '\n';
-                    myfile_t.close();
-                } else
-                    std::cout << "怎么肥四"<<std::endl;
-
-//                std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
-//                if (error_file.is_open()) {
-//                    error_file << error << '\n';
-//                    error_file.close();
-//                } else
-//                    std::cout << "怎么肥四"<<std::endl;
-}
-
-#endif
+                    //                        std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
+                    //                        if (error_file.is_open()) {
+                    //                            error_file << error << '\n';
+                    //                            error_file.close();
+                    //                        } else
+                    //                            std::cout << "怎么肥四"<<std::endl;
+                }
+#endif         
                 eventFrames.pop_front();
             }
             counter_s_ = (counter_s_ + 1) % parameters_.step_size;
@@ -475,6 +500,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
         // LOG(INFO) << okvis::timing::Timing::print();
 
     }
+    delete groundtruth_depth;
 }
 
 // Set the blocking variable that indicates whether the addMeasurement() functions

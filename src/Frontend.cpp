@@ -33,28 +33,27 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
 
     int area = 180 * 240;
     residuals[0] = 0;
-    Eigen::Vector3d v;
-    v << (*parameters)[0], (*parameters)[1], (*parameters)[2];
-    const double* const* z = parameters + 1;
-
+    Eigen::Vector3d w, v;
+    w << (*parameters)[0], (*parameters)[1], (*parameters)[2];
+    v << (*(parameters + 1))[0], (*(parameters + 1))[1], (*(parameters + 1))[2];
+    const double* const* z = parameters + 2;
     // derivatives of intensity with respect to each parameters
     std::vector<Eigen::SparseMatrix<double>> dIdw_;
 
     if (jacobians != NULL && jacobians[0] != NULL) {
-
-        for (int i = 0; i != 3; i++) {
-                jacobians[0][i] = 0;
+        for (int i = 0; i != 2; i++) {
+            for (int j = 0; j != 3; j++) {
+                jacobians[i][j] = 0;
+            }
         }
 
         for (int i = 0; i != param_.patch_num; i++) {
-                jacobians[1][i] = 0;
+                jacobians[2][i] = 0;
         }
-
-        Eigen::SparseMatrix<double> dIdw(param_.array_size_y * param_.array_size_x, 3 + param_.patch_num);
-        Intensity(intensity, &dIdw, v, z);
+        Eigen::SparseMatrix<double> dIdw(param_.array_size_y * param_.array_size_x, 6 + param_.patch_num);
+        Intensity(intensity, &dIdw, w, v, z);
         cv::Mat src, dst;
-
-        for (int i = 0; i != 3 + param_.patch_num; i++){
+        for (int i = 0; i != 6 + param_.patch_num; i++){
             Eigen::MatrixXd d = dIdw.col(i);
             d.resize(180, 240);
             cv::eigen2cv(d, src);
@@ -63,9 +62,8 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             Eigen::SparseMatrix<double> s = d.sparseView();
             dIdw_.push_back(s);
         }
-
     } else {
-        Intensity(intensity, NULL, v, z);
+        Intensity(intensity, NULL, w, v, z);
     }
 
     for (int s = 0; s < intensity.outerSize(); ++s) {
@@ -81,29 +79,37 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
                     jacobians[0][i] += rho * (dIdw_[i]).coeffRef(y_, x_);
                 }
 
-                for (int i = 0; i != param_.patch_num; i++) {
+                for (int i = 0; i != 3; i++) {
                     jacobians[1][i] += rho * (dIdw_[i + 3]).coeffRef(y_, x_);
                 }
-            }
+
+                for (int i = 0; i != param_.patch_num; i++) {
+                    jacobians[2][i] += rho * (dIdw_[i + 6]).coeffRef(y_, x_);
+                }
+            }           
+
         }
     }
-
     residuals[0] /= intensity.nonZeros();
     residuals[0] = 1./residuals[0];
 
     if (jacobians != NULL && jacobians[0] != NULL) {
         for (int i = 0; i != 3; i++) {
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / intensity.nonZeros());
-#ifndef NDEBUG
-            LOG(INFO)<< "jv:" << jacobians[0][i];
-#endif
+            LOG(INFO)<< "jw: " << jacobians[0][i];
         }
 
-        for (int i = 0; i != param_.patch_num; i++) {
+        for (int i = 0; i != 3; i++) {
             jacobians[1][i] *= (-2 * std::pow(residuals[0], 2) / intensity.nonZeros());
-//#ifndef NDEBUG
-            LOG(INFO) << "jz:" << jacobians[1][i];
-//#endif
+            LOG(INFO)<< "jv: " << jacobians[1][i];
+        }
+
+        // scaling the problem; needs justification
+        jacobians[1][2] *= 5;
+
+        for (int i = 0; i != param_.patch_num; i++) {
+            jacobians[2][i] *= (-2 * std::pow(residuals[0], 2) / intensity.nonZeros());
+            LOG(INFO) << "jz: " << jacobians[2][i];
         }
         LOG(INFO) << "------------------";
     }
@@ -119,25 +125,33 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
 }
 
 inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d& x,
-                                   okvis::Duration& t, Eigen::Vector3d& v, const double z) const {
+                                   okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, const double z) const {
 
     double t_ = t.toSec();
-    x_v = (z - v(2) * t_) * x + v * t_;
-    x_v /= x_v(2);
+    Eigen::Vector3d x_w;
+    if (w.norm() == 0 || t_ == 0) {
+        x_w = x;
+    } else {
+        x_w = x + (w * t_).cross(x);
+    }
+    // z_ is the depth before warp
+    double z_ = (z - v(2) * t_) / x_w(2);
+    x_w /= x_w(2);
+    x_v = z_ * x_w  + v * t_;
+    assert (z == x_v(2));
+    x_v /= z;
 
     Eigen::Matrix3d cameraMatrix_;
 
     cv::cv2eigen(param_.cameraMatrix, cameraMatrix_);
 
-
     if (dW != NULL) {
-        Eigen::MatrixXd dW_(3, 4);
-        dW_ << t_,  0, -x(0) * t_, x(0) - x_v(0),
-                0, t_, -x(1) * t_, x(1) - x_v(1),
-                0,  0,          0,             0;
+        Eigen::MatrixXd dW_(3, 7);
+        dW_ <<     -z_*t_*x(1)*x_w(0), z_*t_*(x(0)*x_w(0)+1), -z_*t_*x(1), t_,  0, -t_*x_w(0), x_w(0)-x_v(0),
+               -z_*t_*(x(1)*x_w(1)+1),     z_*t_*x(0)*x_w(1),  z_*t_*x(0),  0, t_, -t_*x_w(1), x_w(1)-x_v(1),
+                                    0,                     0,           0,  0,  0,          0,             0;
 
-        (*dW) = (cameraMatrix_ / z * dW_).block(0, 0, 2, 4);
-
+        (*dW) = (cameraMatrix_ / z * dW_).block(0, 0, 2, 7);
     }
 
     x_v = cameraMatrix_ * x_v;
@@ -191,7 +205,7 @@ inline void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<
 }
 
 void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eigen::SparseMatrix<double>* dIdw,
-                                        Eigen::Vector3d& v, const double * const *z) const {
+                                        Eigen::Vector3d& w, Eigen::Vector3d& v, const double * const *z) const {
     image = Eigen::SparseMatrix<double>(180, 240);
     okvis::Time t0 = em_->events.front().timeStamp;
     Eigen::Matrix3d cameraMatrix_;
@@ -213,20 +227,20 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
 
         // project to last frame
         auto t = it->timeStamp - t0;
-        Eigen::MatrixXd dWdvz;
+        Eigen::MatrixXd dWdwvz;
         int patch_nr = patch(p);
         if (dIdw != NULL) {
-            warp(&dWdvz, point_warped, p, t, v, (*z)[patch_nr]);
+            warp(&dWdwvz, point_warped, p, t, w, v, (*z)[patch_nr]);
 //            if (patch(p) == max_patch)
 //                dWdvz.col(3) = Eigen::Vector2d::Zero();
         } else {
-            warp(NULL, point_warped, p, t, v, (*z)[patch_nr]);
+            warp(NULL, point_warped, p, t, w, v, (*z)[patch_nr]);
         }
         Eigen::Vector2d point_camera(point_warped(0), point_warped(1));
 
         if (dIdw != NULL) {
-            Eigen::MatrixXd dWdv = dWdvz.block(0, 0, 2, 3);
-            Eigen::Vector2d dWdz = dWdvz.col(3);
+            Eigen::MatrixXd dWdwv = dWdwvz.block(0, 0, 2, 6);
+            Eigen::Vector2d dWdz = dWdwvz.col(6);
             std::vector<std::pair<std::vector<int>, double>> pixel_weight;
 #if 1
             biInterp(pixel_weight, point_camera, it->measurement.p);
@@ -235,32 +249,34 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
                 double dc = point_warped(0) - p_[0];
                 double dr = point_warped(1) - p_[1];
                 int pol = int(it->measurement.p) * 2 - 1;
-                double dW;
+                double dW = 0.;
                 double dz_ = 0.;
-                Eigen::Vector3d dwv = Eigen::Vector3d::Zero();
+                Eigen::VectorXd dwv = Eigen::VectorXd::Zero(6);
+
                 if (dr > 0) {
                     dW = (std::abs(dc) - 1) * pol;
                 } else if (dr < 0) {
                     dW = (1 - std::abs(dc)) * pol;
                 }
-                dwv += dW * dWdv.row(1);
+                dwv += dW * dWdwv.row(1);
                 dz_ += dW * dWdz(1);
                 if (dc > 0) {
                     dW = (std::abs(dr) - 1) * pol;
                 } else if (dc < 0) {
                     dW = (1 - std::abs(dr)) * pol;
                 }
-                dwv += dW * dWdv.row(0);
+                dwv += dW * dWdwv.row(0);
                 dz_ += dW * dWdz(0);
 
-                for (int i = 0; i != 3; i++) {
+                for (int i = 0; i != 6; i++) {
                     dIdw->coeffRef(p_[0] * 180 + p_[1], i) += dwv(i);
                 }
-                dIdw->coeffRef(p_[0] * 180 + p_[1], 3 + patch_nr) += dz_;
+                dIdw->coeffRef(p_[0] * 180 + p_[1], 6 + patch_nr) += dz_;
 
                 image.coeffRef(p_[1], p_[0]) += p_it->second;
             }
 #else
+            // lacks adjustment for rotation!
             // delta_y
 
             Eigen::Vector2d h1(point_camera(1) + .5, point_camera(0));
