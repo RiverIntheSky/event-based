@@ -30,8 +30,6 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
                                        double* residuals,
                                        double** jacobians) const {
 
-
-    auto start = Clock::now();
     residuals[0] = 0;
     Eigen::Vector3d w;
     w << (*parameters)[0], (*parameters)[1], (*parameters)[2];
@@ -83,13 +81,6 @@ bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
             jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / intensity.nonZeros());
             LOG(INFO)<< "jw: " << jacobians[0][i];
         }
-    }
-    if (jacobians != NULL && jacobians[0] != NULL) {
-        LOG(INFO) << "jacobian & residual " << (std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count())/1000000
-                  << " milliseconds";
-    } else {
-        LOG(INFO) << "residual " << (std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count())/1000000
-                  << " milliseconds";
     }
 
     return true;

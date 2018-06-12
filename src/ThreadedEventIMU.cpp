@@ -157,7 +157,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     TimerSwitchable processEventTimer("0 processEventMeasurements",true);
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
     std::default_random_engine gen;
-    std::uniform_real_distribution<double> dis(-0.02, 0.02); 
+    std::uniform_real_distribution<double> dis(-0.2, 0.2);
     double w[] = {0, 0, 0};
     std::vector<double*> params;
     params.push_back(w);
@@ -234,9 +234,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 LOG(INFO) << ss.str();
 
-                w[0] = angularVelocity(0);
-                w[1] = angularVelocity(1);
-                w[2] = angularVelocity(2);
+                w[0] = angularVelocity(0) + dis(gen);
+                w[1] = angularVelocity(1) + dis(gen);
+                w[2] = angularVelocity(2) + dis(gen);
 
                 Eigen::SparseMatrix<double> ground_truth;
                 std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
