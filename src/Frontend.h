@@ -47,30 +47,6 @@ public:
 
 double variance(const gsl_vector *v, void *params);
 
-class imshowCallback: public ceres::IterationCallback {
-public:
-    imshowCallback(double* w, ComputeVarianceFunction* c): w_(w), c_(c) {}
-
-    ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
-#if show_optimizing_process
-        if (summary.step_is_successful || summary.iteration == 0) {
-            std::string caption = "cost = " + std::to_string(summary.cost);
-            ev::imshowRescaled(c_->intensity, msec_, s_, NULL);
-//            LOG(INFO) << "w:" << *w_ << " " << *(w_+1) << " " << *(w_+2);
-        }
-#else
-        LOG(INFO) << "step_solver_time_in_nanoseconds "<< summary.step_solver_time_in_seconds * 1e9;
-#endif
-        return ceres::SOLVER_CONTINUE;
-    }
-
-private:
-    double* w_;
-    ComputeVarianceFunction* c_;
-    int msec_ = 1;
-    std::string s_ = "optimizing";
-};
-
 /**
  * @brief A frontend using BRISK features
  */

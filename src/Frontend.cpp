@@ -6,7 +6,6 @@
 
 #include <glog/logging.h>
 
-#include <okvis/ceres/ImuError.hpp>
 #include <okvis/VioKeyframeWindowMatchingAlgorithm.hpp>
 #include <okvis/IdProvider.hpp>
 
