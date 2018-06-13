@@ -234,9 +234,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 LOG(INFO) << ss.str();
 
-                w[0] = angularVelocity(0) + dis(gen);
-                w[1] = angularVelocity(1) + dis(gen);
-                w[2] = angularVelocity(2) + dis(gen);
+//                w[0] = angularVelocity(0) + 0.1;
+//                w[1] = angularVelocity(1) + 0.1;
+//                w[2] = angularVelocity(2) + 0.1;
 
                 Eigen::SparseMatrix<double> ground_truth;
                 std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
@@ -270,67 +270,65 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 processEventTimer.start();
 
-                ceres::Solver::Options options;
-                options.minimizer_progress_to_stdout = false;
+                ev::ComputeVarianceFunction param(em, parameters_);
 
+                const gsl_multimin_fminimizer_type *T =
+                  gsl_multimin_fminimizer_nmsimplex2;
+                gsl_multimin_fminimizer *s = NULL;
+                gsl_vector *step_size, *x;
+                gsl_multimin_function minex_func;
 
-                ceres::Solver::Summary summary;
-                ceres::Problem problem;
+                size_t iter = 0;
+                int status;
+                double size;
 
-                ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
-                //                ev::imshowCallback callback(w, static_cast<ComputeVarianceFunction*>(cost_function));
-                //                options.callbacks.push_back(&callback);
+                /* Starting point */
+                x = gsl_vector_alloc(3);
+                gsl_vector_set(x, 0, w[0]);
+                gsl_vector_set(x, 1, w[1]);
+                gsl_vector_set(x, 2, w[2]);
 
-                // identity initialization
-                double w_[] = {.0, .0, .0};
+                /* Set initial step sizes to 1 */
+                step_size = gsl_vector_alloc(3);
+                gsl_vector_set_all(step_size, 1.0);
 
-                std::vector<double*> params_;
+                /* Initialize method and iterate */
+                minex_func.n = 3;
+                minex_func.f = variance;
+                minex_func.params = &param;
 
-                params_.push_back(w_);
+                s = gsl_multimin_fminimizer_alloc(T, 3);
+                gsl_multimin_fminimizer_set(s, &minex_func, x, step_size);
 
-                ceres::Solver::Options options_;
-                options_.minimizer_progress_to_stdout = false;
-
-                ceres::Solver::Summary summary_;
-                ceres::Problem problem_;
-
-                ceres::CostFunction* cost_function_ = new ComputeVarianceFunction(em, parameters_);
-
-
-                //#pragma omp parallel
+                do
                 {
-                    //#pragma omp sections
-                    {
-                        //#pragma omp section
-                        {
-                            problem.AddResidualBlock(cost_function, NULL, params);
-                            // auto start_ = Clock::now();
-                            ceres::Solve(options, &problem, &summary);
-                            /* LOG(INFO) << "solve " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_).count()/1e9
-                                                                << " seconds";*/
-                        }
-                        //#pragma omp section
-                        if (summary.final_cost > cost) {
-                            problem_.AddResidualBlock(cost_function_, NULL, params_);
-                            ceres::Solve(options_, &problem_, &summary_);
-                        }
-                    }
-                }
-                if (summary.final_cost > cost && summary_.final_cost < summary.final_cost) {
-                    for (int i = 0; i != 3; i++) {
-                        w[i] = w_[i];
-                    }
-                    cost_function = cost_function_;
-                    LOG(ERROR) << "change of direction";
+                    iter++;
+                    status = gsl_multimin_fminimizer_iterate(s);
+
+                    if (status)
+                        break;
+
+                    size = gsl_multimin_fminimizer_size(s);
+                    status = gsl_multimin_test_size(size, 1e-2);
 
                 }
+                while (status == GSL_CONTINUE && iter < 100);
+
+                for (int i = 0; i < 3; i++)
+                    w[i] = gsl_vector_get(s->x, i);
+
+                gsl_vector_free(x);
+                gsl_vector_free(step_size);
+                gsl_multimin_fminimizer_free (s);
 
 
 #if !show_optimizing_process
 
-                ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
+                ev::imshowRescaled(param.intensity,
                                    1, files_path + "optimized");
                 count++;
+
+
 
 #endif
 
@@ -358,7 +356,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 double error = difference.angle() / (end.toSec() - begin.toSec());
 
                 LOG(ERROR) << "error: " << error << " rad/s";
-                LOG(INFO) << summary.BriefReport();
 
                 if (parameters_.write_to_file) {
 
@@ -476,25 +473,20 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
 }
 
 double ThreadedEventIMU::contrastCost(Eigen::SparseMatrix<double>& image) {
-    // average intensity
-    double mu = image.sum() / (240*180);
 
-    // cost
     double cost = 0;
+
     for (int s = 0; s < image.outerSize(); ++s) {
         for (Eigen::SparseMatrix<double>::InnerIterator it(image, s); it; ++it) {
-            double rho = it.value() - mu;
+            double rho = it.value();
             cost += std::pow(rho, 2);
         }
     }
 
-    cost += ((240 * 180) - image.nonZeros()) * std::pow(mu, 2);
-    cost /= (240*180);
+    cost /= image.nonZeros();
 
-    // adjust to ceres format
-    cost = 1./std::pow(cost, 2);
-    cost /= 2;
     return cost;
+
 }
 
 }

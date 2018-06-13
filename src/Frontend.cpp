@@ -26,64 +26,24 @@
 
 namespace ev {
 int max_patch;
-bool ComputeVarianceFunction::Evaluate(double const* const* parameters,
-                                       double* residuals,
-                                       double** jacobians) const {
-
-    residuals[0] = 0;
+double variance(const gsl_vector *v, void *params){
     Eigen::Vector3d w;
-    w << (*parameters)[0], (*parameters)[1], (*parameters)[2];
-    // derivatives of intensity with respect to each parameters
-    std::vector<Eigen::SparseMatrix<double>> dIdw_;
+    w << gsl_vector_get(v, 0), gsl_vector_get(v, 1), gsl_vector_get(v, 2);
+    ComputeVarianceFunction *params_ = (ComputeVarianceFunction *) params;
+    params_->Intensity(params_->intensity, NULL, w);
+    double cost = 0;
 
-    if (jacobians != NULL && jacobians[0] != NULL) {
-        for (int j = 0; j != 3; j++) {
-            jacobians[0][j] = 0;
-        }
-
-        Eigen::SparseMatrix<double> dIdw(param_.array_size_y * param_.array_size_x, 3);
-        Intensity(intensity, &dIdw, w);
-        cv::Mat src, dst;
-        for (int i = 0; i != 3; i++){
-            Eigen::MatrixXd d = dIdw.col(i);
-            d.resize(180, 240);
-            cv::eigen2cv(d, src);
-            cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
-            cv::cv2eigen(dst, d);
-            Eigen::SparseMatrix<double> s = d.sparseView();
-            dIdw_.push_back(s);
-        }
-    } else {
-        Intensity(intensity, NULL, w);
-    }
-
-    for (int s = 0; s < intensity.outerSize(); ++s) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(intensity, s); it; ++it) {
+    for (int s = 0; s < params_->intensity.outerSize(); ++s) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(params_->intensity, s); it; ++it) {
             double rho = it.value();
-            residuals[0] += std::pow(rho, 2);
-
-            int y_ = it.row();
-            int x_ = it.col();
-
-            if (jacobians != NULL && jacobians[0] != NULL) {
-                for (int i = 0; i != 3; i++) {
-                    jacobians[0][i] += rho * (dIdw_[i]).coeffRef(y_, x_);
-                }
-            }           
-
-        }
-    }
-    residuals[0] /= intensity.nonZeros();
-    residuals[0] = 1./residuals[0];
-
-    if (jacobians != NULL && jacobians[0] != NULL) {
-        for (int i = 0; i != 3; i++) {
-            jacobians[0][i] *= (-2 * std::pow(residuals[0], 2) / intensity.nonZeros());
-            LOG(INFO)<< "jw: " << jacobians[0][i];
+            cost += std::pow(rho, 2);
         }
     }
 
-    return true;
+    cost /= params_->intensity.nonZeros();
+    cost = -cost;
+//    LOG(INFO) << cost;
+    return cost;
 }
 
 inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, Eigen::Vector3d& x,

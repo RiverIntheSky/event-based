@@ -2,11 +2,8 @@
 #include <fstream>
 #include "ThreadedEventIMU.h"
 #include <chrono>
-std::shared_ptr<ev::eventFrameMeasurement> ev::Contrast::em_ = NULL;
-double ev::Contrast::events_number;
-Eigen::MatrixXd ev::Contrast::intensity = Eigen::Matrix3d::Zero();
+
 Eigen::SparseMatrix<double> ev::ComputeVarianceFunction::intensity = Eigen::SparseMatrix<double>(180, 240);
-ev::Parameters ev::Contrast::param_ = ev::Parameters();
 
 int main(int argc, char *argv[])
 {

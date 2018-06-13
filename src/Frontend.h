@@ -15,24 +15,21 @@ typedef std::chrono::high_resolution_clock Clock;
 #include "parameters.h"
 #include "event.h"
 #include "util/utils.h"
+
 #define show_optimizing_process false
 
 /// \brief okvis Main namespace of this package.
 namespace ev {
 extern int count;
 extern int max_patch;
-class ComputeVarianceFunction : public ceres::SizedCostFunction<1, 3> {
+
+class ComputeVarianceFunction {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     ComputeVarianceFunction(std::shared_ptr<eventFrameMeasurement> em, Parameters parameters):
         em_(em), param_(parameters) {}
 
-    virtual ~ComputeVarianceFunction() {}
-
-    virtual bool Evaluate(double const* const* parameters,
-                          double* residuals,
-                          double** jacobians) const;
-
+    ~ComputeVarianceFunction() {}
     inline void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
 
     inline void warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, Eigen::Vector3d &x,
@@ -48,90 +45,7 @@ public:
     static Eigen::SparseMatrix<double> intensity;
 };
 
-
-struct Contrast {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Contrast(){
-        //        compute_variance.reset(
-        //                    new ceres::CostFunctionToFunctor<1, 1>(new ComputeVarianceFunction));
-    }
-
-    // rotate vector x by w*t
-    static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w);
-
-    // dealing with non-integer coordinates
-    // bilinear interpolation
-    static void fuse(Eigen::MatrixXd& image, Eigen::Vector2d p, bool& polarity);
-
-    static void synthesizeEventFrame(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement>& em);
-
-    static void polarityEventFrame(Eigen::MatrixXd& frame, std::shared_ptr<eventFrameMeasurement>& em, bool po);
-
-    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em, Parameters& param, Eigen::Vector3d w);
-
-    static void Intensity(Eigen::MatrixXd& image, Eigen::Vector3d& w, Eigen::Vector3d& v, double* z);
-    //    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
-    //                          Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr);
-
-    static double getIntensity(int x, int y, Eigen::Vector3d& w);
-
-    template <typename T>
-    bool operator()(const T** w, T* residual) const {
-
-        //        residual[0] = 0;
-        //        double m = intensity.mean();
-        //        for (int x_ = 0; x_ < 240; x_++) {
-        //            for (int y_ = 0; y_ < 180; y_++) {
-        //                residual[0] += std::pow(getIntensity(y_, x_, w_) - m, 2);
-        //            }
-        //        }
-        //        residual[0] /= (240*180);
-        //        residual[0] = std::sqrt(1./residual[0]);
-        T f;
-        (*compute_variance)(&w, &f);
-        return true;
-    }
-    static std::shared_ptr<eventFrameMeasurement> em_;
-    static double   events_number;
-    static Eigen::MatrixXd intensity;
-    static Parameters param_;
-    std::unique_ptr<ceres::CostFunctionToFunctor<1, 1> > compute_variance;
-
-};
-
-struct SE3 : Contrast {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    SE3(){}
-
-    // rotate vector x by w*t
-    static void warp(Eigen::Vector3d& x_w, Eigen::Vector2d& x, okvis::Duration &t, Eigen::Vector3d& w, Eigen::Vector3d& tr);
-
-    static void Intensity(Eigen::MatrixXd& image, std::shared_ptr<eventFrameMeasurement>& em,
-                          Parameters& param, Eigen::Vector3d& w, Eigen::Vector3d& tr);
-
-    static double getIntensity(int x, int y, Eigen::Vector3d& w, Eigen::Vector3d& tr);
-
-    template <typename T>
-    bool operator()(const T* t1, const T* t2, const T* t3,
-                    const T* w1, const T* w2, const T* w3,
-                    T* residual) const {
-        Eigen::Vector3d w_;
-        w_ << *w1, *w2, *w3;
-        Eigen::Vector3d t_;
-        t_ << *t1, *t2, *t3;
-        residual[0] = 0;
-        double m = intensity.mean();
-        for (int x_ = 0; x_ < 240; x_++) {
-            for (int y_ = 0; y_ < 180; y_++) {
-                residual[0] += std::pow(getIntensity(y_, x_, w_, t_) - m, 2);
-            }
-        }
-        residual[0] /= (240*180);
-        residual[0] = std::sqrt(1./residual[0]);
-
-        return true;
-    }
-};
+double variance(const gsl_vector *v, void *params);
 
 class imshowCallback: public ceres::IterationCallback {
 public:

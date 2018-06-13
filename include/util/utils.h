@@ -3,7 +3,9 @@
 #include "parameters.h"
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/opencv.hpp>
-#include <ceres/ceres.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_multimin.h>
 #include <okvis/Measurements.hpp>
 #include <Eigen/Sparse>
 
