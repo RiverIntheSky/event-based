@@ -159,8 +159,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::default_random_engine gen;
     std::uniform_real_distribution<double> dis(-0.2, 0.2);
     double w[] = {0, 0, 0};
-    std::vector<double*> params;
-    params.push_back(w);
+    double v[] = {0, 0, 0};
 
     while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
 
@@ -198,10 +197,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
-                Eigen::SparseMatrix<double> zero_motion;
+                Eigen::MatrixXd zero_motion;
 
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
-                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3);
+                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3);
                 double cost = contrastCost(zero_motion);
 
                 // ground truth
@@ -238,7 +237,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //                w[1] = angularVelocity(1) + 0.1;
 //                w[2] = angularVelocity(2) + 0.1;
 
-                Eigen::SparseMatrix<double> ground_truth;
+                Eigen::MatrixXd ground_truth;
                 std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 //#if !optimize
 #if 0
@@ -262,7 +261,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
 #else
 
-                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3);
+                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, zero_vec3);
                 cost = contrastCost(ground_truth);
                 std::string caption =  "cost = " + std::to_string(cost);
                 ev::imshowRescaled(ground_truth, 10, files_path + "zero_motion", NULL);
@@ -283,21 +282,26 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 double size;
 
                 /* Starting point */
-                x = gsl_vector_alloc(3);
+                x = gsl_vector_alloc(6);
+
                 gsl_vector_set(x, 0, w[0]);
                 gsl_vector_set(x, 1, w[1]);
                 gsl_vector_set(x, 2, w[2]);
 
+                gsl_vector_set(x, 3, v[0]);
+                gsl_vector_set(x, 4, v[1]);
+                gsl_vector_set(x, 5, v[2]);
+
                 /* Set initial step sizes to 1 */
-                step_size = gsl_vector_alloc(3);
+                step_size = gsl_vector_alloc(6);
                 gsl_vector_set_all(step_size, 1.0);
 
                 /* Initialize method and iterate */
-                minex_func.n = 3;
+                minex_func.n = 6;
                 minex_func.f = variance;
                 minex_func.params = &param;
 
-                s = gsl_multimin_fminimizer_alloc(T, 3);
+                s = gsl_multimin_fminimizer_alloc(T, 6);
                 gsl_multimin_fminimizer_set(s, &minex_func, x, step_size);
 
                 do
@@ -311,11 +315,21 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     size = gsl_multimin_fminimizer_size(s);
                     status = gsl_multimin_test_size(size, 1e-2);
 
+//                    if (status == GSL_SUCCESS)
+//                    {
+//                        printf ("converged to minimum at\n");
+//                    }
+
+//                    LOG(INFO) << size;
+
                 }
                 while (status == GSL_CONTINUE && iter < 100);
 
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < 3; i++) {
                     w[i] = gsl_vector_get(s->x, i);
+                    v[i] = gsl_vector_get(s->x, i+3);
+                }
+
 
                 gsl_vector_free(x);
                 gsl_vector_free(step_size);
@@ -338,9 +352,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 ss.str(std::string());
                 ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
-                   << std::setw(15) << w[0] << '\n'
-                   << std::setw(15) << w[1]  << '\n'
-                   << std::setw(15) << w[2]  << '\n';
+                   << std::setw(15) << w[0] << std::setw(15) << v[0] << '\n'
+                   << std::setw(15) << w[1] << std::setw(15) << v[1] << '\n'
+                   << std::setw(15) << w[2] << std::setw(15) << v[2] << '\n';
 
                 LOG(INFO) << ss.str();
 
@@ -379,6 +393,27 @@ void ThreadedEventIMU::eventConsumerLoop() {
                                 << w[1] << " "
                                 << w[2] << "\n";
                         myfile_.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfilet(files_path + "groundtruth_translation.txt", std::ios_base::app);
+                    if (myfilet.is_open()) {
+                        myfilet << begin.toSec() << " "
+                                << linear_velocity(0) << " "
+                                << linear_velocity(1) << " "
+                                << linear_velocity(2) << '\n';
+                        myfilet.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
+                    if (myfile_t.is_open()) {
+                        myfile_t<< begin.toSec() << " "
+                                << v[0] << " "
+                                << v[1] << " "
+                                << v[2] << " ";
+                        myfile_t << '\n';
+                        myfile_t.close();
                     } else
                         std::cout << "怎么肥四"<<std::endl;
                 }
@@ -472,14 +507,13 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
     return true;
 }
 
-double ThreadedEventIMU::contrastCost(Eigen::SparseMatrix<double>& image) {
+double ThreadedEventIMU::contrastCost(Eigen::MatrixXd &image) {
 
     double cost = 0;
 
-    for (int s = 0; s < image.outerSize(); ++s) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(image, s); it; ++it) {
-            double rho = it.value();
-            cost += std::pow(rho, 2);
+    for (int r = 0; r < 180; r++) {
+        for (int c = 0; c < 240; c++) {
+            cost += std::pow(image(r, c), 2);
         }
     }
 

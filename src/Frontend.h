@@ -30,19 +30,19 @@ public:
         em_(em), param_(parameters) {}
 
     ~ComputeVarianceFunction() {}
-    inline void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
+//    inline void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
 
     inline void warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, Eigen::Vector3d &x,
-              okvis::Duration& t, Eigen::Vector3d& w) const;
+              okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v) const;
 
-    inline void fuse(Eigen::SparseMatrix<double> &image, Eigen::Vector2d &p, bool& polarity) const;
+    inline void fuse(Eigen::MatrixXd& image, Eigen::Vector2d &p, bool& polarity) const;
 
-    void Intensity(Eigen::SparseMatrix<double>& image, Eigen::SparseMatrix<double>* dIdw, Eigen::Vector3d &w) const;
+    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw, Eigen::Vector3d &w, Eigen::Vector3d& v) const;
 
     std::shared_ptr<eventFrameMeasurement> em_;
     Parameters param_;
     int sigma = 1;
-    static Eigen::SparseMatrix<double> intensity;
+    static Eigen::MatrixXd intensity;
 };
 
 double variance(const gsl_vector *v, void *params);

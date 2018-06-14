@@ -214,7 +214,7 @@ private:
 
     bool allGroundtruthAdded();
 
-    double contrastCost(Eigen::SparseMatrix<double>& image);
+    double contrastCost(Eigen::MatrixXd& image);
 
      /// @name Measurement input queues
      /// @{

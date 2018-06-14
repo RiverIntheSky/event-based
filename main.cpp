@@ -3,7 +3,7 @@
 #include "ThreadedEventIMU.h"
 #include <chrono>
 
-Eigen::SparseMatrix<double> ev::ComputeVarianceFunction::intensity = Eigen::SparseMatrix<double>(180, 240);
+Eigen::MatrixXd ev::ComputeVarianceFunction::intensity = Eigen::MatrixXd::Zero(180, 240);
 
 int main(int argc, char *argv[])
 {
@@ -18,10 +18,10 @@ int main(int argc, char *argv[])
     FLAGS_logtostderr = 1;
 
     if (argc <= 1) {
-        LOG(ERROR) << "\nusage: " << "./ev dataset_name window_size experiment_name\n"
+        LOG(ERROR) << "\nusage: " << "./ev dataset_name window_size overlap_rate experiment_name\n"
                   << "example: " << "./ev "
                   << "/home/weizhen/Documents/dataset/slider_hdr_close"
-                  << " 10000 x_only\n";
+                  << " 10000 0.5 x_only\n";
         return 1;
     }
 
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
 
-    okvis::Duration deltaT(0.6);
+    okvis::Duration deltaT(0);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
@@ -69,12 +69,15 @@ int main(int argc, char *argv[])
     if (argc > 2) {
         parameters.window_size = atoi(argv[2]);
         if (argc > 3) {
-            parameters.experiment_name = argv[3];
-            parameters.write_to_file = true;
-            std::string files_path;
-            files_path = parameters.path + "/" + parameters.experiment_name + "/" + std::to_string(parameters.window_size);
-            system(("rm -rf " + files_path).c_str());
-            system(("mkdir -p " + files_path).c_str());
+            parameters.step_size = std::floor(parameters.window_size * (1 - atof(argv[3])));
+            if (argc > 4) {
+                parameters.experiment_name = argv[4];
+                parameters.write_to_file = true;
+                std::string files_path;
+                files_path = parameters.path + "/" + parameters.experiment_name + "/" + std::to_string(parameters.window_size);
+                system(("rm -rf " + files_path).c_str());
+                system(("mkdir -p " + files_path).c_str());
+            }
         }
     }
 

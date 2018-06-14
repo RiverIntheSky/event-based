@@ -25,102 +25,97 @@
 
 namespace ev {
 int max_patch;
-double variance(const gsl_vector *v, void *params){
-    Eigen::Vector3d w;
-    w << gsl_vector_get(v, 0), gsl_vector_get(v, 1), gsl_vector_get(v, 2);
-    ComputeVarianceFunction *params_ = (ComputeVarianceFunction *) params;
-    params_->Intensity(params_->intensity, NULL, w);
-    double cost = 0;
+static double bitime = 0;
+static double coefftime = 0;
+static double simpleaddtime = 0;
+double variance(const gsl_vector *vec, void *params){
 
-    for (int s = 0; s < params_->intensity.outerSize(); ++s) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(params_->intensity, s); it; ++it) {
-            double rho = it.value();
-            cost += std::pow(rho, 2);
+    Eigen::Vector3d w, v;
+    w << gsl_vector_get(vec, 0), gsl_vector_get(vec, 1), gsl_vector_get(vec, 2);
+    v << gsl_vector_get(vec, 3), gsl_vector_get(vec, 4), gsl_vector_get(vec, 5);
+    ComputeVarianceFunction *params_ = (ComputeVarianceFunction *) params;
+    double cost = 0;
+    params_->Intensity(params_->intensity, NULL, w, v);
+    for (int r = 0; r < 180; ++r) {
+        for (int c = 0; c < 240; ++c) {
+            cost += std::pow(params_->intensity(r, c), 2);
         }
     }
-
-    cost /= params_->intensity.nonZeros();
+    cost /= (240*180);
     cost = -cost;
-//    LOG(INFO) << cost;
     return cost;
 }
 
-inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, Eigen::Vector3d& x,
-                                   okvis::Duration& t, Eigen::Vector3d& w) const {
+inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d& x,
+                                   okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v) const {
 
+    double z = 1;
+    Eigen::Vector3d x_w;
     double t_ = t.toSec();
     if (w.norm() == 0 || t_ == 0) {
         x_w = x;
     } else {
-        x_w = x + (w * t_).cross(x);
+        x_w = x + t_ * w.cross(x);
     }
-    // z_ is the depth before warp
+
+//     z_ is the depth before warp
+    double z_ = (z - v(2) * t_) / x_w(2);
     x_w /= x_w(2);
+    x_v = z_ * x_w  + v * t_;
+    assert (z == x_v(2));
+    x_v /= z;
 
-    if (dW != NULL) {
-        Eigen::MatrixXd dW_(3, 3);
-        dW_ <<     -t_*x(1)*x_w(0), t_*(x(0)*x_w(0)+1), -t_*x(1),
-               -t_*(x(1)*x_w(1)+1),     t_*x(0)*x_w(1),  t_*x(0),
-                                 0,                  0,        0;
+//    if (dW != NULL) {
+//        Eigen::MatrixXd dW_(3, 6);
+//        dW_ <<     -z_*t_*x(1)*x_w(0), z_*t_*(x(0)*x_w(0)+1), -z_*t_*x(1), t_,  0, -t_*x_w(0),
+//               -z_*t_*(x(1)*x_w(1)+1),     z_*t_*x(0)*x_w(1),  z_*t_*x(0),  0, t_, -t_*x_w(1),
+//                                    0,                     0,           0,  0,  0,          0;
 
-        (*dW) = (param_.cameraMatrix_ * dW_).block(0, 0, 2, 3);
-    }
+//        (*dW) = (param_.cameraMatrix_ / z * dW_).block(0, 0, 2, 6);
+//    }
 
-    x_w = param_.cameraMatrix_ * x_w;
+    x_v = param_.cameraMatrix_ * x_v;
+
 }
 
-inline void ComputeVarianceFunction::fuse(Eigen::SparseMatrix<double>& image, Eigen::Vector2d& p, bool& polarity) const {
-    std::vector<std::pair<std::vector<int>, double>> pixels;
-    biInterp(pixels, p, polarity);
-    for (auto p_it = pixels.begin(); p_it != pixels.end(); p_it++) {
-        image.coeffRef((p_it->first)[1], (p_it->first)[0]) += p_it->second;
-    }
-}
 
-inline void ComputeVarianceFunction::biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const {
+inline void ComputeVarianceFunction::fuse(Eigen::MatrixXd& image, Eigen::Vector2d& p, bool& polarity) const {
+//    std::vector<std::pair<std::vector<int>, double>> pixels;
     auto valid = [](int x, int y)  -> bool {
         return (x >= 0 && x  < 240 && y >= 0 && y < 180);
     };
-
-    pixel_weight.clear();
-
     int pol = int(polarity) * 2 - 1;
 
-    int x1 = std::floor(point(0));
+    int x1 = std::floor(p(0));
     int x2 = x1 + 1;
-    int y1 = std::floor(point(1));
+    int y1 = std::floor(p(1));
     int y2 = y1 + 1;
-
     if (valid(x1, y1)) {
-        double a = (x2 - point(0)) * (y2 - point(1)) * pol;
-        std::vector<int> p = {x1, y1};
-        pixel_weight.push_back(std::make_pair(p, a));
+        double a = (x2 - p(0)) * (y2 - p(1)) * pol;
+        image(y1, x1) += a;
     }
 
     if (valid(x1, y2)) {
-        double a = - (x2 - point(0)) * (y1 - point(1)) * pol;
-        std::vector<int> p = {x1, y2};
-        pixel_weight.push_back(std::make_pair(p, a));
+        double a = -(x2 - p(0)) * (y1 - p(1)) * pol;
+        image(y2, x1) += a;
     }
 
     if (valid(x2, y1)) {
-        double a = - (x1 - point(0)) * (y2 - point(1)) * pol;
-        std::vector<int> p = {x2, y1};
-        pixel_weight.push_back(std::make_pair(p, a));
+        double a = - (x1 - p(0)) * (y2 - p(1)) * pol;
+        image(y1, x2) += a;
     }
 
     if (valid(x2, y2)) {
-        double a = (x1 - point(0)) * (y1 - point(1)) * pol;
-        std::vector<int> p = {x2, y2};
-        pixel_weight.push_back(std::make_pair(p, a));
+        double a = (x1 - p(0)) * (y1 - p(1)) * pol;
+        image(y2, x2) += a;
     }
+
 }
 
-void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eigen::SparseMatrix<double>* dIdw,
-                                        Eigen::Vector3d& w) const {
-    image = Eigen::SparseMatrix<double>(180, 240);
+void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw,
+                                        Eigen::Vector3d& w, Eigen::Vector3d& v) const {
+    image = Eigen::MatrixXd::Zero(180, 240);
     okvis::Time t0 = em_->events.front().timeStamp;
-
     for(auto it = em_->events.begin(); it != em_->events.end(); it++) {
         Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
         Eigen::Vector3d point_warped;
@@ -128,15 +123,16 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
         auto t = it->timeStamp - t0;
         Eigen::MatrixXd dWdwvz;
         if (dIdw != NULL) {
-            warp(&dWdwvz, point_warped, p, t, w);
+            warp(&dWdwvz, point_warped, p, t, w, v);
         } else {
-            warp(NULL, point_warped, p, t, w);
+            warp(NULL, point_warped, p, t, w, v);
         }
+
         Eigen::Vector2d point_camera(point_warped(0), point_warped(1));
         if (dIdw != NULL) {
-            Eigen::MatrixXd dWdwv = dWdwvz.block(0, 0, 2, 3);
+            Eigen::MatrixXd dWdwv = dWdwvz.block(0, 0, 2, 6);
             std::vector<std::pair<std::vector<int>, double>> pixel_weight;
-#if 1
+#if 0
             biInterp(pixel_weight, point_camera, it->measurement.p);
 
             for (auto p_it = pixel_weight.begin(); p_it != pixel_weight.end(); p_it++) {
@@ -145,7 +141,7 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
                 double dr = point_warped(1) - p_[1];
                 int pol = int(it->measurement.p) * 2 - 1;
                 double dW = 0.;
-                Eigen::VectorXd dwv = Eigen::VectorXd::Zero(3);
+                Eigen::VectorXd dwv = Eigen::VectorXd::Zero(6);
 
                 if (dr > 0) {
                     dW = (std::abs(dc) - 1) * pol;
@@ -160,14 +156,14 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
                 }
                 dwv += dW * dWdwv.row(0);
 
-                for (int i = 0; i != 3; i++) {
+                for (int i = 0; i != 6; i++) {
                     dIdw->coeffRef(p_[0] * 180 + p_[1], i) += dwv(i);
                 }
 
                 image.coeffRef(p_[1], p_[0]) += p_it->second;
             }
 
-#else
+//#else
             // lacks adjustment for rotation!
             // delta_y
 
@@ -213,17 +209,22 @@ void ComputeVarianceFunction::Intensity(Eigen::SparseMatrix<double>& image, Eige
 
         } else {
             fuse(image, point_camera, it->measurement.p);
-
         }
     }
 
-    Eigen::MatrixXd image_ = image.toDense();
-    cv::Mat src, dst;
-    cv::eigen2cv(image_, src);
-    cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
-    cv::cv2eigen(dst, image_);
-    image = image_.sparseView();
+//    for (auto p_it = pixels.begin(); p_it != pixels.end(); p_it++) {
+//        image((p_it->first)[1], (p_it->first)[0]) += p_it->second;
+//    }
 
+//    LOG(INFO) << "warp time for 50000 events is " << time/1000000 << " milliseconds.";
+//    LOG(INFO) << "fuse time for 50000 events is " << time2/1000000 << " milliseconds.";
+//    LOG(INFO) << "biinterp time for 50000 events is " << time2/1000000 << " milliseconds.";
+//    LOG(INFO) << "coeff time for 50000 events is " << ev::coefftime/1000000 << " milliseconds.";
+//    LOG(INFO) << "simple add time for 50000 events is " << ev::simpleaddtime/1000000 << " milliseconds.";
+    cv::Mat src, dst;
+    cv::eigen2cv(image, src);
+    cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
+    cv::cv2eigen(dst, image);
 }
 
 // Constructor.
