@@ -57,13 +57,12 @@ int main(int argc, char *argv[])
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
 
-    okvis::Duration deltaT(0);
+    okvis::Duration deltaT(20);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
     ev::Parameters parameters;
     pr.getParameter(parameters);
-
 
     parameters.path = path;
     if (argc > 2) {
@@ -130,7 +129,7 @@ int main(int argc, char *argv[])
 
 ev_estimator.allGroundtruthAdded_ = true;
 
-    while (std::getline(imu_file, imu_line) && t_imu < okvis::Time(20)) {
+    while (std::getline(imu_file, imu_line)) {
 
         std::stringstream stream(imu_line);
         std::string s;
