@@ -160,10 +160,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::uniform_real_distribution<double> dis(-0.02, 0.02);
     double w[] = {0, 0, 0};
     double v[] = {0, 0, 0};
-    double z[parameters_.patch_num];
-    for (int i = 0; i < 2; i++) {
-        z[i] = 1;
-    }
+    double p[] = {0, M_PI}; // normal (0, 0, -1)
     while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
 
     count = 0;
@@ -203,7 +200,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Eigen::MatrixXd zero_motion;
 
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
-                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, z);
+                Eigen::Vector3d vertical;
+                vertical << 0, 0, -1;
+                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, vertical);
                 double cost = contrastCost(zero_motion);
 
                 // ground truth
@@ -244,6 +243,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //                v[1] = linear_velocity(1) + dis(gen);
 //                v[2] = linear_velocity(2) + dis(gen);
 
+//                                w[0] = angularVelocity(0);
+//                                w[1] = angularVelocity(1);
+//                                w[2] = angularVelocity(2);
+
+//                                v[0] = linear_velocity(0);
+//                                v[1] = linear_velocity(1);
+//                                v[2] = linear_velocity(2);
+
                 Eigen::MatrixXd ground_truth;
                 std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 //#if !optimize
@@ -268,11 +275,12 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
 #else
 
-                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, zero_vec3, z);
+                Eigen::Vector3d l = linear_velocity/0.231;
+                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, l, vertical);
                 cost = contrastCost(ground_truth);
-                std::string caption =  "cost = " + std::to_string(cost);
+//                std::string caption =  "cost = " + std::to_string(cost);
+                LOG(INFO)<<"cost = " << cost;
                 ev::imshowRescaled(ground_truth, 10, files_path + "zero_motion", NULL);
-
 
                 processEventTimer.start();
 
@@ -298,11 +306,11 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     gsl_vector_set(x, i+3, v[i]);
 
                 for (int i = 0; i < 2; i ++)
-                    gsl_vector_set(x, i+6, z[i]);
+                    gsl_vector_set(x, i+6, p[i]);
 
                 /* Set initial step sizes to 1 */
                 step_size = gsl_vector_alloc(8);
-                gsl_vector_set_all(step_size, 0.1);
+                gsl_vector_set_all(step_size, 1);
 
                 /* Initialize method and iterate */
                 minex_func.n = 8;
@@ -328,7 +336,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //                        printf ("converged to minimum at\n");
 //                    }
 
-                    LOG(INFO) << size;
+//                    LOG(INFO) << size;
 
                 }
                 while (status == GSL_CONTINUE && iter < 100);
@@ -337,10 +345,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     w[i] = gsl_vector_get(s->x, i);
                     v[i] = gsl_vector_get(s->x, i+3);
                 }
-
-                double z_[2];
                 for (int i = 0; i < 2; i++) {
-                    z_[i] = gsl_vector_get(s->x, i+6);
+                    p[i] = gsl_vector_get(s->x, i+6);
                 }
 
                 gsl_vector_free(x);
@@ -351,7 +357,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
 #if !show_optimizing_process
 
                 ev::imshowRescaled(param.intensity,
-                                   1, files_path + "optimized", z);
+                                   1, files_path + "optimized", NULL);
+
                 count++;
 
 
@@ -369,8 +376,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
                    << std::setw(15) << w[2] << std::setw(15) << v[2] << '\n';
 
                 LOG(INFO) << ss.str();
-                LOG(INFO) << z_[0] << " " << z_[1];
-
+                LOG(INFO) << "normal " << std::cos(p[0]) * std::sin(p[1]) << ' ' << std::sin(p[0]) * std::sin(p[1]) << ' ' << std::cos(p[1]);
+                LOG(INFO)<<"cost = " << contrastCost(param.intensity);
                 Eigen::Vector3d rotation_(w[0], w[1], w[2]);
                 Eigen::AngleAxisd angleAxis_;
                 rotation_ *= ((end.toSec() - begin.toSec()));
@@ -523,14 +530,13 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
 double ThreadedEventIMU::contrastCost(Eigen::MatrixXd &image) {
 
     double cost = 0;
-
     for (int r = 0; r < 180; r++) {
         for (int c = 0; c < 240; c++) {
             cost += std::pow(image(r, c), 2);
         }
     }
 
-    cost /= image.nonZeros();
+    cost /= (240*180);
 
     return cost;
 

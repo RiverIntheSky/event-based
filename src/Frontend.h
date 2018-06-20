@@ -32,12 +32,12 @@ public:
     ~ComputeVarianceFunction() {}
 //    inline void biInterp(std::vector<std::pair<std::vector<int>, double>>& pixel_weight, Eigen::Vector2d& point, bool& polarity) const;
 
-    inline void warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, Eigen::Vector3d &x,
-              okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, double* z) const;
+    inline void warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, Eigen::Vector3d& x,
+              okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, Eigen::Vector3d& n) const;
 
-    inline void fuse(Eigen::MatrixXd& image, Eigen::Vector2d &p, bool& polarity) const;
+    inline void fuse(Eigen::MatrixXd& image, Eigen::Vector2d& p, bool& polarity) const;
 
-    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw, Eigen::Vector3d &w, Eigen::Vector3d& v, double* z) const;
+    void Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw, Eigen::Vector3d& w, Eigen::Vector3d& v, Eigen::Vector3d& n) const;
 
     std::shared_ptr<eventFrameMeasurement> em_;
     Parameters param_;

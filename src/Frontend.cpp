@@ -30,16 +30,15 @@ static double coefftime = 0;
 static double simpleaddtime = 0;
 double variance(const gsl_vector *vec, void *params){
 
-    Eigen::Vector3d w, v;
+    Eigen::Vector3d w, v, n;
     w << gsl_vector_get(vec, 0), gsl_vector_get(vec, 1), gsl_vector_get(vec, 2);
     v << gsl_vector_get(vec, 3), gsl_vector_get(vec, 4), gsl_vector_get(vec, 5);
-    double z[12] = {};
-    for (int i = 0; i < 2; i++) {
-        z[i] = gsl_vector_get(vec, 6+i);
-    }
+    double phi = gsl_vector_get(vec, 6);
+    double psi = gsl_vector_get(vec, 7);
+    n << std::cos(phi) * std::sin(psi), std::sin(phi) * std::sin(psi), std::cos(psi);
     ComputeVarianceFunction *params_ = (ComputeVarianceFunction *) params;
     double cost = 0;
-    params_->Intensity(params_->intensity, NULL, w, v, z);
+    params_->Intensity(params_->intensity, NULL, w, v, n);
     for (int r = 0; r < 180; ++r) {
         for (int c = 0; c < 240; ++c) {
             cost += std::pow(params_->intensity(r, c), 2);
@@ -51,36 +50,13 @@ double variance(const gsl_vector *vec, void *params){
 }
 
 inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d& x,
-                                   okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, double* z) const {
-
-    Eigen::Vector3d x_w;
-
+                                   okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, Eigen::Vector3d& n) const {
     double t_ = t.toSec();
-    if (w.norm() == 0 || t_ == 0) {
-        x_w = x;
-    } else {
-        x_w = x + t_ * w.cross(x);
-    }
-    x_v = param_.cameraMatrix_ * x_w;
-    double current_depth = (z[1] - z[0]) * x_v(0) / 239 + (z[0] - 1) * x_v(1) / 179 + 1;
-//    LOG(INFO) << x_v;
-//     LOG(INFO) << z[0] << " " << z[1];
-    double last_depth;
-    int iter = 0;
-    do {
-        last_depth = current_depth;
-        //     z_ is the depth before warp
-        double z_ = (last_depth - v(2) * t_) / x_w(2);
+    Eigen::Matrix3d H = Eigen::Matrix3d::Identity() + ev::skew(-t_ * w) + v * t_ * n.transpose();
+    x_v = H.inverse() * x;
+    x_v /= x_v(2);
 
-        x_v = z_ * x_w / x_w(2) + v * t_;
-        x_v /= last_depth;
-        x_v = param_.cameraMatrix_ * x_v;
-        current_depth = (z[1] - z[0]) * x_v(0) / 239 + (z[0] - 1) * x_v(1) / 179 + 1;
-
-//        LOG(INFO) << current_depth << ' ' << last_depth;
-        iter++;
-    } while (std::abs(current_depth - last_depth) > 0.01 && iter < 10);
-
+    x_v = param_.cameraMatrix_ * x_v;
 
 //    if (dW != NULL) {
 //        Eigen::MatrixXd dW_(3, 6);
@@ -130,8 +106,8 @@ inline void ComputeVarianceFunction::fuse(Eigen::MatrixXd& image, Eigen::Vector2
 }
 
 void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw,
-                                        Eigen::Vector3d& w, Eigen::Vector3d& v, double *z) const {
-    auto& param = param_;
+                                        Eigen::Vector3d& w, Eigen::Vector3d& v, Eigen::Vector3d& n) const {
+    /*auto& param = param_;
 
     int patch_num_x = std::ceil(param.array_size_x / param.patch_width);
     int patch_num_y = std::ceil(param.array_size_y / param.patch_width);
@@ -140,7 +116,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
         Eigen::Vector3d p_ = param.cameraMatrix_ * p;
         return truncate(std::floor(p_(0)/param.patch_width), 0, patch_num_x-1) * patch_num_y
                 + truncate(std::floor(p_(1)/param.patch_width), 0, patch_num_y-1);
-    };
+    };*/
 
     image = Eigen::MatrixXd::Zero(180, 240);
     okvis::Time t0 = em_->events.front().timeStamp;
@@ -152,11 +128,11 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
         // project to last frame
         auto t = it->timeStamp - t0;
         Eigen::MatrixXd dWdwvz;
-        int patch_nr = patch(p);
+//        int patch_nr = patch(p);
         if (dIdw != NULL) {
-            warp(&dWdwvz, point_warped, p, t, w, v, z);
+            warp(&dWdwvz, point_warped, p, t, w, v, n);
         } else {
-            warp(NULL, point_warped, p, t, w, v, z);
+            warp(NULL, point_warped, p, t, w, v, n);
         }
 
         Eigen::Vector2d point_camera(point_warped(0), point_warped(1));
