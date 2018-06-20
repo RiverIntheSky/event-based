@@ -36,6 +36,8 @@ double variance(const gsl_vector *vec, void *params){
     double phi = gsl_vector_get(vec, 6);
     double psi = gsl_vector_get(vec, 7);
     n << std::cos(phi) * std::sin(psi), std::sin(phi) * std::sin(psi), std::cos(psi);
+    if (n(2) > 0)
+        n = -n;
     ComputeVarianceFunction *params_ = (ComputeVarianceFunction *) params;
     double cost = 0;
     params_->Intensity(params_->intensity, NULL, w, v, n);
