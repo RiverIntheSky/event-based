@@ -13,7 +13,6 @@
 #include <okvis/FrameSynchronizer.hpp>
 
 #include "Frontend.h"
-#include "ceres/ceres.h"
 #include "util/gnuplot-iostream.h"
 
 
@@ -215,7 +214,7 @@ private:
 
     bool allGroundtruthAdded();
 
-    double contrastCost(Eigen::SparseMatrix<double>& image);
+    double contrastCost(Eigen::MatrixXd& image);
 
      /// @name Measurement input queues
      /// @{

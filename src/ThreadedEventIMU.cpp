@@ -157,48 +157,15 @@ void ThreadedEventIMU::eventConsumerLoop() {
     TimerSwitchable processEventTimer("0 processEventMeasurements",true);
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
     std::default_random_engine gen;
-    std::uniform_real_distribution<double> dis(-0.02, 0.02); 
+    std::uniform_real_distribution<double> dis(-0.02, 0.02);
     double w[] = {0, 0, 0};
     double v[] = {0, 0, 0};
-    double z[parameters_.patch_num] = {};
-    std::vector<double*> params;
-    params.push_back(w);
-    params.push_back(v);
-    params.push_back(z);
-
+    double p[] = {0, M_PI}; // normal (0, 0, -1)
     while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
-    ev::Pose estimatedPose;
-    std::vector<std::vector<std::pair<double, double>>> estimatedPoses(3);
-
-    // Gnuplot gp;
-    std::vector<std::vector<std::pair<double, double>>> groundtruth(3);
 
     count = 0;
 
     // helper function, divide scene into patches
-
-    auto& param = parameters_;
-    Eigen::Matrix3d cameraMatrix_;
-    cv::cv2eigen(param.cameraMatrix, cameraMatrix_);
-
-    int patch_num_x = std::ceil(param.array_size_x / param.patch_width);
-    int patch_num_y = std::ceil(param.array_size_y / param.patch_width);
-
-    auto patch = [&param, cameraMatrix_, patch_num_x, patch_num_y](Eigen::Vector3d p)  -> int {
-        Eigen::Vector3d p_ = cameraMatrix_ * p;
-        return truncate(std::floor(p_(0)/param.patch_width), 0, patch_num_x-1) * patch_num_y
-                + truncate(std::floor(p_(1)/param.patch_width), 0, patch_num_y-1);
-    };
-
-    for (int i = 0; i < parameters_.patch_num; i++) {
-        z[i] = 1;
-    }
-
-    double* groundtruth_depth = new double[parameters_.patch_num];
-    for (int i = 0; i < parameters_.patch_num; i++) {
-        groundtruth_depth[i] = 1;
-    }
-
 
     for (;;) {
         // get data and check for termination request
@@ -228,29 +195,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 undistortEvents(em);
 
-                for (int i = 0; i < parameters_.patch_num; i++) {
-                    z[i] = 0.231;
-                }
-
-                // find patch with the most events
-                int patch_num[parameters_.patch_num] = {};
-                for (auto it = em->events.begin(); it != em->events.end(); it++) {
-                    Eigen::Vector3d p(it->measurement.x, it->measurement.y, it->measurement.z);
-                    patch_num[patch(p)]++;
-                }
-                max_patch = 0;
-                for  (int i = 0; i != 12; i++) {
-//                    LOG(ERROR)<<patch_num[i];
-                    if (patch_num[i] > patch_num[max_patch])
-                        max_patch = i;
-                }
-
                 ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
-                Eigen::SparseMatrix<double> zero_motion;
+                Eigen::MatrixXd zero_motion;
 
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
-                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, &groundtruth_depth);
+                Eigen::Vector3d vertical;
+                vertical << 0, 0, -1;
+                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, vertical);
                 double cost = contrastCost(zero_motion);
 
                 // ground truth
@@ -282,15 +234,24 @@ void ThreadedEventIMU::eventConsumerLoop() {
                    << std::setw(15) << angularVelocity(2)  << std::setw(15) << linear_velocity(2) << '\n';
 
                 LOG(INFO) << ss.str();
-                v[0] =  linear_velocity(0);
-                v[1] =  linear_velocity(1);
-                v[2] =  linear_velocity(2);
 
-                                w[0] = angularVelocity(0);
-                                w[1] = angularVelocity(1);
-                                w[2] = angularVelocity(2);
+//                w[0] = angularVelocity(0) + dis(gen);
+//                w[1] = angularVelocity(1) + dis(gen);
+//                w[2] = angularVelocity(2) + dis(gen);
 
-                Eigen::SparseMatrix<double> ground_truth;
+//                v[0] = linear_velocity(0) + dis(gen);
+//                v[1] = linear_velocity(1) + dis(gen);
+//                v[2] = linear_velocity(2) + dis(gen);
+
+//                                w[0] = angularVelocity(0);
+//                                w[1] = angularVelocity(1);
+//                                w[2] = angularVelocity(2);
+
+//                                v[0] = linear_velocity(0);
+//                                v[1] = linear_velocity(1);
+//                                v[2] = linear_velocity(2);
+
+                Eigen::MatrixXd ground_truth;
                 std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 //#if !optimize
 #if 0
@@ -314,88 +275,93 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
 #else
 
-                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, zero_vec3, &groundtruth_depth);
+                Eigen::Vector3d l = linear_velocity/0.231;
+                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, l, vertical);
                 cost = contrastCost(ground_truth);
-                std::string caption =  "cost = " + std::to_string(cost);
+//                std::string caption =  "cost = " + std::to_string(cost);
+                LOG(INFO)<<"cost = " << cost;
                 ev::imshowRescaled(ground_truth, 10, files_path + "zero_motion", NULL);
-
 
                 processEventTimer.start();
 
-                ceres::Solver::Options options;
-                options.minimizer_progress_to_stdout = false;
+                ev::ComputeVarianceFunction param(em, parameters_);
 
+                const gsl_multimin_fminimizer_type *T =
+                  gsl_multimin_fminimizer_nmsimplex2;
+                gsl_multimin_fminimizer *s = NULL;
+                gsl_vector *step_size, *x;
+                gsl_multimin_function minex_func;
 
-                ceres::Solver::Summary summary;
-                ceres::Problem problem;
+                size_t iter = 0;
+                int status;
+                double size;
 
-                ceres::CostFunction* cost_function = new ComputeVarianceFunction(em, parameters_);
-                //                ev::imshowCallback callback(w, static_cast<ComputeVarianceFunction*>(cost_function));
-                //                options.callbacks.push_back(&callback);
+                /* Starting point */
+                x = gsl_vector_alloc(8);
 
-                // identity initialization
-                double w_[] = {.0, .0, .0};
-                double v_[] = {.0, .0, .0};
-                double z_[parameters_.patch_num] = {};
-                for (int i = 0; i < parameters_.patch_num; i++) {
-                    z_[i] = 1.;
-                }
+                for (int i = 0; i < 3; i ++)
+                    gsl_vector_set(x, i, w[i]);
 
-                std::vector<double*> params_;
+                for (int i = 0; i < 3; i ++)
+                    gsl_vector_set(x, i+3, v[i]);
 
-                params_.push_back(w_);
-                params_.push_back(v_);
-                params_.push_back(z_);
+                for (int i = 0; i < 2; i ++)
+                    gsl_vector_set(x, i+6, p[i]);
 
-                ceres::Solver::Options options_;
-                options_.minimizer_progress_to_stdout = false;
+                /* Set initial step sizes to 1 */
+                step_size = gsl_vector_alloc(8);
+                gsl_vector_set_all(step_size, 1);
 
-                ceres::Solver::Summary summary_;
-                ceres::Problem problem_;
+                /* Initialize method and iterate */
+                minex_func.n = 8;
+                minex_func.f = variance;
+                minex_func.params = &param;
 
-                ceres::CostFunction* cost_function_ = new ComputeVarianceFunction(em, parameters_);
+                s = gsl_multimin_fminimizer_alloc(T, 8);
+                gsl_multimin_fminimizer_set(s, &minex_func, x, step_size);
 
-
-                //#pragma omp parallel
+                do
                 {
-                    //#pragma omp sections
-                    {
-                        //#pragma omp section
-                        {
-                            problem.AddResidualBlock(cost_function, NULL, params);
-                            // auto start_ = Clock::now();
-                            ceres::Solve(options, &problem, &summary);
-                            /* LOG(INFO) << "solve " << std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start_).count()/1e9
-                                                                << " seconds";*/
-                        }
-                        //#pragma omp section
-                        if (summary.final_cost > cost) {
-                            problem_.AddResidualBlock(cost_function_, NULL, params_);
-                            ceres::Solve(options_, &problem_, &summary_);
-                        }
-                    }
-                }
-                if (summary.final_cost > cost && summary_.final_cost < summary.final_cost) {
-                    for (int i = 0; i != 3; i++) {
-                        w[i] = w_[i];
-                    }
-                    for (int i = 0; i != 3; i++) {
-                        v[i] = v_[i];
-                    }
-                    for (int i = 0; i != parameters_.patch_num; i++) {
-                        z[i] = z_[i];
-                    }
-                    cost_function = cost_function_;
-                    LOG(ERROR) << "change of direction";
+                    iter++;
+                    status = gsl_multimin_fminimizer_iterate(s);
+
+                    if (status)
+                        break;
+
+                    size = gsl_multimin_fminimizer_size(s);
+                    status = gsl_multimin_test_size(size, 1e-2);
+
+//                    if (status == GSL_SUCCESS)
+//                    {
+//                        printf ("converged to minimum at\n");
+//                    }
+
+//                    LOG(INFO) << size;
 
                 }
+                while (status == GSL_CONTINUE && iter < 100);
+
+                for (int i = 0; i < 3; i++) {
+                    w[i] = gsl_vector_get(s->x, i);
+                    v[i] = gsl_vector_get(s->x, i+3);
+                }
+                for (int i = 0; i < 2; i++) {
+                    p[i] = gsl_vector_get(s->x, i+6);
+                }
+
+                gsl_vector_free(x);
+                gsl_vector_free(step_size);
+                gsl_multimin_fminimizer_free (s);
 
 
 #if !show_optimizing_process
 
-                ev::imshowRescaled(static_cast<ComputeVarianceFunction*>(cost_function)->intensity,
-                                   1, files_path + "optimized", z);
+                ev::imshowRescaled(param.intensity,
+                                   1, files_path + "optimized", NULL);
+
                 count++;
+
+
 
 #endif
 
@@ -410,7 +376,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
                    << std::setw(15) << w[2] << std::setw(15) << v[2] << '\n';
 
                 LOG(INFO) << ss.str();
-
+                LOG(INFO) << "normal " << std::cos(p[0]) * std::sin(p[1]) << ' ' << std::sin(p[0]) * std::sin(p[1]) << ' ' << std::cos(p[1]);
+                LOG(INFO)<<"cost = " << contrastCost(param.intensity);
                 Eigen::Vector3d rotation_(w[0], w[1], w[2]);
                 Eigen::AngleAxisd angleAxis_;
                 rotation_ *= ((end.toSec() - begin.toSec()));
@@ -422,26 +389,12 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
                 double error = difference.angle() / (end.toSec() - begin.toSec());
 
-//                Eigen::Vector3d estimated_normalized = (Eigen::Vector3d()<<v[0],v[1],v[2]).finished().normalized();
-
-               //                double error = difference.angle() / (end.toSec() - begin.toSec());
-                //double error = std::acos(linear_velocity.normalized().dot(estimated_normalized));
-//                double x_relative = linear_velocity(0) / 0.231;
-//                double error = std::abs(v[0] - x_relative)/x_relative;
-
                 LOG(ERROR) << "error: " << error << " rad/s";
-                LOG(INFO) << summary.BriefReport();
 
                 if (parameters_.write_to_file) {
 
                     std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
-                    //                        std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
-                    //                        if (error_file.is_open()) {
-                    //                            error_file << begin.toSec() << " " << error << '\n';
-                    //                            error_file.close();
-                    //                        } else
-                    //                            std::cout << "怎么肥四"<<std::endl;
 
                     std::ofstream  myfile(files_path + "groundtruth_rotation.txt", std::ios_base::app);
                     if (myfile.is_open()) {
@@ -483,13 +436,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
                         myfile_t.close();
                     } else
                         std::cout << "怎么肥四"<<std::endl;
-
-                    //                        std::ofstream  error_file(files_path + "error.txt", std::ios_base::app);
-                    //                        if (error_file.is_open()) {
-                    //                            error_file << error << '\n';
-                    //                            error_file.close();
-                    //                        } else
-                    //                            std::cout << "怎么肥四"<<std::endl;
                 }
 #endif         
                 eventFrames.pop_front();
@@ -500,7 +446,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
         // LOG(INFO) << okvis::timing::Timing::print();
 
     }
-    delete groundtruth_depth;
 }
 
 // Set the blocking variable that indicates whether the addMeasurement() functions
@@ -582,26 +527,19 @@ bool ThreadedEventIMU::interpolateGroundtruth(ev::Pose& pose, const okvis::Time&
     return true;
 }
 
-double ThreadedEventIMU::contrastCost(Eigen::SparseMatrix<double>& image) {
-    // average intensity
-    double mu = image.sum() / (240*180);
+double ThreadedEventIMU::contrastCost(Eigen::MatrixXd &image) {
 
-    // cost
     double cost = 0;
-    for (int s = 0; s < image.outerSize(); ++s) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(image, s); it; ++it) {
-            double rho = it.value() - mu;
-            cost += std::pow(rho, 2);
+    for (int r = 0; r < 180; r++) {
+        for (int c = 0; c < 240; c++) {
+            cost += std::pow(image(r, c), 2);
         }
     }
 
-    cost += ((240 * 180) - image.nonZeros()) * std::pow(mu, 2);
     cost /= (240*180);
 
-    // adjust to ceres format
-    cost = 1./std::pow(cost, 2);
-    cost /= 2;
     return cost;
+
 }
 
 }

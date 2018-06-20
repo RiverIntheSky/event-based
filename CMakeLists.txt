@@ -33,6 +33,7 @@ include_directories(${CERES_INCLUDE_DIRS})
 # require OpenMP
 OPTION (USE_OpenMP "Use OpenMP to enamble <omp.h>" ON)
 
+find_package(GSL REQUIRED)
 
 if(USE_OpenMP)
   find_package(OpenMP REQUIRED)
@@ -78,7 +79,9 @@ target_link_libraries(${PROJECT_NAME}
     glog::glog
     ${OpenCV_LIBS}
     ${OKVIS_LIBRARIES}
-    ${Boost_LIBRARIES})
+    ${Boost_LIBRARIES}
+    GSL::gsl
+    GSL::gslcblas)
 
 if(${VISENSORDRIVER_FOUND})
     target_link_libraries(ev ${VISensorDriver_LIBRARY})
