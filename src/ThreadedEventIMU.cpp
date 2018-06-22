@@ -161,14 +161,28 @@ void ThreadedEventIMU::eventConsumerLoop() {
     double w[] = {0, 0, 0};
     double v[] = {0, M_PI/2};
 //    double p[] = {0, M_PI}; // normal (0, 0, -1)
-    double z[parameters_.patch_num] = {};
-    for (int i = 0; i < parameters_.patch_num; i++) {
-                        z[i] = 1.;
+    double p[3*parameters_.patch_num] = {};
+    for (int i = 0; i < 3*parameters_.patch_num; i+=3) {
+                        p[i] = 0;
     }
-    double z_[parameters_.patch_num] = {};
-    for (int i = 0; i < parameters_.patch_num; i++) {
-                        z_[i] = 1.;
+    for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
+                        p[i] = M_PI/2;
     }
+    for (int i = 2; i < 3*parameters_.patch_num; i+=3) {
+                        p[i] = 1.;
+    }
+    double p_[3*parameters_.patch_num] = {};
+    for (int i = 0; i < 3*parameters_.patch_num; i+=3) {
+                        p_[i] = 0;
+    }
+
+    for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
+                        p_[i] = M_PI/2;
+    }
+    for (int i = 2; i < 3*parameters_.patch_num; i+=3) {
+                        p_[i] = 1.;
+    }
+
     while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
 
     count = 0;
@@ -284,7 +298,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 #else
 
                 Eigen::Vector3d l = linear_velocity/0.231;
-                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, zero_vec3, z);
+                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, zero_vec3, p_);
                 double cost = contrastCost(ground_truth);
 //                std::string caption =  "cost = " + std::to_string(cost);
                 LOG(INFO)<<"cost = " << cost;
@@ -305,7 +319,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 double size;
 
                 /* Starting point */
-                x = gsl_vector_alloc(17);
+                x = gsl_vector_alloc(41);
 
                 for (int i = 0; i < 3; i ++)
                     gsl_vector_set(x, i, w[i]);
@@ -313,19 +327,19 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 for (int i = 0; i < 2; i ++)
                     gsl_vector_set(x, i+3, v[i]);
 
-                for (int i = 0; i < 12; i ++)
-                    gsl_vector_set(x, i+5, z[i]);
+                for (int i = 0; i < 36; i ++)
+                    gsl_vector_set(x, i+5, p[i]);
 
                 /* Set initial step sizes to 1 */
-                step_size = gsl_vector_alloc(17);
+                step_size = gsl_vector_alloc(41);
                 gsl_vector_set_all(step_size, 1);
 
                 /* Initialize method and iterate */
-                minex_func.n = 17;
+                minex_func.n = 41;
                 minex_func.f = variance;
                 minex_func.params = &param;
 
-                s = gsl_multimin_fminimizer_alloc(T, 17);
+                s = gsl_multimin_fminimizer_alloc(T, 41);
                 gsl_multimin_fminimizer_set(s, &minex_func, x, step_size);
 
                 do
@@ -356,8 +370,11 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 for (int i = 0; i < 2; i++) {
                     v[i] = gsl_vector_get(s->x, i+3);
                 }
-                for (int i = 0; i < 12; i++) {
-                    z[i] = gsl_vector_get(s->x, i+5);
+                for (int i = 0; i < 3*parameters_.patch_num; i+=3) {
+                    p[i] = gsl_vector_get(s->x, i+5);
+                }
+                for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
+                    p[i] = gsl_vector_get(s->x, i+5);
                 }
 
 
@@ -369,7 +386,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 #if !show_optimizing_process
 
                 ev::imshowRescaled(param.intensity,
-                                   1, files_path + "optimized", z);
+                                   1, files_path + "optimized", NULL);
 
                 count++;
 
