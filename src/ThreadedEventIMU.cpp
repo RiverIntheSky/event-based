@@ -159,8 +159,16 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::default_random_engine gen;
     std::uniform_real_distribution<double> dis(-0.02, 0.02);
     double w[] = {0, 0, 0};
-    double v[] = {0, 0, 0};
-    double p[] = {0, M_PI}; // normal (0, 0, -1)
+    double v[] = {0, M_PI/2};
+//    double p[] = {0, M_PI}; // normal (0, 0, -1)
+    double z[parameters_.patch_num] = {};
+    for (int i = 0; i < parameters_.patch_num; i++) {
+                        z[i] = 1.;
+    }
+    double z_[parameters_.patch_num] = {};
+    for (int i = 0; i < parameters_.patch_num; i++) {
+                        z_[i] = 1.;
+    }
     while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
 
     count = 0;
@@ -202,8 +210,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
                 Eigen::Vector3d vertical;
                 vertical << 0, 0, -1;
-                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, vertical);
-                double cost = contrastCost(zero_motion);
+//                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, vertical);
+//                double cost = contrastCost(zero_motion);
 
                 // ground truth
                 okvis::Time begin = em->events.front().timeStamp;
@@ -276,8 +284,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
 #else
 
                 Eigen::Vector3d l = linear_velocity/0.231;
-                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, l, vertical);
-                cost = contrastCost(ground_truth);
+                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, zero_vec3, z);
+                double cost = contrastCost(ground_truth);
 //                std::string caption =  "cost = " + std::to_string(cost);
                 LOG(INFO)<<"cost = " << cost;
                 ev::imshowRescaled(ground_truth, 10, files_path + "zero_motion", NULL);
@@ -297,27 +305,27 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 double size;
 
                 /* Starting point */
-                x = gsl_vector_alloc(8);
+                x = gsl_vector_alloc(17);
 
                 for (int i = 0; i < 3; i ++)
                     gsl_vector_set(x, i, w[i]);
 
-                for (int i = 0; i < 3; i ++)
+                for (int i = 0; i < 2; i ++)
                     gsl_vector_set(x, i+3, v[i]);
 
-                for (int i = 0; i < 2; i ++)
-                    gsl_vector_set(x, i+6, p[i]);
+                for (int i = 0; i < 12; i ++)
+                    gsl_vector_set(x, i+5, z[i]);
 
                 /* Set initial step sizes to 1 */
-                step_size = gsl_vector_alloc(8);
+                step_size = gsl_vector_alloc(17);
                 gsl_vector_set_all(step_size, 1);
 
                 /* Initialize method and iterate */
-                minex_func.n = 8;
+                minex_func.n = 17;
                 minex_func.f = variance;
                 minex_func.params = &param;
 
-                s = gsl_multimin_fminimizer_alloc(T, 8);
+                s = gsl_multimin_fminimizer_alloc(T, 17);
                 gsl_multimin_fminimizer_set(s, &minex_func, x, step_size);
 
                 do
@@ -343,11 +351,15 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 for (int i = 0; i < 3; i++) {
                     w[i] = gsl_vector_get(s->x, i);
-                    v[i] = gsl_vector_get(s->x, i+3);
+
                 }
                 for (int i = 0; i < 2; i++) {
-                    p[i] = gsl_vector_get(s->x, i+6);
+                    v[i] = gsl_vector_get(s->x, i+3);
                 }
+                for (int i = 0; i < 12; i++) {
+                    z[i] = gsl_vector_get(s->x, i+5);
+                }
+
 
                 gsl_vector_free(x);
                 gsl_vector_free(step_size);
@@ -357,7 +369,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 #if !show_optimizing_process
 
                 ev::imshowRescaled(param.intensity,
-                                   1, files_path + "optimized", NULL);
+                                   1, files_path + "optimized", z);
 
                 count++;
 
@@ -371,12 +383,12 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 ss.str(std::string());
                 ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
-                   << std::setw(15) << w[0] << std::setw(15) << v[0] << '\n'
-                   << std::setw(15) << w[1] << std::setw(15) << v[1] << '\n'
-                   << std::setw(15) << w[2] << std::setw(15) << v[2] << '\n';
+                   << std::setw(15) << w[0] << std::setw(15) << std::cos(v[0]) * std::sin(v[1]) << '\n'
+                   << std::setw(15) << w[1] << std::setw(15) << std::sin(v[0]) * std::sin(v[1]) << '\n'
+                   << std::setw(15) << w[2] << std::setw(15) << std::cos(v[1]) << '\n';
 
                 LOG(INFO) << ss.str();
-                LOG(INFO) << "normal " << std::cos(p[0]) * std::sin(p[1]) << ' ' << std::sin(p[0]) * std::sin(p[1]) << ' ' << std::cos(p[1]);
+//                LOG(INFO) << "normal " << std::cos(p[0]) * std::sin(p[1]) << ' ' << std::sin(p[0]) * std::sin(p[1]) << ' ' << std::cos(p[1]);
                 LOG(INFO)<<"cost = " << contrastCost(param.intensity);
                 Eigen::Vector3d rotation_(w[0], w[1], w[2]);
                 Eigen::AngleAxisd angleAxis_;
@@ -429,9 +441,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
                     if (myfile_t.is_open()) {
                         myfile_t<< begin.toSec() << " "
-                                << v[0] << " "
-                                << v[1] << " "
-                                << v[2] << " ";
+                                << std::cos(v[0]) * std::sin(v[1]) << " "
+                                << std::sin(v[0]) * std::sin(v[1]) << " "
+                                << std::cos(v[1]) << " ";
                         myfile_t << '\n';
                         myfile_t.close();
                     } else

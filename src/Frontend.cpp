@@ -31,16 +31,27 @@ static double simpleaddtime = 0;
 double variance(const gsl_vector *vec, void *params){
 
     Eigen::Vector3d w, v, n;
+    double v1, v2;
+    double z[12] = {};
     w << gsl_vector_get(vec, 0), gsl_vector_get(vec, 1), gsl_vector_get(vec, 2);
-    v << gsl_vector_get(vec, 3), gsl_vector_get(vec, 4), gsl_vector_get(vec, 5);
-    double phi = gsl_vector_get(vec, 6);
-    double psi = gsl_vector_get(vec, 7);
-    n << std::cos(phi) * std::sin(psi), std::sin(phi) * std::sin(psi), std::cos(psi);
-    if (n(2) > 0)
-        n = -n;
+    v1 = gsl_vector_get(vec, 3);
+    v2 = gsl_vector_get(vec, 4);
+    v << std::cos(v1) * std::sin(v2), std::sin(v1) * std::sin(v2), std::cos(v2);
+    for (int i = 0; i != 12; i++) {
+        z[i] = gsl_vector_get(vec, 5+i);
+    }
+    n << 0, 0, -1;
+//    Eigen::Vector3d w, v, n;
+//    w << gsl_vector_get(vec, 0), gsl_vector_get(vec, 1), gsl_vector_get(vec, 2);
+//    v << gsl_vector_get(vec, 3), gsl_vector_get(vec, 4), gsl_vector_get(vec, 5);
+//    double phi = gsl_vector_get(vec, 6);
+//    double psi = gsl_vector_get(vec, 7);
+//    n << std::cos(phi) * std::sin(psi), std::sin(phi) * std::sin(psi), std::cos(psi);
+//    if (n(2) > 0)
+//        n = -n;
     ComputeVarianceFunction *params_ = (ComputeVarianceFunction *) params;
     double cost = 0;
-    params_->Intensity(params_->intensity, NULL, w, v, n);
+    params_->Intensity(params_->intensity, NULL, w, v, z);
     for (int r = 0; r < 180; ++r) {
         for (int c = 0; c < 240; ++c) {
             cost += std::pow(params_->intensity(r, c), 2);
@@ -52,9 +63,11 @@ double variance(const gsl_vector *vec, void *params){
 }
 
 inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d& x,
-                                   okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, Eigen::Vector3d& n) const {
+                                   okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, double z) const {
     double t_ = t.toSec();
-    Eigen::Matrix3d H = Eigen::Matrix3d::Identity() + ev::skew(-t_ * w) + v * t_ * n.transpose();
+    Eigen::Vector3d n;
+    n << 0, 0, 1;
+    Eigen::Matrix3d H = Eigen::Matrix3d::Identity() + ev::skew(-t_ * w) + z * v * t_ * n.transpose();
     x_v = H.inverse() * x;
     x_v /= x_v(2);
 
@@ -108,8 +121,8 @@ inline void ComputeVarianceFunction::fuse(Eigen::MatrixXd& image, Eigen::Vector2
 }
 
 void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw,
-                                        Eigen::Vector3d& w, Eigen::Vector3d& v, Eigen::Vector3d& n) const {
-    /*auto& param = param_;
+                                        Eigen::Vector3d& w, Eigen::Vector3d& v, double* z) const {
+    auto& param = param_;
 
     int patch_num_x = std::ceil(param.array_size_x / param.patch_width);
     int patch_num_y = std::ceil(param.array_size_y / param.patch_width);
@@ -118,7 +131,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
         Eigen::Vector3d p_ = param.cameraMatrix_ * p;
         return truncate(std::floor(p_(0)/param.patch_width), 0, patch_num_x-1) * patch_num_y
                 + truncate(std::floor(p_(1)/param.patch_width), 0, patch_num_y-1);
-    };*/
+    };
 
     image = Eigen::MatrixXd::Zero(180, 240);
     okvis::Time t0 = em_->events.front().timeStamp;
@@ -132,9 +145,9 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
         Eigen::MatrixXd dWdwvz;
 //        int patch_nr = patch(p);
         if (dIdw != NULL) {
-            warp(&dWdwvz, point_warped, p, t, w, v, n);
+            warp(&dWdwvz, point_warped, p, t, w, v, z[patch(p)]);
         } else {
-            warp(NULL, point_warped, p, t, w, v, n);
+            warp(NULL, point_warped, p, t, w, v, z[patch(p)]);
         }
 
         Eigen::Vector2d point_camera(point_warped(0), point_warped(1));
