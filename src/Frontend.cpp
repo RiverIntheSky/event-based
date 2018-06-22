@@ -147,6 +147,8 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
         z = normal[3 * patch(p) + 2];
         Eigen::Vector3d n;
         n << std::cos(i1) * std::sin(i2), std::sin(i1) * std::sin(i2), std::cos(i2);
+        if (n(2) > 0)
+            n = -n;
         if (dIdw != NULL) {
             warp(&dWdwvz, point_warped, p, t, w, v, n, z);
         } else {
