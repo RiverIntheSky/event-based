@@ -159,11 +159,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::default_random_engine gen;
     std::uniform_real_distribution<double> dis(-0.02, 0.02);
     double w[] = {0, 0, 0};
-    double v[] = {0, 0, 0};
+    double v[] = {0, 0, 0}; // v/d
     double p[] = {0, M_PI}; // normal (0, 0, -1)
+                            // psi \in (M_PI/2, 3*M_PI/2)
+                            // phi \in (0, 2 * M_PI)
     while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
 
     count = 0;
+    std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
     // helper function, divide scene into patches
 
@@ -211,14 +214,33 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 // ???
 
-                ev::Pose p1, p2;
+                ev::Pose p1, p2, current_pose;
                 // of camera
                 Eigen::Vector3d linear_velocity;
                 Eigen::Quaterniond angular_velocity;
+
+                std::string file_estimated = files_path + "estimated.txt";
+
+                // no estimation for first pose
                 if (interpolateGroundtruth(p1, begin) && interpolateGroundtruth(p2, end)) {
                     linear_velocity = (p1.q).inverse().toRotationMatrix() * (p2.p - p1.p) / (end.toSec() - begin.toSec());
                     angular_velocity =  (p1.q).inverse() * p2.q ;
-
+                    std::ifstream f(file_estimated);
+                    if (!f.good()) {
+                        std::ofstream  f_(file_estimated);
+                        if (f_.is_open()) {
+                            f_ << begin.toSec() << " "
+                                    << p1.p(0) << " "
+                                    << p1.p(1) << " "
+                                    << p1.p(2) << " "
+                                    << p1.q.x() << " "
+                                    << p1.q.y() << " "
+                                    << p1.q.z() << " "
+                                    << p1.q.w() <<"\n";
+                            f_.close();
+                        }
+                        current_pose(p1.p, p1.q);
+                    }
                 } else {
                     linear_velocity = Eigen::Vector3d(0, 0, 0);
                     angular_velocity = Eigen::Quaterniond(1, 0, 0, 0);
@@ -252,7 +274,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //                                v[2] = linear_velocity(2);
 
                 Eigen::MatrixXd ground_truth;
-                std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
+
 //#if !optimize
 #if 0
                 std::ofstream  myfile(files_path + "z.txt", std::ios_base::app);
@@ -369,6 +391,43 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 LOG(INFO) << okvis::timing::Timing::print();
 
+                std::ifstream f(file_estimated);
+
+                Eigen::Quaterniond angular_transformation(1, 0, 0, 0);
+
+                if (f.good()) {
+
+                    Eigen::Vector3d linear_velocity_ = (Eigen::Vector3d() << v[0], v[1], v[2]).finished();
+                    double scale = linear_velocity.norm() / linear_velocity_.norm();
+                    Eigen::Vector3d p_ =     current_pose.p
+                                         +  current_pose.q.toRotationMatrix() * linear_velocity_
+                                           * (end.toSec() - begin.toSec()) * scale;
+
+                    Eigen::Vector3d angular_velocity_ = (Eigen::Vector3d() << w[0], w[1], w[2]).finished();
+                    Eigen::Quaterniond q_;
+                    if (angular_velocity_.norm() == 0) {
+                        q_ = Eigen::Quaterniond(1, 0, 0, 0);
+                    } else {
+                        Eigen::AngleAxisd angleAxis(angular_velocity_.norm() * (end.toSec() - begin.toSec()), angular_velocity_.normalized());
+                        angular_transformation = Eigen::Quaterniond(angleAxis);
+                        q_ = current_pose.q * angular_transformation;
+                    }
+
+                    std::ofstream  f_(file_estimated, std::ios_base::app);
+                    if (f_.is_open()) {
+                        f_ << end.toSec() << " "
+                                << p_(0) << " "
+                                << p_(1) << " "
+                                << p_(2) << " "
+                                << q_.x() << " "
+                                << q_.y() << " "
+                                << q_.z() << " "
+                                << q_.w() <<"\n";
+                        f_.close();
+                    }
+                    current_pose(p_, q_);
+                }
+
                 ss.str(std::string());
                 ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
                    << std::setw(15) << w[0] << std::setw(15) << v[0] << '\n'
@@ -436,7 +495,18 @@ void ThreadedEventIMU::eventConsumerLoop() {
                         myfile_t.close();
                     } else
                         std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile_n(files_path + "estimated_normal.txt", std::ios_base::app);
+                    if (myfile_n.is_open()) {
+                        myfile_n << begin.toSec() << " "
+                               << std::cos(p[0]) * std::sin(p[1]) << " "
+                               << std::sin(p[0]) * std::sin(p[1]) << " "
+                               << std::cos(p[1]) << '\n';
+                        myfile_n.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
                 }
+                rotateAngleByQuaternion(p, angular_transformation.inverse(), p);
 #endif         
                 eventFrames.pop_front();
             }

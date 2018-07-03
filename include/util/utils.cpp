@@ -108,4 +108,17 @@ Eigen::Matrix3d skew(Eigen::Vector3d v){
         -v(1), v(0), 0;
     return m;
 }
+
+void rotateAngleByQuaternion(double* p, Eigen::Quaterniond q, double* p_) {
+    Eigen::Vector3d direction(std::cos(p[0]) * std::sin(p[1]), std::sin(p[0]) * std::sin(p[1]), std::cos(p[1]));
+    Eigen::Vector3d direction_after = q.toRotationMatrix() * direction;
+    p_[1] = std::acos(direction_after(2));
+    p_[0] = std::atan(direction_after(1)/direction(0));
+    if (std::cos(p_[0]) * std::sin(p_[1]) * direction(0) < 0)
+        p_[0] += M_PI;
+
+//    LOG(INFO) << std::cos(p_[0]) * std::sin(p_[1]) << " " << direction_after(0);
+//    LOG(INFO) << std::sin(p_[0]) * std::sin(p_[1]) << " " << direction_after(1);
+//    LOG(INFO) << std::cos(p_[1]) << " " << direction_after(2);
+}
 }

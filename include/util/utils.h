@@ -54,6 +54,7 @@ Eigen::Matrix3d skew(Eigen::Vector3d v);
 inline int truncate(int value, int min_value, int max_value) {
     return std::min(std::max(value, min_value), max_value);
 }
+void rotateAngleByQuaternion(double* p, Eigen::Quaterniond q, double* p_);
 }
 
 #endif // UTILS_H
