@@ -69,13 +69,22 @@ include_directories(${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include)
 
 # only for editting, delete all non-executables afterwards
-add_executable(${PROJECT_NAME} "main.cpp"
-    "${PROJECT_SOURCE_DIR}/event.cpp"
-    "${PROJECT_SOURCE_DIR}/ThreadedEventIMU.cpp"
-    "${PROJECT_SOURCE_DIR}/Frontend.cpp"
-    "${CMAKE_SOURCE_DIR}/include/util/utils.cpp")
+add_library(${PROJECT_NAME} SHARED
+${PROJECT_SOURCE_DIR}/event.cpp
+${PROJECT_SOURCE_DIR}/ThreadedEventIMU.cpp
+${PROJECT_SOURCE_DIR}/Frontend.cpp
+${CMAKE_SOURCE_DIR}/include/util/utils.cpp
+${CMAKE_SOURCE_DIR}/include/KeyFrame.cc
+${CMAKE_SOURCE_DIR}/include/Map.cc
+${CMAKE_SOURCE_DIR}/include/MapPoint.cc
+${CMAKE_SOURCE_DIR}/include/Tracking.cc
+${CMAKE_SOURCE_DIR}/include/Frame.cc
+${CMAKE_SOURCE_DIR}/include/Optimizer.cc)
 
-target_link_libraries(${PROJECT_NAME}
+add_executable(event_based "main.cpp")
+
+target_link_libraries(event_based
+    ${PROJECT_NAME}
     glog::glog
     ${OpenCV_LIBS}
     ${OKVIS_LIBRARIES}

@@ -26,6 +26,7 @@ ThreadedEventIMU::~ThreadedEventIMU() {
 }
 
 void ThreadedEventIMU::init() {
+    mpTracker = new Tracking(parameters_.cameraMatrix, parameters_.distCoeffs);
     startThreads();
 }
 
@@ -37,8 +38,6 @@ bool ThreadedEventIMU::addEventMeasurement(okvis::Time& t, unsigned int x, unsig
     event_measurement.measurement.z = 1;
     event_measurement.measurement.p = p;
     event_measurement.timeStamp = t;
-
-    // std::cout << event.t << " " << event.x << " " << event.y << " " << event.p << std::endl;
 
     if (blocking_) {
         eventMeasurementsReceived_.PushBlockingIfFull(event_measurement, 1);
@@ -150,7 +149,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::cout.setf(std::ios::left);
     std::cout.fill(' ');
     std::cerr<< std::setw(31) << "e";
-    LOG(INFO) << "I am event consumer loop";
+    LOG(INFO) << "Event consumer loop joined";
 
     ev::EventMeasurement data;
     // ??
@@ -158,17 +157,19 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
     std::default_random_engine gen;
     std::uniform_real_distribution<double> dis(-0.02, 0.02);
+
+    // current motion model
     double w[] = {0, 0, 0};
     double v[] = {0, 0, 0}; // v/d
     double p[] = {0, M_PI}; // normal (0, 0, -1)
                             // psi \in (M_PI/2, 3*M_PI/2)
                             // phi \in (0, 2 * M_PI)
-    while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
+
+    while (!allGroundtruthAdded_) {system("sleep 1");}
 
     count = 0;
-    std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
-    // helper function, divide scene into patches
+    std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
     for (;;) {
         // get data and check for termination request
@@ -178,11 +179,16 @@ void ThreadedEventIMU::eventConsumerLoop() {
             return;
         }
 
-
         {
-
             std::lock_guard<std::mutex> lock(eventMeasurements_mutex_);
 
+            auto currentFrame = mpTracker->getCurrentFrame();
+            currentFrame->vEvents.insert(&data);
+
+            if (currentFrame->events() == parameters_.window_size)
+                mpTracker->Track();
+
+            /*to be deleted
             if (counter_s_ == 0) {
                 eventFrames.push_back(std::make_shared<eventFrameMeasurement>());
             }
@@ -197,6 +203,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
             if (em->counter_w == parameters_.window_size) {
 
                 undistortEvents(em);
+                */
 
                 ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
 
@@ -536,6 +543,7 @@ void ThreadedEventIMU::startThreads() {
     eventConsumerThread_ = std::thread(&ThreadedEventIMU::eventConsumerLoop, this);
 }
 
+// to be deleted
 bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& em) {
 
     std::vector<cv::Point2d> inputDistortedPoints;

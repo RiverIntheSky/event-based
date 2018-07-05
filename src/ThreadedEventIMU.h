@@ -14,7 +14,7 @@
 
 #include "Frontend.h"
 #include "util/gnuplot-iostream.h"
-
+#include "Tracking.h"
 
 namespace ev {
 class ThreadedEventIMU: public okvis::VioInterface
@@ -324,6 +324,10 @@ private:
 
      /// The maximum input queue size before events are dropped.
      const size_t maxEventInputQueueSize_;
+
+     /// Tracker. It receives a frame and computes the associated camera pose.
+     /// It also decides when to insert a new keyframe, create some new MapPoints
+     Tracking* mpTracker;
 public:
      bool allGroundtruthAdded_ = false;
 };

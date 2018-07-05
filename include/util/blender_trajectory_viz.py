@@ -46,7 +46,8 @@ def draw_path(camera, trajectory_path):
         q = [float(i) for i in splitted[4:]]
 
         T = (mathutils.Quaternion([q[3], q[0], q[1], q[2]]).to_matrix()*R_cam_blender).to_4x4()
-        T.translation = mathutils.Vector([t_world_cam[0], t_world_cam[1], t_world_cam[2]])
+        # T.translation = mathutils.Vector([t_world_cam[0], t_world_cam[1], t_world_cam[2]])
+        T.translation = mathutils.Vector([0, 0, 0])
 
         trajectory[frame_id] = T
 
