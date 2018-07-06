@@ -1,9 +1,8 @@
-#ifndef PARAMETERS_H
-#define PARAMETERS_H
+#pragma once
 
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
-#define optimize true
+#define OPTIMIZE true
 namespace ev {
 struct Parameters
 {
@@ -19,10 +18,10 @@ struct Parameters
     unsigned patch_width{60};
     int patch_num{std::ceil(array_size_x/patch_width) * std::ceil(array_size_y/patch_width)};
     bool write_to_file = false;
+    bool use_polarity = false;
     std::string experiment_name;
     std::string path;
     Parameters() {}
 };
 }
 
-#endif // PARAMETERS_H

@@ -109,6 +109,16 @@ Eigen::Matrix3d skew(Eigen::Vector3d v){
     return m;
 }
 
+cv::Mat skew(cv::Mat v) const {
+    return  (Mat_<double>(3,3) << 0, -v.at<double>(2), v.at<double>(1),
+             v.at<double>(2), 0, -v.at<double>(0),
+             -v.at<double>(1), v.at<double>(0), 0);
+}
+
+int truncate(int value, int min_value, int max_value) {
+    return std::min(std::max(value, min_value), max_value);
+}
+
 void rotateAngleByQuaternion(double* p, Eigen::Quaterniond q, double* p_) {
     Eigen::Vector3d direction(std::cos(p[0]) * std::sin(p[1]), std::sin(p[0]) * std::sin(p[1]), std::cos(p[1]));
     Eigen::Vector3d direction_after = q.toRotationMatrix() * direction;

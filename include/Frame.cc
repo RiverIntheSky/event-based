@@ -8,16 +8,16 @@ Frame::Frame() {
     mnId = nNextId++;
     cv::Mat Twc = cv::Mat::eye(4,4,CV_64F);
     setPose(Twc);
-    w = {0, 0, 0};
-    v = {0, 0, 0};
+    w << 0, 0, 0;
+    v << 0, 0, 0;
 }
 
 Frame::Frame(Frame &other) {
     mnId = nNextId++;
     // set last pose???
     setPose(other.mTwc);
-    w = other.w;
-    v = other.v;
+    w = other.w.clone();
+    v = other.v.clone();
 }
 
 void Frame::setPose(const cv::Mat &Twc_)

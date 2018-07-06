@@ -18,6 +18,12 @@ public:
     // Pose functions
     void setPose(const cv::Mat &Twc);
     cv::Mat getPose();
+
+    // Transformation
+    cv::Vec3d getAngularVelocity();
+    cv::Vec3d getLinearVelocity();
+    void setAngularVelocity(const cv::Vec3d& w_);
+    void setLinearVelocity(const cv::Vec3d& v_);
     cv::Mat getRotation();
     cv::Mat getTranslation();
 public:
@@ -28,11 +34,12 @@ public:
 
     // all events within keyframe; a pointer to the events in frame
     // safe implementation??
-    std::set<EventMeasurement*>* vEvents;
+    std::set<EventMeasurement*, idxOrder>& vEvents;
 
-    //Motion Model
-    std::array<float,4> w;
-    std::array<float,4> v;
+    // Motion Model
+    // in world coord??
+    cv::Vec3d w;
+    cv::Vec3d v;
 
     // camera pose
     cv::Mat mTwc;

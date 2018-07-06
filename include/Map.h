@@ -21,11 +21,11 @@ public:
 
     mutex mMutexMapUpdate;
 protected:
-    std::set<shared_ptr<MapPoint>> mspMapPoints;
-    std::set<shared_ptr<KeyFrame>> mspKeyFrames;
+    std::set<shared_ptr<MapPoint>, idxOrder> mspMapPoints;
+    std::set<shared_ptr<KeyFrame>, idxOrder> mspKeyFrames;
 
     // not yet sure if it's necessary to keep all frames
-    std::set<shared_ptr<Frame>> mspFrames;
+    std::set<shared_ptr<Frame>, idxOrder> mspFrames;
     mutex mMutexMap;
 };
 }
