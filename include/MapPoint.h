@@ -6,6 +6,19 @@
 using namespace std;
 
 namespace ev {
+
+class KeyFrame;
+class Frame;
+
+struct idxOrder {
+   bool operator()(const std::shared_ptr<KeyFrame>& lhs, const std::shared_ptr<KeyFrame>& rhs) const {
+       return lhs->mnId < rhs->mnId;
+   }
+   bool operator()(const std::shared_ptr<Frame>& lhs, const std::shared_ptr<Frame>& rhs) const {
+       return lhs->mnId < rhs->mnId;
+   }
+};
+
 class MapPoint{
 public:
     MapPoint();
@@ -19,6 +32,7 @@ public:
     void setNormalDirection(double phi, double psi);
 
     void addObservation(shared_ptr<KeyFrame> pKF);
+
     std::set<shared_ptr<KeyFrame>, idxOrder>& getObservations();
     int observations();
 public:
@@ -28,6 +42,7 @@ public:
     cv::Mat mNormalVector;
 
     // Synthetic image of the plane
+    // access not yet thread safe !!
     cv::Mat mPatch;
 
     // Keyframes that observe the point

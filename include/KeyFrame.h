@@ -12,7 +12,6 @@ namespace ev {
 class KeyFrame
 {
 public:
-    KeyFrame();
     KeyFrame(Frame& F);
 
     // Pose functions
@@ -20,10 +19,10 @@ public:
     cv::Mat getPose();
 
     // Transformation
-    cv::Vec3d getAngularVelocity();
-    cv::Vec3d getLinearVelocity();
-    void setAngularVelocity(const cv::Vec3d& w_);
-    void setLinearVelocity(const cv::Vec3d& v_);
+    cv::Mat getAngularVelocity();
+    cv::Mat getLinearVelocity();
+    void setAngularVelocity(const cv::Mat& w_);
+    void setLinearVelocity(const cv::Mat& v_);
     cv::Mat getRotation();
     cv::Mat getTranslation();
 public:
@@ -34,12 +33,12 @@ public:
 
     // all events within keyframe; a pointer to the events in frame
     // safe implementation??
-    std::set<EventMeasurement*, idxOrder>& vEvents;
+    std::set<EventMeasurement*, timeOrder>* vEvents;
 
     // Motion Model
     // in world coord??
-    cv::Vec3d w;
-    cv::Vec3d v;
+    cv::Mat w;
+    cv::Mat v;
 
     // camera pose
     cv::Mat mTwc;

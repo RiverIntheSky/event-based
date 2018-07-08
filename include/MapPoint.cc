@@ -6,7 +6,9 @@ mutex MapPoint::mGlobalMutex;
 
 MapPoint::MapPoint() {
     // also pose??
-    setNormalDirection(0, M_PI);
+    setNormalDirection(0, M_PI);  // normal (0, 0, -1)
+                                  // psi \in (M_PI/2, 3*M_PI/2)
+                                  // phi \in (0, 2 * M_PI)
 }
 
 cv::Mat MapPoint::getNormal() {
@@ -33,17 +35,17 @@ void MapPoint::setWorldPos(const cv::Mat &Pos) {
 }
 
 void MapPoint::addObservation(shared_ptr<KeyFrame> pKF) {
-    lock_guard<mutex> lock(mMutexFeatures);
+    lock_guard<mutex> lock(mGlobalMutex);
     mObservations.insert(pKF);
 }
 
 std::set<shared_ptr<KeyFrame>, idxOrder>& MapPoint::getObservations() {
-    lock_guard<mutex> lock(mMutexFeatures);
+    lock_guard<mutex> lock(mGlobalMutex);
     return mObservations;
 }
 
 int MapPoint::observations() {
-    lock_guard<mutex> lock(mMutexFeatures);
+    lock_guard<mutex> lock(mGlobalMutex);
     return mObservations.size();
 }
 

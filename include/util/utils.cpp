@@ -58,7 +58,8 @@ void imshowRescaled(const cv::Mat &src, int msec, std::string title, double* tex
     cv::minMaxLoc(src, &min, &max);
     cv::subtract(src, cv::Mat(src.rows, src.cols, CV_64F, cv::Scalar(min)), dst);
 
-    dst /= (max - min);
+    //dst /= (max - min);
+    dst /= max;
     dst *= 255;
 
 //    if (text != NULL) {
@@ -77,7 +78,8 @@ void imshowRescaled(const cv::Mat &src, int msec, std::string title, double* tex
 //               cv::line(dst, cvPoint(0, 179), cvPoint(240, 180), cvScalar(200, 200, 250), 1);
 //       }
 
-    std::string file_name = title + "_" + std::to_string(count) + ".jpg";
+   // std::string file_name = title + "_" + std::to_string(count) + ".jpg";
+    std::string file_name = title;
     cv::imwrite(file_name, dst);
 
 
@@ -107,16 +109,6 @@ Eigen::Matrix3d skew(Eigen::Vector3d v){
         v(2), 0, -v(0),
         -v(1), v(0), 0;
     return m;
-}
-
-cv::Mat skew(cv::Mat v) const {
-    return  (Mat_<double>(3,3) << 0, -v.at<double>(2), v.at<double>(1),
-             v.at<double>(2), 0, -v.at<double>(0),
-             -v.at<double>(1), v.at<double>(0), 0);
-}
-
-int truncate(int value, int min_value, int max_value) {
-    return std::min(std::max(value, min_value), max_value);
 }
 
 void rotateAngleByQuaternion(double* p, Eigen::Quaterniond q, double* p_) {

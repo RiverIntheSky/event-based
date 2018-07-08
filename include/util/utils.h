@@ -1,6 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 #include "parameters.h"
+#include <fstream>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/opencv.hpp>
 #include <gsl/gsl_math.h>
@@ -8,6 +9,7 @@
 #include <gsl/gsl_multimin.h>
 #include <okvis/Measurements.hpp>
 #include <Eigen/Sparse>
+#include "glog/logging.h"
 
 namespace ev {
 extern int count;
@@ -51,8 +53,17 @@ void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string title = "im
 void imshowRescaled(Eigen::SparseMatrix<double> &src_, int msec = 0, std::string title = "image", double *text = NULL);
 void quat2eul(Eigen::Quaterniond& q, double* euler);
 Eigen::Matrix3d skew(Eigen::Vector3d v);
-inline cv::Mat skew(cv::Mat v) const;
-inline int truncate(int value, int min_value, int max_value);
+
+inline cv::Mat skew(cv::Mat v){
+    return  (cv::Mat_<double>(3, 3) << 0, -v.at<double>(2), v.at<double>(1),
+                                      v.at<double>(2), 0, -v.at<double>(0),
+                                     -v.at<double>(1), v.at<double>(0), 0);
+}
+
+inline int truncate(int value, int min_value, int max_value) {
+    return std::min(std::max(value, min_value), max_value);
+}
+
 void rotateAngleByQuaternion(double* p, Eigen::Quaterniond q, double* p_);
 }
 

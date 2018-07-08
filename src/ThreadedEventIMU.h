@@ -328,6 +328,12 @@ private:
      /// Tracker. It receives a frame and computes the associated camera pose.
      /// It also decides when to insert a new keyframe, create some new MapPoints
      Tracking* mpTracker;
+
+     /// world map
+     Map* mpMap;
+
+     /// current frame
+     shared_ptr<Frame> mCurrentFrame;
 public:
      bool allGroundtruthAdded_ = false;
 };

@@ -12,15 +12,15 @@ class Optimizer
 {
 public:
     double static variance(const gsl_vector *vec, void *params);
-    void static optimize(shared_ptr<MapPoint>& pMP);
+    void static optimize(MapPoint* pMP);
 
-    void warp(cv::Mat& x_w, cv::Mat& x,okvis::Duration& t, const cv::Mat& w, const cv::Mat& v,const cv::Mat& n) const;
+    void static warp(cv::Mat& x_w, cv::Mat& x,okvis::Duration& t, const cv::Mat& w, const cv::Mat& v,const cv::Mat& n);
     // inline??
     // add event to frame via bilinear interpolation
-    void fuse(cv::Mat& image, cv::Point2d& p, bool& polarity) const;
-    void intensity(shared_ptr<MapPoint>& pMP) const;
+    void static fuse(cv::Mat& image, cv::Mat& p_, bool& polarity);
+    void static intensity(cv::Mat& intensity, const gsl_vector *vec, MapPoint* pMP);
 public:
-    static Parameters param;
+    static Parameters* param;
 
 
 };

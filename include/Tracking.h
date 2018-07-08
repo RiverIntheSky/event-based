@@ -1,5 +1,6 @@
 #pragma once
 #include "Map.h"
+#include "Optimizer.h"
 
 namespace ev {
 class Tracking
@@ -7,8 +8,8 @@ class Tracking
 public:
     Tracking();
 
-    Tracking(cv::Mat& K, cv::Mat& DistCoeffs)
-        : mK(K), mDistCoeffs(DistCoeffs), mState(NOT_INITIALIZED), nInitializer(5), nMapper(3) {}
+    Tracking(cv::Mat& K, cv::Vec<double, 5>& DistCoeffs, Map* mpMap_)
+        : mState(NOT_INITIALIZED), mK(K), mDistCoeffs(DistCoeffs), mpMap(mpMap_), nInitializer(5), nMapper(3) {}
 
     shared_ptr<Frame> getCurrentFrame();
     void Track();
@@ -30,9 +31,9 @@ public:
 protected:
     shared_ptr<Frame> mCurrentFrame;
     cv::Mat mK;
-    cv::Mat mDistCoeffs;
+    cv::Vec<double, 5> mDistCoeffs;
     Map* mpMap;
-    unsigned int nInitializer;
-    unsigned int nMapper;
+    int nInitializer;
+    int nMapper;
 };
 }

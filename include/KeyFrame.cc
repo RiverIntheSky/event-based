@@ -8,11 +8,11 @@ unsigned KeyFrame::nNextId = 0;
 
 KeyFrame::KeyFrame(Frame& F):
     // keyframe has the same motion model from the derived frame
-    mnFrameId(F.mnId), mTimeStamp(F.mTimeStamp), w(F.w), v(F.v) {
+    mnFrameId(F.mnId), w(F.w), v(F.v), mTimeStamp(F.mTimeStamp) {
     mnId = nNextId++;
     // same pose??
     setPose(F.mTwc);
-    vEvents = F.vEvents;
+    vEvents = &(F.vEvents);
 }
 
 cv::Mat KeyFrame::getPose()
@@ -33,16 +33,16 @@ cv::Mat KeyFrame::getAngularVelocity() {
     return w.clone();
 }
 
-cv::Vec3d KeyFrame::getLinearVelocity() {
+cv::Mat KeyFrame::getLinearVelocity() {
     lock_guard<mutex> lock(mMutexPose);
     return v.clone();
 }
 
-void KeyFrame::setAngularVelocity(const cv::Vec3d& w_) {
+void KeyFrame::setAngularVelocity(const cv::Mat& w_) {
     lock_guard<mutex> lock(mMutexPose);
     w_.copyTo(w);
 }
-void KeyFrame::setLinearVelocity(const cv::Vec3d& v_) {
+void KeyFrame::setLinearVelocity(const cv::Mat& v_) {
     lock_guard<mutex> lock(mMutexPose);
     v_.copyTo(v);
 }

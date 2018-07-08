@@ -2,14 +2,15 @@
 
 namespace ev
 {
+
 unsigned int Frame::nNextId = 0;
 
 Frame::Frame() {
     mnId = nNextId++;
     cv::Mat Twc = cv::Mat::eye(4,4,CV_64F);
     setPose(Twc);
-    w << 0, 0, 0;
-    v << 0, 0, 0;
+    w = (cv::Mat_<double>(3, 1) << 0, 0, 0);
+    v = (cv::Mat_<double>(3, 1) << 0, 0, 0);
 }
 
 Frame::Frame(Frame &other) {

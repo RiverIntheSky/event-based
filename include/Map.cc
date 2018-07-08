@@ -3,6 +3,12 @@
 using namespace std;
 namespace ev {
 
+void Map::addFrame(shared_ptr<Frame> pF)
+{
+    lock_guard<mutex> lock(mMutexMap);
+    mspFrames.insert(pF);
+}
+
 void Map::addKeyFrame(shared_ptr<KeyFrame> pKF)
 {
     lock_guard<mutex> lock(mMutexMap);

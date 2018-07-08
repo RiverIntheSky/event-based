@@ -1,24 +1,12 @@
 #pragma once
 
 #include "event.h"
-#include "KeyFrame.h"
-#include "MapPoint.h"
 
 namespace ev {
 
-struct idxOrder {
-    // ?? maybe useful
+struct timeOrder {
     bool operator()(const EventMeasurement* lhs, const EventMeasurement* rhs) const {
         return lhs->timeStamp < rhs->timeStamp;
-    }
-    bool operator()(const std::shared_ptr<KeyFrame>& lhs, const std::shared_ptr<KeyFrame>& rhs) const {
-        return lhs->mnId < rhs->mnId;
-    }
-    bool operator()(const std::shared_ptr<Frame>& lhs, const std::shared_ptr<Frame>& rhs) const {
-        return lhs->mnId < rhs->mnId;
-    }
-    bool operator()(const std::shared_ptr<MapPoint>& lhs, const std::shared_ptr<MapPoint>& rhs) const {
-        return lhs->mnId < rhs->mnId;
     }
 };
 
@@ -36,7 +24,7 @@ public:
     unsigned events();
 
     // Set the camera pose.
-    void setPose(cv::Mat Twc);
+    void setPose(const cv::Mat& Twc);
 
 public:
     // Frame id
@@ -44,12 +32,13 @@ public:
     static unsigned int nNextId;
 
     // all events within keyframe
-    std::set<EventMeasurement*, idxOrder> vEvents;
+
+    std::set<EventMeasurement*, timeOrder> vEvents;
 
     // Motion Model
     // in world coord??
-    cv::Vec3d w;
-    cv::Vec3d v;
+    cv::Mat w;
+    cv::Mat v;
 
     // camera pose
     cv::Mat mTwc;
@@ -60,8 +49,5 @@ public:
 
     // timestamp of first event in frame
     okvis::Time mTimeStamp;
-
-    // current events number in the frame
-    unsigned int nbEvents;
 };
 }
