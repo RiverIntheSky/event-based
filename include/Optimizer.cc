@@ -6,68 +6,69 @@ namespace ev {
 
 double Optimizer::variance(const gsl_vector *vec, void *params) {
     MapPoint* pMP = (MapPoint *) params;
-    cv::Mat image;
-    intensity(image, vec, pMP);
-    imshowRescaled(image, 0, "mapPoint.jpg", NULL);
-    double cost = cv::sum(image.mul(image))[0];
-    cost = -cost/image.total();
-    LOG(INFO) << cost;
+    cv::Mat src, dst;
+    int sigma = 1;
+
+    intensity(src, vec, pMP);
+
+    cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
+    imshowRescaled(dst, 1, "mapPoint.jpg", NULL);
+    double cost = cv::sum(dst.mul(dst))[0];
+    cost = -cost/dst.total();
+//    LOG(INFO) << cost;
     return cost;
 }
 
-// vector Mat_<double>(3,1)
-void Optimizer::warp(cv::Mat& x_w, cv::Mat& x, okvis::Duration& t, const cv::Mat& w, const cv::Mat& v, const cv::Mat& n) {
-    double t_ = t.toSec();
+void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, const Eigen::Vector3d& w, const Eigen::Vector3d& v,const Eigen::Vector3d& n) {
 
     // plane homography
-    cv::Mat H = cv::Mat::eye(3, 3, CV_64F) + ev::skew(-t_ * w) + v * t_ * n.t();
-    x_w = H.inv() * x;
-    x_w /= x_w.at<double>(2);
+    Eigen::Matrix3d H = Eigen::Matrix3d::Identity() + ev::skew(-t * w) + v * t * n.transpose();
+    x_w = H.inverse() * x;
+    x_w /= x_w(2);
     // should be changed for general patches !!
-    x_w = param->cameraMatrix * x_w;
+    x_w = param->cameraMatrix_ * x_w;
 }
 
-void Optimizer::fuse(cv::Mat& image, cv::Mat& p_, bool& polarity) {
+void Optimizer::fuse(cv::Mat& image, Eigen::Vector3d& p, bool& polarity) {
     // range check
     auto valid = [image](int x, int y)  -> bool {
         return (x >= 0 && x < image.cols && y >= 0 && y < image.rows);
     };
 
     // change to predefined parameter or drop completely!! (#if)
-    int pol = 1;
-    if (param->use_polarity) {
-        pol = int(polarity) * 2 - 1;
-    }
+//    int pol = 1;
+//    if (param->use_polarity) {
+    int pol = int(polarity) * 2 - 1;
+//    }
 
-    cv::Point2d p(p_.at<double>(0), p_.at<double>(1));
-
-    int x1 = std::floor(p.x);
+    int x1 = std::floor(p(0));
     int x2 = x1 + 1;
-    int y1 = std::floor(p.y);
+    int y1 = std::floor(p(1));
     int y2 = y1 + 1;
     if (valid(x1, y1)) {
-        double a = (x2 - p.x) * (y2 - p.y) * pol;
+        double a = (x2 - p(0)) * (y2 - p(1)) * pol;
         image.ptr<double>(y1)[x1] += a;
     }
 
     if (valid(x1, y2)) {
-        double a = -(x2 - p.x) * (y1 - p.y) * pol;
+        double a = -(x2 - p(0)) * (y1 - p(1)) * pol;
         image.ptr<double>(y2)[x1] += a;
     }
 
     if (valid(x2, y1)) {
-        double a = - (x1 - p.x) * (y2 - p.y) * pol;
+        double a = - (x1 - p(0)) * (y2 - p(1)) * pol;
         image.ptr<double>(y1)[x2] += a;
     }
 
     if (valid(x2, y2)) {
-        double a = (x1 - p.x) * (y1 - p.y) * pol;
+        double a = (x1 - p(0)) * (y1 - p(1)) * pol;
         image.ptr<double>(y2)[x2] += a;
     }
 }
 
 void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) {
     {
+
         lock_guard<mutex> lock(pMP->mMutexFeatures);
 
         if (pMP->mPatch.empty())
@@ -77,10 +78,11 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
         // normal direction of map point
         double phi = gsl_vector_get(vec, 0);
         double psi = gsl_vector_get(vec, 1);
-        cv::Mat n = (cv::Mat_<double>(3,1) << std::cos(phi) * std::sin(psi),
-                                              std::sin(phi) * std::sin(psi),
-                                              std::cos(psi));
-        if (n.at<double>(2) > 0)
+        Eigen::Vector3d n;
+        n << std::cos(phi) * std::sin(psi),
+             std::sin(phi) * std::sin(psi),
+             std::cos(psi);
+        if (n(2) > 0)
             n = -n;
 
         // iterate all keyframes
@@ -93,21 +95,24 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
             okvis::Time t0 = e0->timeStamp;
 
             // velocity
-            cv::Mat w = (cv::Mat_<double>(3,1) << gsl_vector_get(vec, 2 + i * 6),
-                                                  gsl_vector_get(vec, 3 + i * 6),
-                                                  gsl_vector_get(vec, 4 + i * 6));
-            cv::Mat v = (cv::Mat_<double>(3,1) << gsl_vector_get(vec, 5 + i * 6),
-                                                  gsl_vector_get(vec, 6 + i * 6),
-                                                  gsl_vector_get(vec, 7 + i * 6));
-            // getEvents()??
+            Eigen::Vector3d w;
+            w << gsl_vector_get(vec, 2 + i * 6),
+                 gsl_vector_get(vec, 3 + i * 6),
+                 gsl_vector_get(vec, 4 + i * 6);
 
+            Eigen::Vector3d v;
+            v << gsl_vector_get(vec, 5 + i * 6),
+                 gsl_vector_get(vec, 6 + i * 6),
+                 gsl_vector_get(vec, 7 + i * 6);
+
+            // getEvents()??
             for (const auto EVit: *(KFit->vEvents)) {
-                cv::Mat p = (cv::Mat_<double>(3, 1) << EVit->measurement.x ,EVit->measurement.y, 1);
-                cv::Mat point_warped;
+
+                Eigen::Vector3d p, point_warped;
+                p << EVit->measurement.x ,EVit->measurement.y, 1;
 
                 // project to first frame
-                auto t = EVit->timeStamp - t0;
-                warp(point_warped, p, t, w, v, n);
+                warp(point_warped, p, (EVit->timeStamp - t0).toSec(), w, v, n);
                 fuse(image, point_warped, EVit->measurement.p);
             }
             i++;
@@ -155,7 +160,7 @@ void Optimizer::optimize(MapPoint* pMP) {
     /* Set initial step sizes to 1 */
     step_size = gsl_vector_alloc(nVariables);
     // should the step_size be adjusted??
-    gsl_vector_set_all(step_size, 1);
+    gsl_vector_set_all(step_size, 0.1);
 
     /* Initialize method and iterate */
     minex_func.n = nVariables;
@@ -181,7 +186,7 @@ void Optimizer::optimize(MapPoint* pMP) {
             printf ("converged to minimum at\n");
         }
 
-        LOG(INFO) << size;
+//        LOG(INFO) << size;
 
     }
     while (status == GSL_CONTINUE && iter < 100);

@@ -31,13 +31,13 @@ find_package( Ceres REQUIRED )
 include_directories(${CERES_INCLUDE_DIRS})
 
 # require OpenMP
-OPTION (USE_OpenMP "Use OpenMP to enamble <omp.h>" ON)
+OPTION (USE_OpenMP "Use OpenMP to enamble <omp.h>" OFF)
 
 find_package(GSL REQUIRED)
 
-if(USE_OpenMP)
-  find_package(OpenMP REQUIRED)
-endif(USE_OpenMP)
+#if(USE_OpenMP)
+#  find_package(OpenMP REQUIRED)
+#endif(USE_OpenMP)
 
 if(OPENMP_FOUND)
 message("OPENMP FOUND")
@@ -60,7 +60,7 @@ endif()
 
 find_package(glog REQUIRED)
 
-find_package(Gnuplot REQUIRED)
+#find_package(Gnuplot REQUIRED)
 
 FIND_PACKAGE(Boost COMPONENTS filesystem system iostreams REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
@@ -79,6 +79,7 @@ ${CMAKE_SOURCE_DIR}/include/Map.cc
 ${CMAKE_SOURCE_DIR}/include/MapPoint.cc
 ${CMAKE_SOURCE_DIR}/include/Tracking.cc
 ${CMAKE_SOURCE_DIR}/include/Frame.cc
+${CMAKE_SOURCE_DIR}/include/Converter.cc
 ${CMAKE_SOURCE_DIR}/include/Optimizer.cc)
 
 add_executable(event_based "main.cpp")

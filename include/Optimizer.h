@@ -14,10 +14,10 @@ public:
     double static variance(const gsl_vector *vec, void *params);
     void static optimize(MapPoint* pMP);
 
-    void static warp(cv::Mat& x_w, cv::Mat& x,okvis::Duration& t, const cv::Mat& w, const cv::Mat& v,const cv::Mat& n);
+    void inline static warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, const Eigen::Vector3d& w, const Eigen::Vector3d& v,const Eigen::Vector3d& n);
     // inline??
     // add event to frame via bilinear interpolation
-    void static fuse(cv::Mat& image, cv::Mat& p_, bool& polarity);
+    void static fuse(cv::Mat& image, Eigen::Vector3d& p_, bool& polarity);
     void static intensity(cv::Mat& intensity, const gsl_vector *vec, MapPoint* pMP);
 public:
     static Parameters* param;

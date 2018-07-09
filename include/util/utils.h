@@ -10,6 +10,7 @@
 #include <okvis/Measurements.hpp>
 #include <Eigen/Sparse>
 #include "glog/logging.h"
+#include <chrono>
 
 namespace ev {
 extern int count;
