@@ -12,10 +12,14 @@ double Optimizer::variance(const gsl_vector *vec, void *params) {
     intensity(src, vec, pMP);
 
     cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
-    imshowRescaled(dst, 1, "mapPoint.jpg", NULL);
-    double cost = cv::sum(dst.mul(dst))[0];
-    cost = -cost/dst.total();
-//    LOG(INFO) << cost;
+    imshowRescaled(dst, 1, "mapPoint_mean.jpg", NULL);
+//    double cost = cv::sum(dst.mul(dst))[0];
+//    cost = -cost/dst.total();
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(dst, mean, stddev);
+    double cost = -stddev[0];
+
+    LOG(INFO) << cost;
     return cost;
 }
 
@@ -36,10 +40,10 @@ void Optimizer::fuse(cv::Mat& image, Eigen::Vector3d& p, bool& polarity) {
     };
 
     // change to predefined parameter or drop completely!! (#if)
-//    int pol = 1;
-//    if (param->use_polarity) {
-    int pol = int(polarity) * 2 - 1;
-//    }
+    int pol = 1;
+    if (param->use_polarity) {
+        pol = int(polarity) * 2 - 1;
+    }
 
     int x1 = std::floor(p(0));
     int x2 = x1 + 1;
