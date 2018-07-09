@@ -12,7 +12,7 @@ double Optimizer::variance(const gsl_vector *vec, void *params) {
     intensity(src, vec, pMP);
 
     cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
-    imshowRescaled(dst, 1, "mapPoint_mean.jpg", NULL);
+    imshowRescaled(dst, 1, "mapPoint_stddev.jpg", NULL);
 //    double cost = cv::sum(dst.mul(dst))[0];
 //    cost = -cost/dst.total();
     cv::Scalar mean, stddev;
@@ -25,12 +25,29 @@ double Optimizer::variance(const gsl_vector *vec, void *params) {
 
 void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, const Eigen::Vector3d& w, const Eigen::Vector3d& v,const Eigen::Vector3d& n) {
 
-    // plane homography
-    Eigen::Matrix3d H = Eigen::Matrix3d::Identity() + ev::skew(-t * w) + v * t * n.transpose();
-    x_w = H.inverse() * x;
-    x_w /= x_w(2);
-    // should be changed for general patches !!
-    x_w = param->cameraMatrix_ * x_w;
+    {
+        // plane homography first taylor expansion
+        Eigen::Matrix3d H = Eigen::Matrix3d::Identity() + ev::skew(-t * w) + v * t * n.transpose();
+
+        x_w = H.inverse() * x;
+        x_w /= x_w(2);
+        // should be changed for general patches !!
+        x_w = param->cameraMatrix_ * x_w;
+    }
+}
+
+void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K, const Eigen::Vector3d& v,const Eigen::Vector3d& n) {
+
+    {
+        // plane homography
+        Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
+        Eigen::Matrix3d H = R + v * t * n.transpose();
+
+        x_w = H.inverse() * x;
+        x_w /= x_w(2);
+        // should be changed for general patches !!
+        x_w = param->cameraMatrix_ * x_w;
+    }
 }
 
 void Optimizer::fuse(cv::Mat& image, Eigen::Vector3d& p, bool& polarity) {
@@ -110,13 +127,18 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
                  gsl_vector_get(vec, 7 + i * 6);
 
             // getEvents()??
+            double theta = -w.norm();
+            Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
+            if (theta != 0)
+                K = ev::skew(w.normalized());
+
             for (const auto EVit: *(KFit->vEvents)) {
 
                 Eigen::Vector3d p, point_warped;
                 p << EVit->measurement.x ,EVit->measurement.y, 1;
 
                 // project to first frame
-                warp(point_warped, p, (EVit->timeStamp - t0).toSec(), w, v, n);
+                warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, n);
                 fuse(image, point_warped, EVit->measurement.p);
             }
             i++;
@@ -164,7 +186,7 @@ void Optimizer::optimize(MapPoint* pMP) {
     /* Set initial step sizes to 1 */
     step_size = gsl_vector_alloc(nVariables);
     // should the step_size be adjusted??
-    gsl_vector_set_all(step_size, 0.1);
+    gsl_vector_set_all(step_size, 0.01);
 
     /* Initialize method and iterate */
     minex_func.n = nVariables;
