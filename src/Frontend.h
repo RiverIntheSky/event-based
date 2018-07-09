@@ -2,7 +2,7 @@
 
 #include <mutex>
 #include <limits>
-#include <chrono>
+
 typedef std::chrono::high_resolution_clock Clock;
 
 #include <okvis/assert_macros.hpp>
