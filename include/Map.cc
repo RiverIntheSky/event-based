@@ -21,7 +21,6 @@ void Map::addMapPoint(shared_ptr<MapPoint> pMP)
     mspMapPoints.insert(pMP);
 }
 
-
 vector<shared_ptr<KeyFrame>> Map::getAllKeyFrames()
 {
     lock_guard<mutex> lock(mMutexMap);
