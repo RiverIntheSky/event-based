@@ -65,8 +65,6 @@ Eigen::Matrix<double,3,1> Converter::toVector3d(const cv::Mat &cvVector)
 {
     Eigen::Matrix<double,3,1> v;
     v << cvVector.at<double>(0), cvVector.at<double>(1), cvVector.at<double>(2);
-LOG(INFO) << "before " << cvVector;
-LOG(INFO) << "after " << v;
     return v;
 }
 
