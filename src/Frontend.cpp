@@ -65,7 +65,8 @@ double variance(const gsl_vector *vec, void *params){
 inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_v, Eigen::Vector3d& x,
                                    okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, Eigen::Vector3d& n, double z) const {
     double t_ = t.toSec();
-    Eigen::Matrix3d H = Eigen::Matrix3d::Identity() + ev::skew(-t_ * w) + z * v * t_ * n.transpose();
+    Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + ev::skew(-t_ * w);
+    Eigen::Matrix3d H = R * (Eigen::Matrix3d::Identity() + v * t_ * n.transpose());
     x_v = H.inverse() * x;
     x_v /= x_v(2);
 
