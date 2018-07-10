@@ -11,21 +11,36 @@ KeyFrame::KeyFrame(Frame& F):
     mnFrameId(F.mnId), w(F.w), v(F.v), mTimeStamp(F.mTimeStamp) {
     mnId = nNextId++;
     // same pose??
-    setPose(F.mTwc);
+    setFirstPose(F.getFirstPose());
     vEvents = &(F.vEvents);
 }
 
-cv::Mat KeyFrame::getPose()
+cv::Mat KeyFrame::getFirstPose()
 {
     lock_guard<mutex> lock(mMutexPose);
-    return mTwc.clone();
+    return mTwc1.clone();
 }
-void KeyFrame::setPose(const cv::Mat &Twc_)
+
+cv::Mat KeyFrame::getLastPose()
 {
     lock_guard<mutex> lock(mMutexPose);
-    Twc_.copyTo(mTwc);
-    mRwc = mTwc.rowRange(0,3).colRange(0,3);
-    mtwc = mTwc.rowRange(0,3).col(3);
+    return mTwc2.clone();
+}
+
+void KeyFrame::setFirstPose(const cv::Mat &Twc_)
+{
+    lock_guard<mutex> lock(mMutexPose);
+    Twc_.copyTo(mTwc1);
+//    mRwc = mTwc1.rowRange(0,3).colRange(0,3);
+//    mtwc = mTwc1.rowRange(0,3).col(3);
+}
+
+void KeyFrame::setLastPose(const cv::Mat &Twc_)
+{
+    lock_guard<mutex> lock(mMutexPose);
+    Twc_.copyTo(mTwc2);
+//    mRwc = mTwc2.rowRange(0,3).colRange(0,3);
+//    mtwc = mTwc2.rowRange(0,3).col(3);
 }
 
 cv::Mat KeyFrame::getAngularVelocity() {
@@ -49,12 +64,12 @@ void KeyFrame::setLinearVelocity(const cv::Mat& v_) {
 
 cv::Mat KeyFrame::getRotation() {
     lock_guard<mutex> lock(mMutexPose);
-    return mTwc.rowRange(0,3).colRange(0,3).clone();
+    return mTwc1.rowRange(0,3).colRange(0,3).clone();
 }
 
 cv::Mat KeyFrame::getTranslation() {
     lock_guard<mutex> lock(mMutexPose);
-    return mTwc.rowRange(0,3).col(3).clone();
+    return mTwc1.rowRange(0,3).col(3).clone();
 }
 
 }

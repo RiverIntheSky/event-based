@@ -65,6 +65,9 @@ inline int truncate(int value, int min_value, int max_value) {
     return std::min(std::max(value, min_value), max_value);
 }
 
+cv::Mat axang2rotm(const cv::Mat& w);
+Eigen::Matrix3d axang2rotm(const Eigen::Vector3d& w);
+
 void rotateAngleByQuaternion(double* p, Eigen::Quaterniond q, double* p_);
 }
 

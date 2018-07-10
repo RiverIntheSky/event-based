@@ -21,7 +21,7 @@ void MapPoint::setNormalDirection(double phi, double psi) {
     mNormalDirection[0] = phi;
     mNormalDirection[1] = psi;
     double data[] = {cos(phi) * sin(psi),sin(phi) * sin(psi),cos(psi)};
-    cv::Mat(1, 3, CV_64F, data).copyTo(mNormalVector);
+    cv::Mat(3, 1, CV_64F, data).copyTo(mNormalVector);
 }
 
 std::array<double, 2>& MapPoint::getNormalDirection() {

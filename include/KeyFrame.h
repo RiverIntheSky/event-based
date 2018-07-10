@@ -9,14 +9,20 @@
 #include <opencv2/opencv.hpp>
 
 namespace ev {
-class KeyFrame
+
+class Frame;
+struct timeOrder;
+
+class KeyFrame      
 {
 public:
     KeyFrame(Frame& F);
 
     // Pose functions
-    void setPose(const cv::Mat &Twc);
-    cv::Mat getPose();
+    void setFirstPose(const cv::Mat &Twc);
+    void setLastPose(const cv::Mat &Twc);
+    cv::Mat getFirstPose();
+    cv::Mat getLastPose();
 
     // Transformation
     cv::Mat getAngularVelocity();
@@ -40,12 +46,17 @@ public:
     cv::Mat w;
     cv::Mat v;
 
-    // camera pose
-    cv::Mat mTwc;
+    // camera pose of first event
+    cv::Mat mTwc1;
+    // camera pose of last event
+    cv::Mat mTwc2;
 
     // rotation and translation
     cv::Mat mRwc;
     cv::Mat mtwc;
+
+    // timespan of the events
+    double dt;
 
     // timestamp of first event in frame
     okvis::Time mTimeStamp;

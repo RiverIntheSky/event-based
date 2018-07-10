@@ -169,12 +169,11 @@ void ThreadedEventIMU::eventConsumerLoop() {
             std::lock_guard<std::mutex> lock(eventMeasurements_mutex_);
             mCurrentFrame = mpTracker->getCurrentFrame();
             mCurrentFrame->vEvents.insert(data);
-            LOG(INFO) << (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
+
             if (mCurrentFrame->events() == parameters_.window_size) {
-                LOG(INFO) << count++;
+                LOG(INFO) << (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
                 mpTracker->Track();
                 LOG(INFO) << count++;
-                system("sleep 3600");
             }
         }
     }

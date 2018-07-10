@@ -4,7 +4,7 @@ namespace ev {
 
 shared_ptr<Frame> Tracking::getCurrentFrame() {
     if (!mCurrentFrame)
-        mCurrentFrame = make_shared<Frame>();
+        mCurrentFrame = make_shared<Frame>(mpMap);
     return mCurrentFrame;
 }
 
@@ -20,6 +20,7 @@ void Tracking::Track() {
 
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
+    mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
 
     // under certain conditions, Create KeyFrame
 
@@ -49,10 +50,19 @@ bool Tracking::init() {
         mpMap->addMapPoint(make_shared<MapPoint>());
     }
     auto pMP = mpMap->getAllMapPoints().front();
-    pMP->addObservation(make_shared<KeyFrame>(*mCurrentFrame));
+    auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
+    pMP->addObservation(pKF);
+    mpMap->addKeyFrame(pKF);
 
     // at initialization phase there is at most one element in mspMapPoints
     Optimizer::optimize(pMP.get());
+
+    // set pose of current frame to be the same as current keyframe
+    mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
+    mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
+    mCurrentFrame->setFirstPose(pKF->getFirstPose());
+    mCurrentFrame->setLastPose(pKF->getLastPose());
+
     if (pMP->observations() >= nInitializer)
         mState = OK;
     return true;

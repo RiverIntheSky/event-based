@@ -11,10 +11,8 @@ class KeyFrame;
 class Frame;
 
 struct idxOrder {
-   bool operator()(const std::shared_ptr<KeyFrame>& lhs, const std::shared_ptr<KeyFrame>& rhs) const {
-       return lhs->mnId < rhs->mnId;
-   }
-   bool operator()(const std::shared_ptr<Frame>& lhs, const std::shared_ptr<Frame>& rhs) const {
+   template <class F>
+   bool operator()(const std::shared_ptr<F>& lhs, const std::shared_ptr<F>& rhs) const {
        return lhs->mnId < rhs->mnId;
    }
 };

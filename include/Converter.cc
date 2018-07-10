@@ -45,7 +45,7 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix<double,3,1> &m)
 
 cv::Mat Converter::toCvSE3(const Eigen::Matrix<double,3,3> &R, const Eigen::Matrix<double,3,1> &t)
 {
-    cv::Mat cvMat = cv::Mat::eye(4,4,CV_32F);
+    cv::Mat cvMat = cv::Mat::eye(4,4,CV_64F);
     for(int i=0;i<3;i++)
     {
         for(int j=0;j<3;j++)
@@ -65,8 +65,6 @@ Eigen::Matrix<double,3,1> Converter::toVector3d(const cv::Mat &cvVector)
 {
     Eigen::Matrix<double,3,1> v;
     v << cvVector.at<double>(0), cvVector.at<double>(1), cvVector.at<double>(2);
-LOG(INFO) << "before " << cvVector;
-LOG(INFO) << "after " << v;
     return v;
 }
 

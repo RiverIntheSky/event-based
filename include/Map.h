@@ -28,6 +28,13 @@ public:
 
 
 protected:
+    // forward declaration doesn't work?
+    struct idxOrder {
+       template <class F>
+       bool operator()(const std::shared_ptr<F>& lhs, const std::shared_ptr<F>& rhs) const {
+           return lhs->mnId < rhs->mnId;
+       }
+    };
     std::set<shared_ptr<MapPoint>> mspMapPoints;
     std::set<shared_ptr<KeyFrame>, idxOrder> mspKeyFrames;
 
