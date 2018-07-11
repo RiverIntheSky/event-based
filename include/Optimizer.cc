@@ -249,14 +249,9 @@ void Optimizer::optimize(MapPoint* pMP) {
     auto KFs = pMP->getObservations();
     int nVariables = 2 + nKFs * 6;
 
-    const gsl_multimin_fminimizer_type *T = gsl_multimin_fminimizer_nmsimplex2;
     gsl_multimin_fminimizer *s = NULL;
-    gsl_vector *step_size, *x;
-    gsl_multimin_function minex_func;
-
-    size_t iter = 0;
-    int status;
-    double size;
+    gsl_vector *x;
+    double result[nVariables] = {};
 
     /* Starting point */
     x = gsl_vector_alloc(nVariables);
@@ -267,7 +262,6 @@ void Optimizer::optimize(MapPoint* pMP) {
 
     int i = 0;
     for (auto KFit :KFs ) {
-
         cv::Mat w = KFit->getAngularVelocity();
         gsl_vector_set(x, 2 + i * 6, w.at<double>(0));
         gsl_vector_set(x, 3 + i * 6, w.at<double>(1));
@@ -280,58 +274,27 @@ void Optimizer::optimize(MapPoint* pMP) {
         i++;
     }
 
-    /* Set initial step sizes to 1 */
-    step_size = gsl_vector_alloc(nVariables);
-    // should the step_size be adjusted??
-    gsl_vector_set_all(step_size, 0.05);
+    optimize_gsl(0.05, nVariables, variance_map, pMP, s, x, result, 100);
 
-    /* Initialize method and iterate */
-    minex_func.n = nVariables;
-    minex_func.f = variance_map;
-    minex_func.params = pMP;
-
-    s = gsl_multimin_fminimizer_alloc(T, nVariables);
-    gsl_multimin_fminimizer_set(s, &minex_func, x, step_size);
-
-    do
-    {
-        iter++;
-        status = gsl_multimin_fminimizer_iterate(s);
-
-        if (status)
-            break;
-
-        size = gsl_multimin_fminimizer_size(s);
-        status = gsl_multimin_test_size(size, 1e-2);
-
-        if (status == GSL_SUCCESS)
-        {
-            printf ("converged to minimum at\n");
-        }
-
-//        LOG(INFO) << size;
-
-    }
-    while (status == GSL_CONTINUE && iter < 100);
-
-    pMP->setNormalDirection(gsl_vector_get(s->x, 0), gsl_vector_get(s->x, 1));
+    pMP->setNormalDirection(result[0], result[1]);
     LOG(INFO) << "\nn\n" << pMP->getNormal();
 
     // assume the depth of the center point of first camera frame is 1;
+    // right pos??
     cv::Mat pos = (cv::Mat_<double>(3, 1) << 0, 0, 1);
     pMP->setWorldPos(pos);
 
     i = 0;
     double scale = (*(KFs.begin()))->getScale();
     for (auto KFit :KFs ) {
-        cv::Mat w = (cv::Mat_<double>(3,1) << gsl_vector_get(s->x, 2 + i * 6),
-                                              gsl_vector_get(s->x, 3 + i * 6),
-                                              gsl_vector_get(s->x, 4 + i * 6));
+        cv::Mat w = (cv::Mat_<double>(3,1) << result[2 + i * 6],
+                                              result[3 + i * 6],
+                                              result[4 + i * 6]);
         KFit->setAngularVelocity(w);
 
-        cv::Mat v = (cv::Mat_<double>(3,1) << gsl_vector_get(s->x, 5 + i * 6),
-                                              gsl_vector_get(s->x, 6 + i * 6),
-                                              gsl_vector_get(s->x, 7 + i * 6));
+        cv::Mat v = (cv::Mat_<double>(3,1) << result[5 + i * 6],
+                                              result[6 + i * 6],
+                                              result[7 + i * 6]);
         v = v * scale;
         KFit->setLinearVelocity(v);
         double dt = KFit->dt;
@@ -351,25 +314,14 @@ void Optimizer::optimize(MapPoint* pMP) {
         scale = scale + (Rwc1 * tc1c2).dot(pMP->getNormal());
         i++;
     }
-
-     // remeber to set the kf and mp pos!!
-
-    gsl_vector_free(x);
-    gsl_vector_free(step_size);
-    gsl_multimin_fminimizer_free (s);
 }
 
 void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
     int nVariables = 6;
-    mapPointAndFrame params{pMP, frame};
-    const gsl_multimin_fminimizer_type *T = gsl_multimin_fminimizer_nmsimplex2;
-    gsl_multimin_fminimizer *s = NULL;
-    gsl_vector *step_size, *x;
-    gsl_multimin_function minex_func;
 
-    size_t iter = 0;
-    int status;
-    double size;
+    gsl_multimin_fminimizer *s = NULL;
+    gsl_vector *x;
+    double result[nVariables] = {};
 
     /* Starting point */
     x = gsl_vector_alloc(nVariables);
@@ -386,46 +338,20 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
 
     if (inFrame)
     {
-        /* Set initial step sizes to 1 */
-        step_size = gsl_vector_alloc(nVariables);
-        // should the step_size be adjusted??
-        gsl_vector_set_all(step_size, 0.1);
+        optimize_gsl(0.1, nVariables, variance_frame, frame, s, x, result, 100);
 
-        /* Initialize method and iterate */
-        minex_func.n = nVariables;
-        minex_func.f = variance_frame;
-        minex_func.params = frame;
+        w.at<double>(0) = result[0];
+        w.at<double>(1) = result[1];
+        w.at<double>(2) = result[2];
 
-        s = gsl_multimin_fminimizer_alloc(T, nVariables);
-        gsl_multimin_fminimizer_set(s, &minex_func, x, step_size);
+        v.at<double>(0) = result[3];
+        v.at<double>(1) = result[4];
+        v.at<double>(2) = result[5];
+    }
 
-        do
-        {
-            iter++;
-            status = gsl_multimin_fminimizer_iterate(s);
+    if (toMap) {
+            mapPointAndFrame params{pMP, frame};
 
-            if (status)
-                break;
-
-            size = gsl_multimin_fminimizer_size(s);
-            status = gsl_multimin_test_size(size, 1e-2);
-
-            if (status == GSL_SUCCESS)
-            {
-                printf ("converged to minimum at\n");
-            }
-
-        }
-        while (status == GSL_CONTINUE && iter < 100);
-
-        w.at<double>(0) = gsl_vector_get(s->x, 0);
-        w.at<double>(1) = gsl_vector_get(s->x, 1);
-        w.at<double>(2) = gsl_vector_get(s->x, 2);
-
-
-        v.at<double>(0) = gsl_vector_get(s->x, 3);
-        v.at<double>(1) = gsl_vector_get(s->x, 4);
-        v.at<double>(2) = gsl_vector_get(s->x, 5);
     }
 
     frame->setAngularVelocity(w);
@@ -446,6 +372,54 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
     Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
     twc2.copyTo(Twc2.rowRange(0,3).col(3));
     frame->setLastPose(Twc2);
+}
+
+void Optimizer::optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,
+                             gsl_multimin_fminimizer* s, gsl_vector* x, double* res, size_t iter) {
+    const gsl_multimin_fminimizer_type *T = gsl_multimin_fminimizer_nmsimplex2;
+
+    gsl_vector *step_size;
+    gsl_multimin_function minex_func;
+
+    size_t it = 0;
+    int status;
+    double size;
+
+    step_size = gsl_vector_alloc(nv);
+    gsl_vector_set_all(step_size, ss);
+
+    minex_func.n = nv;
+    minex_func.f = f;
+    minex_func.params = params;
+
+    s = gsl_multimin_fminimizer_alloc(T, nv);
+    gsl_multimin_fminimizer_set(s, &minex_func, x, step_size);
+
+    do
+    {
+        it++;
+        status = gsl_multimin_fminimizer_iterate(s);
+
+        if (status)
+            break;
+
+        size = gsl_multimin_fminimizer_size(s);
+        status = gsl_multimin_test_size(size, 1e-2);
+
+        if (status == GSL_SUCCESS)
+        {
+            printf ("converged to minimum\n");
+        }
+
+    }
+    while (status == GSL_CONTINUE && it < iter);
+
+    for (int i = 0; i < nv; i++)
+        res[i] = gsl_vector_get(s->x, i);
+
+    gsl_vector_free(x);
+    gsl_vector_free(step_size);
+    gsl_multimin_fminimizer_free (s);
 }
 
 }
