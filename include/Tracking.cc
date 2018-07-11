@@ -15,6 +15,8 @@ void Tracking::Track() {
     if(mState==NOT_INITIALIZED) {
         // assume success??
         init();
+    } else if(mState==OK) {
+        estimate();
     }
     //
 
@@ -61,17 +63,25 @@ bool Tracking::init() {
     // at initialization phase there is at most one element in mspMapPoints
     Optimizer::optimize(pMP.get());
 
-    // set pose of current frame to be the same as current keyframe
+    // set pose of current frame to be the same as current keyframe??
     mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
     mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
     mCurrentFrame->setFirstPose(pKF->getFirstPose());
     mCurrentFrame->setLastPose(pKF->getLastPose());
+    mCurrentFrame->setScale(pKF->getScale());
+    LOG(INFO) << "SCALE " << mCurrentFrame->getScale();
 
     if (pMP->observations() >= nInitializer) {
         mState = OK;
         pMP->swap(true);
     }
     return true;
+}
+
+bool Tracking::estimate() {
+    // WIP
+     auto pMP = mpMap->getAllMapPoints().front();
+
 }
 
 }

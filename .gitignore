@@ -1,2 +1,5 @@
-CMakeLists.txt.user
+CMakeLists.txt.user*
 builds/
+.DS_Store
+._.DS_Store
+

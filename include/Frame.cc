@@ -12,17 +12,18 @@ Frame::Frame(Map *pMap): mpMap(pMap) {
     setFirstPose(Twc);
     w = (cv::Mat_<double>(3, 1) << 0, 0, 0);
     v = (cv::Mat_<double>(3, 1) << 0, 0, 0);
+    mScale = 1.;
 }
 
 Frame::Frame(Frame &other): mpMap(other.mpMap){
     mnId = nNextId++;
     setFirstPose(other.getLastPose());
     w = other.w.clone();
-    cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
-    v = other.v / (1 + (other.getRotation() * other.getTranslation()).dot(n));
-//    LOG(INFO) << other.v;
-//    LOG(INFO) << (1 + (other.getRotation() * other.getTranslation()).dot(n));
-//    LOG(INFO) << v;
+//    getTranslation() is not Tc1c2
+//    cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
+//    v = other.v / (1 + (other.getRotation() * other.getTranslation()).dot(n));
+    v = other.v.clone();
+
     ev::EventMeasurement* event = new ev::EventMeasurement();
     *event = **(other.vEvents.rbegin());
     vEvents.insert(event);
@@ -65,6 +66,14 @@ cv::Mat Frame::getRotation() {
 
 cv::Mat Frame::getTranslation() {
     return mTwc1.rowRange(0,3).col(3).clone();
+}
+
+void Frame::setScale(double& scale) {
+    mScale = scale;
+}
+
+double& Frame::getScale() {
+    return mScale;
 }
 
 void Frame::addEvent(EventMeasurement* event) {

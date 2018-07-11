@@ -15,6 +15,7 @@ public:
     void Track();
     bool undistortEvents();
     bool init();
+    bool estimate();
 
 public:
 

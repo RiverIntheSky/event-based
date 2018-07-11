@@ -13,6 +13,7 @@ KeyFrame::KeyFrame(Frame& F):
     // same pose??
     setFirstPose(F.getFirstPose());
     vEvents = &(F.vEvents);
+    mScale = F.mScale;
 }
 
 cv::Mat KeyFrame::getFirstPose()
@@ -70,6 +71,16 @@ cv::Mat KeyFrame::getRotation() {
 cv::Mat KeyFrame::getTranslation() {
     lock_guard<mutex> lock(mMutexPose);
     return mTwc1.rowRange(0,3).col(3).clone();
+}
+
+void KeyFrame::setScale(double& scale) {
+    lock_guard<mutex> lock(mMutexPose);
+    mScale = scale;
+}
+
+double& KeyFrame::getScale() {
+    lock_guard<mutex> lock(mMutexPose);
+    return mScale;
 }
 
 }

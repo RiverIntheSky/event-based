@@ -41,6 +41,7 @@ void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, c
 void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K,
                      const Eigen::Vector3d& v, const Eigen::Vector3d& nc, const Eigen::Matrix3d& Rn, const Eigen::Matrix3d& H_) {
     // plane homography
+    // v is actually v/dc
     Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
     Eigen::Matrix3d H = R * (Eigen::Matrix3d::Identity() + v * t * nc.transpose());
     x_w = Rn * H_ * H.inverse() * x;
@@ -258,6 +259,7 @@ void Optimizer::optimize(MapPoint* pMP) {
 
     i = 0;
 
+    double scale = (*(KFs.begin()))->getScale();
     for (auto KFit :KFs ) {
         cv::Mat w = (cv::Mat_<double>(3,1) << gsl_vector_get(s->x, 2 + i * 6),
                                               gsl_vector_get(s->x, 3 + i * 6),
@@ -272,6 +274,7 @@ void Optimizer::optimize(MapPoint* pMP) {
         double dt = ((*(KFit->vEvents->crbegin()))->timeStamp - (*(KFit->vEvents->cbegin()))->timeStamp).toSec();
         cv::Mat dw = -w * dt;
         cv::Mat Rc1c2 = axang2rotm(dw);
+        v = v * scale;
         cv::Mat tc1c2 = v * dt; // up to a global scale
         cv::Mat Twc1 = KFit->getFirstPose();
         cv::Mat Rwc1 = Twc1.rowRange(0,3).colRange(0,3);
@@ -282,6 +285,8 @@ void Optimizer::optimize(MapPoint* pMP) {
         Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
         twc2.copyTo(Twc2.rowRange(0,3).col(3));
         KFit->setLastPose(Twc2);
+        KFit->setScale(scale);
+        scale = scale + (Rwc1 * tc1c2).dot(pMP->getNormal());
         i++;
     }
 

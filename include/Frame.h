@@ -33,6 +33,8 @@ public:
     void setLinearVelocity(const cv::Mat& v_);
     cv::Mat getRotation();
     cv::Mat getTranslation();
+    void setScale(double& scale);
+    double& getScale();
 
 public:
     // Frame id
@@ -47,6 +49,9 @@ public:
     // in local coord, only an initial guess
     cv::Mat w;
     cv::Mat v;
+
+    // scale
+    double mScale;
 
     // camera pose of first event
     cv::Mat mTwc1;
