@@ -12,6 +12,8 @@ void Tracking::Track() {
     // Get Map Mutex -> Map cannot be changed
     unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
     undistortEvents();
+    mCurrentFrame->mTimeStamp = (*(mCurrentFrame->vEvents.cbegin()))->timeStamp;
+    mCurrentFrame->dt = ((*(mCurrentFrame->vEvents.crbegin()))->timeStamp - mCurrentFrame->mTimeStamp).toSec();
     if(mState==NOT_INITIALIZED) {
         // assume success??
         init();
@@ -69,7 +71,6 @@ bool Tracking::init() {
     mCurrentFrame->setFirstPose(pKF->getFirstPose());
     mCurrentFrame->setLastPose(pKF->getLastPose());
     mCurrentFrame->setScale(pKF->getScale());
-    LOG(INFO) << "SCALE " << mCurrentFrame->getScale();
 
     if (pMP->observations() >= nInitializer) {
         mState = OK;
@@ -81,7 +82,7 @@ bool Tracking::init() {
 bool Tracking::estimate() {
     // WIP
      auto pMP = mpMap->getAllMapPoints().front();
-
+     Optimizer::optimize(pMP.get(), mCurrentFrame.get());
 }
 
 }

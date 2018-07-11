@@ -28,6 +28,10 @@ ThreadedEventIMU::~ThreadedEventIMU() {
 void ThreadedEventIMU::init() {
     mpMap = new Map();
     mpTracker = new Tracking(parameters_.cameraMatrix, parameters_.distCoeffs, mpMap);
+    Optimizer::mCameraProjectionMat(0, 0) = 200;
+    Optimizer::mCameraProjectionMat(1, 1) = 200;
+    Optimizer::mCameraProjectionMat(0, 2) = 150;
+    Optimizer::mCameraProjectionMat(1, 2) = 150;
     startThreads();
 }
 
@@ -174,7 +178,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 LOG(INFO) << "time stamp: "<< (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
                 mpTracker->Track();
                 auto pMP = mpMap->getAllMapPoints().front();
-                imshowRescaled(pMP->mFront, 1, "front_buffer.jpg", NULL);
+                imwriteRescaled(pMP->mFront, "front_buffer.jpg", NULL);
+                imshowRescaled(pMP->mFront, 1, "map");
             }
         }
     }

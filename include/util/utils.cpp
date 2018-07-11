@@ -59,7 +59,6 @@ void imshowRescaled(const cv::Mat &src, int msec, std::string title, double* tex
     cv::subtract(src, cv::Mat(src.rows, src.cols, CV_64F, cv::Scalar(min)), dst);
 
     dst /= (max - min);
-    dst *= 255;
 
 //    if (text != NULL) {
 //           for (int i = 0; i != 12; i++) {
@@ -79,10 +78,22 @@ void imshowRescaled(const cv::Mat &src, int msec, std::string title, double* tex
 
    // std::string file_name = title + "_" + std::to_string(count) + ".jpg";
     std::string file_name = title;
-    cv::imwrite(file_name, dst);
-//    cv::waitKey(msec);
+    cv::imshow(file_name, dst);
+    cv::waitKey(msec);
 
 }
+
+void imwriteRescaled(const cv::Mat &src, std::string title, double* text) {
+    cv::Mat dst;
+    double min, max;
+    cv::minMaxLoc(src, &min, &max);
+    cv::subtract(src, cv::Mat(src.rows, src.cols, CV_64F, cv::Scalar(min)), dst);
+    dst /= (max - min);
+    dst *= 255;
+    std::string file_name = title;
+    cv::imwrite(file_name, dst);
+}
+
 
 void imshowRescaled(Eigen::MatrixXd &src_, int msec, std::string title, double *text) {
     cv::Mat src;

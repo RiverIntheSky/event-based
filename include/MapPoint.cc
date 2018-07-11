@@ -1,4 +1,6 @@
 #include "MapPoint.h"
+#include "util/utils.h"
+
 using namespace std;
 namespace ev {
 
@@ -20,8 +22,16 @@ void MapPoint::setNormalDirection(double phi, double psi) {
     lock_guard<mutex> lock(mMutexPos);
     mNormalDirection[0] = phi;
     mNormalDirection[1] = psi;
-    double data[] = {cos(phi) * sin(psi),sin(phi) * sin(psi),cos(psi)};
+    double data[] = {cos(phi) * sin(psi), sin(phi) * sin(psi), cos(psi)};
     cv::Mat(3, 1, CV_64F, data).copyTo(mNormalVector);
+    Eigen::Vector3d z;
+    z << 0, 0, 1;
+    Eigen::Vector3d nw;
+    nw << cos(phi) * sin(psi), sin(phi) * sin(psi), cos(psi);
+    Eigen::Vector3d v = (-nw).cross(z);
+    double c = -z.dot(nw);
+    Eigen::Matrix3d Kn = ev::skew(v);
+    Rn = Eigen::Matrix3d::Identity() + Kn + Kn * Kn / (1 + c);
 }
 
 std::array<double, 2>& MapPoint::getNormalDirection() {

@@ -18,12 +18,10 @@ Frame::Frame(Map *pMap): mpMap(pMap) {
 Frame::Frame(Frame &other): mpMap(other.mpMap){
     mnId = nNextId++;
     setFirstPose(other.getLastPose());
+    cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
+    mScale = other.mScale + (other.getRotation() * other.v * other.dt).dot(n);
     w = other.w.clone();
-//    getTranslation() is not Tc1c2
-//    cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
-//    v = other.v / (1 + (other.getRotation() * other.getTranslation()).dot(n));
     v = other.v.clone();
-
     ev::EventMeasurement* event = new ev::EventMeasurement();
     *event = **(other.vEvents.rbegin());
     vEvents.insert(event);
@@ -51,6 +49,14 @@ void Frame::setLastPose(const cv::Mat &Twc_)
     Twc_.copyTo(mTwc2);
 //    mRwc = mTwc2.rowRange(0,3).colRange(0,3);
 //    mtwc = mTwc2.rowRange(0,3).col(3);
+}
+
+cv::Mat Frame::getAngularVelocity() {
+    return w.clone();
+}
+
+cv::Mat Frame::getLinearVelocity() {
+    return v.clone();
 }
 
 void Frame::setAngularVelocity(const cv::Mat& w_) {

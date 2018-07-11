@@ -52,9 +52,14 @@ public:
 
     // for accessing mPatch??
     mutex mMutexFeatures;
+
+    // projection from world frame to patch frame;
+    Eigen::Matrix3d Rn;
+
 protected:
     // a point on the plane, could be center of the patch
     cv::Mat mWorldPos;
+
 
     mutex mMutexPos;
 

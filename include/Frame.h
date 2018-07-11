@@ -29,6 +29,8 @@ public:
     void setLastPose(const cv::Mat &Twc);
     cv::Mat getFirstPose();
     cv::Mat getLastPose();
+    cv::Mat getAngularVelocity();
+    cv::Mat getLinearVelocity();
     void setAngularVelocity(const cv::Mat& w_);
     void setLinearVelocity(const cv::Mat& v_);
     cv::Mat getRotation();
@@ -46,7 +48,7 @@ public:
     std::set<EventMeasurement*, timeOrder> vEvents;
 
     // Motion Model
-    // in local coord, only an initial guess
+    // in local coord, global scale, only an initial guess
     cv::Mat w;
     cv::Mat v;
 

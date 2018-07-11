@@ -52,6 +52,7 @@ typedef okvis::Measurement<Pose> MaconMeasurement;
 void imshowRescaled(const cv::Mat& src, int msec = 0, std::string title = "image", double* text = NULL);
 void imshowRescaled(Eigen::MatrixXd &src_, int msec = 0, std::string title = "image", double* text = NULL);
 void imshowRescaled(Eigen::SparseMatrix<double> &src_, int msec = 0, std::string title = "image", double *text = NULL);
+void imwriteRescaled(const cv::Mat &src, std::string title = "image", double* text = NULL);
 void quat2eul(Eigen::Quaterniond& q, double* euler);
 Eigen::Matrix3d skew(Eigen::Vector3d v);
 
