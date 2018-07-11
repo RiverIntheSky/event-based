@@ -335,7 +335,7 @@ void Optimizer::optimize(MapPoint* pMP) {
         v = v * scale;
         KFit->setLinearVelocity(v);
         double dt = KFit->dt;
-        cv::Mat dw = -w * dt;
+        cv::Mat dw = w * dt;
         cv::Mat Rc1c2 = axang2rotm(dw);
         cv::Mat tc1c2 = v * dt; // up to a global scale
         cv::Mat Twc1 = KFit->getFirstPose();
@@ -415,8 +415,6 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
                 printf ("converged to minimum at\n");
             }
 
-            LOG(INFO) << size;
-
         }
         while (status == GSL_CONTINUE && iter < 100);
 
@@ -435,7 +433,8 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
     frame->setLinearVelocity(v);
 
     double dt = frame->dt;
-    cv::Mat dw = -w * dt;
+    LOG(INFO)<<dt;
+    cv::Mat dw = w * dt;
     cv::Mat Rc1c2 = axang2rotm(dw);
     cv::Mat tc1c2 = v * dt; // up to a global scale
     cv::Mat Twc1 = frame->getFirstPose();

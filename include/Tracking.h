@@ -9,7 +9,7 @@ public:
     Tracking();
 
     Tracking(cv::Mat& K, cv::Vec<double, 5>& DistCoeffs, Map* mpMap_)
-        : mState(NOT_INITIALIZED), mK(K), mDistCoeffs(DistCoeffs), mpMap(mpMap_), nInitializer(3), nMapper(3) {}
+        : mState(NOT_INITIALIZED), mK(K), mDistCoeffs(DistCoeffs), mpMap(mpMap_), nInitializer(5), nMapper(3) {}
 
     shared_ptr<Frame> getCurrentFrame();
     void Track();
