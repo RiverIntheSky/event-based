@@ -44,7 +44,7 @@ public:
     std::set<EventMeasurement*, timeOrder> vEvents;
 
     // Motion Model
-    // in local coord??
+    // in local coord, only an initial guess
     cv::Mat w;
     cv::Mat v;
 

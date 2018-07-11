@@ -33,6 +33,7 @@ public:
 
     std::set<shared_ptr<KeyFrame>, idxOrder>& getObservations();
     int observations();
+    void swap(bool success);
 public:
     unsigned int mnId;
     // Normal vector of the plane
@@ -41,7 +42,8 @@ public:
 
     // Synthetic image of the plane
     // access not yet thread safe !!
-    cv::Mat mPatch;
+    cv::Mat mFront;
+    cv::Mat mBack;
 
     // Keyframes that observe the point
     std::set<shared_ptr<KeyFrame>, idxOrder> mObservations;

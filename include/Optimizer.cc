@@ -8,23 +8,21 @@ Eigen::Matrix3d Optimizer::mPatchProjectionMat = Eigen::Matrix3d::Identity();
 
 double Optimizer::variance(const gsl_vector *vec, void *params) {
     MapPoint* pMP = (MapPoint *) params;
-    cv::Mat src, dst;
+    cv::Mat src;
     int sigma = 1;
 
     double psi = gsl_vector_get(vec, 1);
-    if (std::cos(psi) > 0) {
-//        LOG(INFO) << 0;
+    if (std::cos(psi) > 0)
         return 0.;
-    }
 
+    // image = pMP->mBack;
     intensity(src, vec, pMP);
-    cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
-    imshowRescaled(dst, 1, "mapPoint_patch.jpg", NULL);
+    cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
+    imshowRescaled(src, 1, "back_buffer.jpg", NULL);
     cv::Scalar mean, stddev;
-    cv::meanStdDev(dst, mean, stddev);
+    cv::meanStdDev(src, mean, stddev);
     double cost = -stddev[0];
 
-//    LOG(INFO) << cost;
     return cost;
 }
 
@@ -36,17 +34,16 @@ void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, c
 
         x_w = H.inverse() * x;
         x_w /= x_w(2);
-        // should be changed for general patches !!
         x_w = mPatchProjectionMat * x_w;
     }
 }
 
 void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K,
-                     const Eigen::Vector3d& v, const Eigen::Vector3d& nc, const Eigen::Matrix3d& Rn) {
+                     const Eigen::Vector3d& v, const Eigen::Vector3d& nc, const Eigen::Matrix3d& Rn, const Eigen::Matrix3d& H_) {
     // plane homography
     Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
     Eigen::Matrix3d H = R * (Eigen::Matrix3d::Identity() + v * t * nc.transpose());
-    x_w = Rn * H.inverse() * x;
+    x_w = Rn * H_ * H.inverse() * x;
     x_w /= x_w(2);
     x_w = mPatchProjectionMat * x_w;
 
@@ -94,9 +91,14 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
 
         lock_guard<mutex> lock(pMP->mMutexFeatures);
 
-        if (pMP->mPatch.empty())
-            pMP->mPatch = cv::Mat::zeros(500, 500, CV_64F);
-        image = pMP->mPatch.clone();
+        if (pMP->mFront.empty())
+            pMP->mFront = cv::Mat::zeros(500, 500, CV_64F);
+
+        // reset back buffer
+        pMP->swap(false);
+
+        // draw to back buffer
+        image = pMP->mBack;
 
         // normal direction of map point
         double phi = gsl_vector_get(vec, 0);
@@ -118,6 +120,9 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
         // only one frame implemented now !!
         auto KFs = pMP->getObservations();
         int i = 0;
+        Eigen::Matrix3d H_ = Eigen::Matrix3d::Identity();
+        double t;
+
         for (auto KFit: KFs) {
 
             auto& e0 = *(KFit->vEvents)->begin();
@@ -141,6 +146,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
 
             // getEvents()??
             double theta = -w.norm();
+
             Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
             if (theta != 0)
                 K = ev::skew(w.normalized());
@@ -151,9 +157,14 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
                 p << EVit->measurement.x ,EVit->measurement.y, 1;
 
                 // project to first frame
-                warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, Rn);
+                t = (EVit->timeStamp - t0).toSec();
+                warp(point_warped, p, t, theta, K, v, nc, Rn, H_);
                 fuse(image, point_warped, EVit->measurement.p);
+
             }
+            Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
+            H_ = (R * (Eigen::Matrix3d::Identity() + v * t * nc.transpose())).inverse() * H_;
+//            H_ = (Eigen::Matrix3d::Identity() + 200 * v * nc.transpose()).inverse() * H_;
             i++;
         }
     }
@@ -207,7 +218,7 @@ void Optimizer::optimize(MapPoint* pMP) {
     /* Set initial step sizes to 1 */
     step_size = gsl_vector_alloc(nVariables);
     // should the step_size be adjusted??
-    gsl_vector_set_all(step_size, 0.1);
+    gsl_vector_set_all(step_size, 0.05);
 
     /* Initialize method and iterate */
     minex_func.n = nVariables;
@@ -239,33 +250,30 @@ void Optimizer::optimize(MapPoint* pMP) {
     while (status == GSL_CONTINUE && iter < 100);
 
     pMP->setNormalDirection(gsl_vector_get(s->x, 0), gsl_vector_get(s->x, 1));
-    LOG(INFO) << "n " << pMP->getNormal();
+    LOG(INFO) << "\nn\n" << pMP->getNormal();
 
     // assume the depth of the center point of first camera frame is 1;
     cv::Mat pos = (cv::Mat_<double>(3, 1) << 0, 0, 1);
     pMP->setWorldPos(pos);
 
     i = 0;
-    cv::Mat lastPose = (*KFs.cbegin())->getFirstPose();
+
     for (auto KFit :KFs ) {
         cv::Mat w = (cv::Mat_<double>(3,1) << gsl_vector_get(s->x, 2 + i * 6),
                                               gsl_vector_get(s->x, 3 + i * 6),
                                               gsl_vector_get(s->x, 4 + i * 6));
         KFit->setAngularVelocity(w);
-        LOG(INFO) << "w " << KFit->getAngularVelocity();
 
         cv::Mat v = (cv::Mat_<double>(3,1) << gsl_vector_get(s->x, 5 + i * 6),
                                               gsl_vector_get(s->x, 6 + i * 6),
                                               gsl_vector_get(s->x, 7 + i * 6));
         KFit->setLinearVelocity(v);
-        LOG(INFO) << "v " << KFit->getLinearVelocity();
 
         double dt = ((*(KFit->vEvents->crbegin()))->timeStamp - (*(KFit->vEvents->cbegin()))->timeStamp).toSec();
-        KFit->setFirstPose(lastPose);
         cv::Mat dw = -w * dt;
         cv::Mat Rc1c2 = axang2rotm(dw);
         cv::Mat tc1c2 = v * dt; // up to a global scale
-        cv::Mat Twc1 = lastPose;
+        cv::Mat Twc1 = KFit->getFirstPose();
         cv::Mat Rwc1 = Twc1.rowRange(0,3).colRange(0,3);
         cv::Mat twc1 = Twc1.rowRange(0,3).col(3);
         cv::Mat Rwc2 = Rwc1 * Rc1c2;
@@ -273,8 +281,6 @@ void Optimizer::optimize(MapPoint* pMP) {
         cv::Mat Twc2 = cv::Mat::eye(4,4,CV_64F);
         Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
         twc2.copyTo(Twc2.rowRange(0,3).col(3));
-        LOG(INFO) << Twc2;
-        Twc2.copyTo(lastPose);
         KFit->setLastPose(Twc2);
         i++;
     }

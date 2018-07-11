@@ -171,9 +171,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
             mCurrentFrame->vEvents.insert(data);
 
             if (mCurrentFrame->events() == parameters_.window_size) {
-                LOG(INFO) << (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
+                LOG(INFO) << "time stamp: "<< (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
                 mpTracker->Track();
-                LOG(INFO) << count++;
+                auto pMP = mpMap->getAllMapPoints().front();
+                imshowRescaled(pMP->mFront, 1, "front_buffer.jpg", NULL);
             }
         }
     }

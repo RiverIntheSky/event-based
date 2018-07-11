@@ -20,6 +20,10 @@ void Tracking::Track() {
 
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
+    LOG(INFO) << "current velocity model:";
+    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
+    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+    LOG(INFO);
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
 
     // under certain conditions, Create KeyFrame
@@ -63,8 +67,10 @@ bool Tracking::init() {
     mCurrentFrame->setFirstPose(pKF->getFirstPose());
     mCurrentFrame->setLastPose(pKF->getLastPose());
 
-    if (pMP->observations() >= nInitializer)
+    if (pMP->observations() >= nInitializer) {
         mState = OK;
+        pMP->swap(true);
+    }
     return true;
 }
 

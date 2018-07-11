@@ -50,4 +50,12 @@ int MapPoint::observations() {
     return mObservations.size();
 }
 
+void MapPoint::swap(bool success) {
+    if (success) {
+        cv::swap(mFront, mBack);
+    } else {
+        mFront.copyTo(mBack);
+    }
+}
+
 }
