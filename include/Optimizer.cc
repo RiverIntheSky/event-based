@@ -73,12 +73,12 @@ void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, d
 }
 
 void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K,
-                     const Eigen::Vector3d& v, const Eigen::Vector3d& nc) {
+                     const Eigen::Vector3d& v, const Eigen::Vector3d& nc, const Eigen::Matrix3d& H_) {
     // plane homography
     // v is actually v/dc
     Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
     Eigen::Matrix3d H = R * (Eigen::Matrix3d::Identity() + v * t * nc.transpose());
-    x_w = H.inverse() * x;
+    x_w = H_ * H.inverse() * x;
     x_w /= x_w(2);
     x_w = mCameraProjectionMat * x_w;
 }
@@ -201,7 +201,11 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Frame* frame) {
     image = cv::Mat::zeros(300, 300, CV_64F);
     // only works for planar scene!!
     Eigen::Vector3d nw = Converter::toVector3d(frame->mpMap->getAllMapPoints().front()->getNormal());
-    Eigen::Vector3d nc = Converter::toMatrix3d(frame->getRotation().t()) * nw;
+    Eigen::Matrix3d Rcw = Converter::toMatrix3d(frame->getRotation().t());
+    Eigen::Vector3d Twc = Converter::toVector3d(frame->getTranslation());
+    Eigen::Vector3d nc = Rcw * nw;
+    Eigen::Matrix3d Rn = frame->mpMap->getAllMapPoints().front()->Rn;
+    Eigen::Matrix3d H_ = Rn * (Rcw * (Eigen::Matrix3d::Identity() + Twc * nw.transpose())).inverse();
 
     okvis::Time t0 = frame->mTimeStamp;
 
@@ -228,7 +232,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Frame* frame) {
         p << EVit->measurement.x ,EVit->measurement.y, 1;
 
         // project to first frame
-        warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc);
+        warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
         fuse(image, point_warped, EVit->measurement.p);
     }
 }
