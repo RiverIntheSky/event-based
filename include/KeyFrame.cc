@@ -12,6 +12,7 @@ KeyFrame::KeyFrame(Frame& F):
     mnId = nNextId++;
     // same pose??
     setFirstPose(F.getFirstPose());
+    setLastPose(F.getLastPose());
     vEvents = &(F.vEvents);
     mScale = F.mScale;
 }

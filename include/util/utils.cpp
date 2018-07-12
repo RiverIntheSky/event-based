@@ -159,7 +159,7 @@ cv::Mat rotm2axang(const cv::Mat& R) {
         double yz = (R.at<double>(1, 2) + R.at<double>(2, 1)) / 4;
         double x, y, z;
         if ((xx > yy) && (xx > zz)) {
-            if (xx< eps) {
+            if (xx< EPS) {
                 x = 0;
                 y = std::sqrt(.5);
                 z = std::sqrt(.5);
@@ -169,7 +169,7 @@ cv::Mat rotm2axang(const cv::Mat& R) {
                 z = xz / x;
             }
         } else if (yy > zz) {
-            if (yy < eps) {
+            if (yy < EPS) {
                 x = std::sqrt(.5);
                 y = 0;
                 z = std::sqrt(.5);
@@ -179,7 +179,7 @@ cv::Mat rotm2axang(const cv::Mat& R) {
                 z = yz / y;
             }
         } else {
-            if (zz < eps) {
+            if (zz < EPS) {
                 x = std::sqrt(.5);
                 y = std::sqrt(.5);
                 z = 0;

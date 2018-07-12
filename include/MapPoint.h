@@ -29,7 +29,7 @@ public:
     std::array<double, 2>& getNormalDirection();
     void setNormalDirection(double phi, double psi);
 
-    void addObservation(shared_ptr<KeyFrame> pKF);
+    void addObservation(shared_ptr<KeyFrame>& pKF);
 
     std::set<shared_ptr<KeyFrame>, idxOrder>& getObservations();
     int observations();

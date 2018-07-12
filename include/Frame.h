@@ -70,6 +70,9 @@ public:
     // timestamp of first event in frame
     okvis::Time mTimeStamp;
 
+    // whether should be added to keyframe
+    bool shouldBeKeyFrame;
+
     Map* mpMap;
 };
 }

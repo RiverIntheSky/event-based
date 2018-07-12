@@ -9,13 +9,14 @@ public:
     Tracking();
 
     Tracking(cv::Mat& K, cv::Vec<double, 5>& DistCoeffs, Map* mpMap_)
-        : mState(NOT_INITIALIZED), mK(K), mDistCoeffs(DistCoeffs), mpMap(mpMap_), nInitializer(5), nMapper(3) {}
+        : mState(NOT_INITIALIZED), mK(K), mDistCoeffs(DistCoeffs), mpMap(mpMap_){}
 
     shared_ptr<Frame> getCurrentFrame();
     void Track();
     bool undistortEvents();
     bool init();
     bool estimate();
+    bool insertKeyFrame();
 
 public:
 
@@ -29,12 +30,13 @@ public:
     };
 
     eTrackingState mState;
+    static int nInitializer;
+    static int nMapper;
 protected:
     shared_ptr<Frame> mCurrentFrame;
     cv::Mat mK;
     cv::Vec<double, 5> mDistCoeffs;
     Map* mpMap;
-    int nInitializer;
-    int nMapper;
+
 };
 }

@@ -6,16 +6,16 @@ namespace ev
 unsigned int Frame::nNextId = 0;
 
 // first pose of a frame is always set at construction
-Frame::Frame(Map *pMap): mpMap(pMap) {
+Frame::Frame(Map *pMap): mpMap(pMap), shouldBeKeyFrame(false){
     mnId = nNextId++;
     cv::Mat Twc = cv::Mat::eye(4,4,CV_64F);
     setFirstPose(Twc);
     w = (cv::Mat_<double>(3, 1) << 0, 0, 0);
     v = (cv::Mat_<double>(3, 1) << 0, 0, 0);
-    mScale = 1.;
+    mScale = 0.8;
 }
 
-Frame::Frame(Frame &other): mpMap(other.mpMap){
+Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
     mnId = nNextId++;
     setFirstPose(other.getLastPose());
     cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();

@@ -2,6 +2,9 @@
 
 namespace ev {
 
+int Tracking::nInitializer = 4;
+int Tracking::nMapper = 3;
+
 shared_ptr<Frame> Tracking::getCurrentFrame() {
     if (!mCurrentFrame)
         mCurrentFrame = make_shared<Frame>(mpMap);
@@ -24,10 +27,10 @@ void Tracking::Track() {
 
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
-    LOG(INFO) << "current velocity model:";
-    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
-    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
-    LOG(INFO);
+//    LOG(INFO) << "current velocity model:";
+//    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
+//    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+//    LOG(INFO);
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
 
     // under certain conditions, Create KeyFrame
@@ -83,6 +86,18 @@ bool Tracking::estimate() {
     // WIP
      auto pMP = mpMap->getAllMapPoints().front();
      Optimizer::optimize(pMP.get(), mCurrentFrame.get());
+     if (mCurrentFrame->shouldBeKeyFrame)
+         insertKeyFrame();
+     return true;
+}
+
+bool Tracking::insertKeyFrame() {
+    auto pMP = mpMap->getAllMapPoints().front();
+    auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
+    Optimizer::optimize(pMP.get(), pKF);
+    pMP->addObservation(pKF);
+    pMP->swap(true);
+    return true;
 }
 
 }

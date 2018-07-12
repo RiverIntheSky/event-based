@@ -180,6 +180,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 auto pMP = mpMap->getAllMapPoints().front();
                 imwriteRescaled(pMP->mFront, "front_buffer.jpg", NULL);
                 imshowRescaled(pMP->mFront, 1, "map");
+
             }
         }
     }

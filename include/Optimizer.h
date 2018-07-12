@@ -3,6 +3,7 @@
 #include "MapPoint.h"
 #include "parameters.h"
 #include "Converter.h"
+#include "Tracking.h"
 
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_vector.h>
@@ -12,15 +13,22 @@ namespace ev {
 class Optimizer
 {
 public:
+    // don't quite like this!!
     struct mapPointAndFrame {
         MapPoint* mP;
         Frame* frame;
     };
+    struct mapPointAndKeyFrames {
+        MapPoint* mP;
+        std::set<shared_ptr<KeyFrame>, idxOrder>* kfs;
+    };
     double static variance_map(const gsl_vector *vec, void *params);
     double static variance_track(const gsl_vector *vec, void *params);
     double static variance_frame(const gsl_vector *vec, void *params);
+    double static variance_ba(const gsl_vector *vec, void *params);
     void static optimize(MapPoint* pMP);
     void static optimize(MapPoint* pMP, Frame* frame);
+    void static optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF);
     void static optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,
                              gsl_multimin_fminimizer* s, gsl_vector* x, double* res, size_t iter);
     void inline static warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, const Eigen::Vector3d& w, const Eigen::Vector3d& v,const Eigen::Vector3d& n);
@@ -34,12 +42,14 @@ public:
     void static intensity(cv::Mat& image, const gsl_vector *vec, Frame* pF);
     void static intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP);
     void static intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf);
+    void static intensity(cv::Mat& image, const double *vec, mapPointAndFrame* mf);
+    void static intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndKeyFrames* mkf);
 public:
     static Parameters* param;
     static Eigen::Matrix3d mPatchProjectionMat;
     static Eigen::Matrix3d mCameraProjectionMat;
     static bool inFrame;
     static bool toMap;
-
+    static int sigma;
 };
 }

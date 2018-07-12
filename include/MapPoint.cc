@@ -45,7 +45,7 @@ void MapPoint::setWorldPos(const cv::Mat &Pos) {
     Pos.copyTo(mWorldPos);
 }
 
-void MapPoint::addObservation(shared_ptr<KeyFrame> pKF) {
+void MapPoint::addObservation(shared_ptr<KeyFrame>& pKF) {
     lock_guard<mutex> lock(mGlobalMutex);
     mObservations.insert(pKF);
 }
