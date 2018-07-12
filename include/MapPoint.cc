@@ -62,7 +62,7 @@ int MapPoint::observations() {
 
 void MapPoint::swap(bool success) {
     if (success) {
-        cv::swap(mFront, mBack);
+        mFront = -abs(mBack);
     } else {
         mFront.copyTo(mBack);
     }

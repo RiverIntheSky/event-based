@@ -30,7 +30,7 @@ public:
                             const Eigen::Vector3d& v, const Eigen::Vector3d& nc, const Eigen::Matrix3d& H_);
     // inline??
     // add event to frame via bilinear interpolation
-    void static fuse(cv::Mat& image, Eigen::Vector3d& p_, bool& polarity);
+    void static fuse(cv::Mat& image, Eigen::Vector3d& p_, bool polarity);
     void static intensity(cv::Mat& image, const gsl_vector *vec, Frame* pF);
     void static intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP);
     void static intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf);

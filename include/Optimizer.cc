@@ -95,17 +95,14 @@ void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, d
     x_w = mPatchProjectionMat * x_w;
 }
 
-void Optimizer::fuse(cv::Mat& image, Eigen::Vector3d& p, bool& polarity) {
+void Optimizer::fuse(cv::Mat& image, Eigen::Vector3d& p, bool polarity) {
     // range check
     auto valid = [image](int x, int y)  -> bool {
         return (x >= 0 && x < image.cols && y >= 0 && y < image.rows);
     };
 
     // change to predefined parameter or drop completely!! (#if)
-//    int pol = 1;
-//    if (param->use_polarity) {
     int pol = int(polarity) * 2 - 1;
-//    }
 
     int x1 = std::floor(p(0));
     int x2 = x1 + 1;
@@ -293,7 +290,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFram
 
         // project to first frame
         warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, EVit->measurement.p);
+        fuse(image, point_warped, false);
     }
 
 }
