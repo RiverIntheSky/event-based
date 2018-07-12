@@ -175,18 +175,65 @@ void ThreadedEventIMU::eventConsumerLoop() {
             mCurrentFrame->vEvents.insert(data);
 
             if (mCurrentFrame->events() == parameters_.window_size) {
-                LOG(INFO) << "time stamp: "<< (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
+                double t = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp.toSec();
+                LOG(INFO) << "time stamp: "<< t;
                 mpTracker->Track();
                 auto pMP = mpMap->getAllMapPoints().front();
-                imwriteRescaled(pMP->mFront, "front_buffer.jpg", NULL);
+                imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
                 imshowRescaled(pMP->mFront, 1, "map");
 
+                if (parameters_.write_to_file) {
+
+                    std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
+
+                    std::ofstream  myfile_(files_path + "estimated_rotation.txt", std::ios_base::app);
+                    if (myfile_.is_open()) {
+                        myfile_ << t << " "
+                                << (mpTracker->w).at<double>(0) << " "
+                                << (mpTracker->w).at<double>(1) << " "
+                                << (mpTracker->w).at<double>(2) << "\n";
+                        myfile_.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
+                    if (myfile_t.is_open()) {
+                        myfile_t<< t << " "
+                                << (mpTracker->v).at<double>(0) << " "
+                                << (mpTracker->v).at<double>(1) << " "
+                                << (mpTracker->v).at<double>(2) << " ";
+                        myfile_t << '\n';
+                        myfile_t.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile_r(files_path + "estimated_pose_rotation.txt", std::ios_base::app);
+                    if (myfile_r.is_open()) {
+                        myfile_r << t << " "
+                                << (mpTracker->r).at<double>(0) << " "
+                                << (mpTracker->r).at<double>(1) << " "
+                                << (mpTracker->r).at<double>(2) << "\n";
+                        myfile_r.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile_tt(files_path + "estimated_pose_translation.txt", std::ios_base::app);
+                    if (myfile_tt.is_open()) {
+                        myfile_tt<< t << " "
+                                << (mpTracker->t).at<double>(0) << " "
+                                << (mpTracker->t).at<double>(1) << " "
+                                << (mpTracker->t).at<double>(2) << " ";
+                        myfile_tt << '\n';
+                        myfile_tt.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+                }
             }
         }
     }
 }
 
-// Set the blocking variable that indicates whether the addMeasurement() functions
+        // Set the blocking variable that indicates whether the addMeasurement() functions
 // should return immediately (blocking=false), or only when the processing is complete.
 void ThreadedEventIMU::setBlocking(bool blocking) {
     blocking_ = blocking;

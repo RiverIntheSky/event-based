@@ -28,7 +28,7 @@ public:
     double static variance_ba(const gsl_vector *vec, void *params);
     void static optimize(MapPoint* pMP);
     void static optimize(MapPoint* pMP, Frame* frame);
-    void static optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF);
+    bool static optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF);
     void static optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,
                              gsl_multimin_fminimizer* s, gsl_vector* x, double* res, size_t iter);
     void inline static warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, const Eigen::Vector3d& w, const Eigen::Vector3d& v,const Eigen::Vector3d& n);
@@ -44,6 +44,7 @@ public:
     void static intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf);
     void static intensity(cv::Mat& image, const double *vec, mapPointAndFrame* mf);
     void static intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndKeyFrames* mkf);
+    void static intensity(cv::Mat& image, const double *vec, KeyFrame* kF);
 public:
     static Parameters* param;
     static Eigen::Matrix3d mPatchProjectionMat;
@@ -51,5 +52,7 @@ public:
     static bool inFrame;
     static bool toMap;
     static int sigma;
+    static int count_frame;
+    static int count_map;
 };
 }

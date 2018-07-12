@@ -4,6 +4,10 @@ namespace ev {
 
 int Tracking::nInitializer = 4;
 int Tracking::nMapper = 3;
+cv::Mat Tracking::w = cv::Mat::zeros(3, 1, CV_64F);
+cv::Mat Tracking::v = cv::Mat::zeros(3, 1, CV_64F);
+cv::Mat Tracking::r = cv::Mat::zeros(3, 1, CV_64F);
+cv::Mat Tracking::t = cv::Mat::zeros(3, 1, CV_64F);
 
 shared_ptr<Frame> Tracking::getCurrentFrame() {
     if (!mCurrentFrame)
@@ -31,6 +35,11 @@ void Tracking::Track() {
 //    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
 //    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
 //    LOG(INFO);
+    w = mCurrentFrame->w;
+    v = mCurrentFrame->v;
+    cv::Mat R = mCurrentFrame->getRotation();
+    r = rotm2axang(R);
+    t = mCurrentFrame->getTranslation();
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
 
     // under certain conditions, Create KeyFrame
@@ -84,20 +93,33 @@ bool Tracking::init() {
 
 bool Tracking::estimate() {
     // WIP
-     auto pMP = mpMap->getAllMapPoints().front();
-     Optimizer::optimize(pMP.get(), mCurrentFrame.get());
-     if (mCurrentFrame->shouldBeKeyFrame)
-         insertKeyFrame();
-     return true;
+    auto pMP = mpMap->getAllMapPoints().front();
+    Optimizer::optimize(pMP.get(), mCurrentFrame.get());
+    if (mCurrentFrame->shouldBeKeyFrame) {
+        shared_ptr<KeyFrame> pKF = make_shared<KeyFrame>(*mCurrentFrame);
+        if(insertKeyFrame(pKF)) {
+            mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
+            mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
+            mCurrentFrame->setFirstPose(pKF->getFirstPose());
+            mCurrentFrame->setLastPose(pKF->getLastPose());
+
+            pMP->addObservation(pKF);
+            pMP->swap(true);
+            mpMap->addKeyFrame(pKF);
+        }
+    }
+    return true;
 }
 
-bool Tracking::insertKeyFrame() {
+bool Tracking::insertKeyFrame(shared_ptr<KeyFrame>& pKF) {
     auto pMP = mpMap->getAllMapPoints().front();
-    auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
-    Optimizer::optimize(pMP.get(), pKF);
-    pMP->addObservation(pKF);
-    pMP->swap(true);
-    return true;
+
+    if (Optimizer::optimize(pMP.get(), pKF)) {
+        return true;
+    } else {
+        KeyFrame::nNextId--;
+        return false;
+    }
 }
 
 }

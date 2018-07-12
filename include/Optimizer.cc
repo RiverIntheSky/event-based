@@ -9,6 +9,8 @@ Eigen::Matrix3d Optimizer::mCameraProjectionMat = Eigen::Matrix3d::Identity();
 bool Optimizer::inFrame = true;
 bool Optimizer::toMap = true;
 int Optimizer::sigma = 1;
+int Optimizer::count_frame = 0;
+int Optimizer::count_map = 0;
 
 double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     MapPoint* pMP = (MapPoint *) params;
@@ -26,6 +28,7 @@ double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
     double cost = -stddev[0];
+    src.copyTo(pMP->mBack);
 
     return cost;
 }
@@ -50,7 +53,7 @@ double Optimizer::variance_track(const gsl_vector *vec, void *params) {
 
     intensity(src, vec, mf);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
-    imshowRescaled(src, 1, "frame_map");
+    imshowRescaled(src, 1);
 
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
@@ -425,6 +428,55 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndKeyF
     }
 }
 
+void Optimizer::intensity(cv::Mat& image, const double *vec, KeyFrame* kF) {
+    image = cv::Mat::zeros(500, 500, CV_64F);
+
+    double phi = vec[0];
+    double psi = vec[1];
+    Eigen::Vector3d nw;
+    nw << std::cos(phi) * std::sin(psi),
+          std::sin(phi) * std::sin(psi),
+          std::cos(psi);
+
+    Eigen::Vector3d z;
+    z << 0, 0, 1;
+    Eigen::Vector3d nv = (-nw).cross(z);
+    double c = -z.dot(nw);
+    Eigen::Matrix3d Kn = ev::skew(nv);
+    Eigen::Matrix3d Rn = Eigen::Matrix3d::Identity() + Kn + Kn * Kn / (1 + c);
+    Eigen::Vector3d Rwc_w;
+    Rwc_w << vec[2], vec[3], vec[4];
+    Eigen::Matrix3d Rcw = axang2rotm(Rwc_w).transpose();
+    Eigen::Vector3d twc;
+    twc << vec[5], vec[6], vec[7];
+    twc *= kF->mScale;
+    Eigen::Vector3d nc = Rcw * nw;
+    Eigen::Matrix3d H_ = Rn * (Rcw * (Eigen::Matrix3d::Identity() + twc * nw.transpose())).inverse();
+
+    okvis::Time t0 = kF->mTimeStamp;
+
+    // velocity
+    Eigen::Vector3d w, v;
+    w << vec[8], vec[9], vec[10];
+    v << vec[11], vec[12], vec[13];
+
+    double theta = -w.norm();
+
+    Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
+    if (theta != 0)
+        K = ev::skew(w.normalized());
+
+    for (const auto EVit: *(kF->vEvents)) {
+
+        Eigen::Vector3d p, point_warped;
+        p << EVit->measurement.x ,EVit->measurement.y, 1;
+
+        // project to first frame
+        warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
+        fuse(image, point_warped, false);
+    }
+}
+
 void Optimizer::optimize(MapPoint* pMP) {
     // for one map point and n keyframes, variable numbers 2 + nKFs * 6
 
@@ -578,7 +630,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
         double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
         LOG(INFO) << "overlap " << overlap_rate;
-        if (overlap_rate < 0.8)
+        if (overlap_rate < 0.6)
             frame->shouldBeKeyFrame = true;
     }
 
@@ -601,7 +653,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
     frame->setLastPose(Twc2);
 }
 
-void Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
+bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
     // for one map point and n keyframes, variable numbers 2 + nKFs * 12
     std::set<shared_ptr<KeyFrame>, idxOrder> KFs;
     auto allKFs = pMP->getObservations();
@@ -653,7 +705,7 @@ void Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
 
     mapPointAndKeyFrames mkf{pMP, &KFs};
 
-    optimize_gsl(0.05, nVariables, variance_ba, &mkf, s, x, result, 100);
+    optimize_gsl(0.2, nVariables, variance_ba, &mkf, s, x, result, 100);
 
     pMP->setNormalDirection(result[0], result[1]);
 
@@ -699,6 +751,29 @@ void Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
         KFit->setLastPose(Twc2);
         i++;
     }
+
+    cv::Mat occupancy_map, occupancy_frame,
+            image_frame, occupancy_overlap;
+
+    double res[14] = {};
+    res[0] = result[0];
+    res[1] = result[1];
+    for (int j = 2; j < 14; j++)
+        res[j] =  result[j + (i-1) * 12];
+
+    intensity(image_frame, res, pKF.get());
+
+    int threshold_value = -1;
+    int const max_BINARY_value = 1;
+    cv::threshold(image_frame, occupancy_frame, threshold_value, max_BINARY_value, cv::THRESH_BINARY_INV);
+    // last result drawn to mBack??
+    cv::threshold(pMP->mBack, occupancy_map, threshold_value, max_BINARY_value, cv::THRESH_BINARY_INV);
+    cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
+    double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
+    LOG(INFO) << "key frame overlap " << overlap_rate;
+//    if (overlap_rate < 0.8)
+//        return false;
+    return true;
 }
 
 void Optimizer::optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,

@@ -1,6 +1,7 @@
 #pragma once
 #include "Map.h"
 #include "Optimizer.h"
+#include "util/utils.h"
 
 namespace ev {
 class Tracking
@@ -16,7 +17,7 @@ public:
     bool undistortEvents();
     bool init();
     bool estimate();
-    bool insertKeyFrame();
+    bool insertKeyFrame(shared_ptr<KeyFrame>& pKF);
 
 public:
 
@@ -32,6 +33,10 @@ public:
     eTrackingState mState;
     static int nInitializer;
     static int nMapper;
+    static cv::Mat w;
+    static cv::Mat v;
+    static cv::Mat r;
+    static cv::Mat t;
 protected:
     shared_ptr<Frame> mCurrentFrame;
     cv::Mat mK;
