@@ -280,7 +280,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFram
 
     // draw to back buffer
     // test cv::addWeighted!!
-    image = pMP->mBack / pMP->observations();
+    image = pMP->mBack;
 
     Eigen::Vector3d nw = Converter::toVector3d(pMP->getNormal());
     Eigen::Matrix3d Rcw = Converter::toMatrix3d(frame->getRotation().t());
@@ -385,26 +385,32 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndKeyF
     for (auto KFit: kfs) {
         okvis::Time t0 = KFit->mTimeStamp;
 
-        Eigen::Vector3d Rwc_w, twc, w, v;
+        Eigen::Vector3d Rwc_w, twc, w, v, nc;
+        Eigen::Matrix3d Rwc;
 
-        Rwc_w << gsl_vector_get(vec, 2 + i * 12),
-                 gsl_vector_get(vec, 3 + i * 12),
-                 gsl_vector_get(vec, 4 + i * 12);
+        w << gsl_vector_get(vec, 2 + i * 12),
+             gsl_vector_get(vec, 3 + i * 12),
+             gsl_vector_get(vec, 4 + i * 12);
 
-        Eigen::Matrix3d Rwc = axang2rotm(Rwc_w);
-        Eigen::Vector3d nc = Rwc.transpose() * nw;
+        v << gsl_vector_get(vec, 5 + i * 12),
+             gsl_vector_get(vec, 6 + i * 12),
+             gsl_vector_get(vec, 7 + i * 12);
 
-        twc << gsl_vector_get(vec, 5 + i * 12),
-               gsl_vector_get(vec, 6 + i * 12),
-               gsl_vector_get(vec, 7 + i * 12);
+        if (KFit->mnId != 0) {
+            Rwc_w << gsl_vector_get(vec, 8 + i * 12),
+                     gsl_vector_get(vec, 9 + i * 12),
+                     gsl_vector_get(vec, 10 + i * 12);
 
-        w << gsl_vector_get(vec, 8 + i * 12),
-             gsl_vector_get(vec, 9 + i * 12),
-             gsl_vector_get(vec, 10 + i * 12);
+            Rwc = axang2rotm(Rwc_w);
+            nc = Rwc.transpose() * nw;
 
-        v << gsl_vector_get(vec, 11 + i * 12),
-             gsl_vector_get(vec, 12 + i * 12),
-             gsl_vector_get(vec, 13 + i * 12);
+            twc << gsl_vector_get(vec, 11 + i * 12),
+                   gsl_vector_get(vec, 12 + i * 12),
+                   gsl_vector_get(vec, 13 + i * 12);
+        } else {
+            Rwc = Eigen::Matrix3d::Identity();
+            twc = Eigen::Vector3d::Zero();
+        }
 
         Eigen::Matrix3d H_ = (Rwc.transpose() * (Eigen::Matrix3d::Identity() + twc * nw.transpose())).inverse();
 
@@ -445,10 +451,10 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, KeyFrame* kF) {
     Eigen::Matrix3d Kn = ev::skew(nv);
     Eigen::Matrix3d Rn = Eigen::Matrix3d::Identity() + Kn + Kn * Kn / (1 + c);
     Eigen::Vector3d Rwc_w;
-    Rwc_w << vec[2], vec[3], vec[4];
+    Rwc_w << vec[8], vec[9], vec[10];
     Eigen::Matrix3d Rcw = axang2rotm(Rwc_w).transpose();
     Eigen::Vector3d twc;
-    twc << vec[5], vec[6], vec[7];
+    twc << vec[11], vec[12], vec[13];
     twc *= kF->mScale;
     Eigen::Vector3d nc = Rcw * nw;
     Eigen::Matrix3d H_ = Rn * (Rcw * (Eigen::Matrix3d::Identity() + twc * nw.transpose())).inverse();
@@ -457,8 +463,8 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, KeyFrame* kF) {
 
     // velocity
     Eigen::Vector3d w, v;
-    w << vec[8], vec[9], vec[10];
-    v << vec[11], vec[12], vec[13];
+    w << vec[2], vec[3], vec[4];
+    v << vec[5], vec[6], vec[7];
 
     double theta = -w.norm();
 
@@ -630,7 +636,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
         double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
         LOG(INFO) << "overlap " << overlap_rate;
-        if (overlap_rate < 0.6)
+        if (overlap_rate < 0.7)
             frame->shouldBeKeyFrame = true;
     }
 
@@ -654,7 +660,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
 }
 
 bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
-    // for one map point and n keyframes, variable numbers 2 + nKFs * 12
+    // for one map point and n keyframes, variable numbers 2 + nKFs * 12 - 6
     std::set<shared_ptr<KeyFrame>, idxOrder> KFs;
     auto allKFs = pMP->getObservations();
 
@@ -664,7 +670,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
     }
     KFs.insert(pKF);
 
-    int nVariables = 2 + KFs.size() * 12;
+    int nVariables = 2 + KFs.size() * 12 - 6;
 
     gsl_multimin_fminimizer *s = NULL;
     gsl_vector *x;
@@ -680,26 +686,30 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
     int i = 0;
     cv::Mat Rwc, Rwc_w, twc, w, v;
     for (auto KFit: KFs) {
-        Rwc = KFit->getRotation();
-        Rwc_w = rotm2axang(Rwc);
-        gsl_vector_set(x, 2 + i * 12, Rwc_w.at<double>(0));
-        gsl_vector_set(x, 3 + i * 12, Rwc_w.at<double>(1));
-        gsl_vector_set(x, 4 + i * 12, Rwc_w.at<double>(2));
-
-        twc = KFit->getTranslation();
-        gsl_vector_set(x, 5 + i * 12, twc.at<double>(0));
-        gsl_vector_set(x, 6 + i * 12, twc.at<double>(1));
-        gsl_vector_set(x, 7 + i * 12, twc.at<double>(2));
-
         w = KFit->getAngularVelocity();
-        gsl_vector_set(x, 8 + i * 12, w.at<double>(0));
-        gsl_vector_set(x, 9 + i * 12, w.at<double>(1));
-        gsl_vector_set(x, 10 + i * 12, w.at<double>(2));
+        gsl_vector_set(x, 2 + i * 12, w.at<double>(0));
+        gsl_vector_set(x, 3 + i * 12, w.at<double>(1));
+        gsl_vector_set(x, 4 + i * 12, w.at<double>(2));
 
         v = KFit->getLinearVelocity() / KFit->mScale;
-        gsl_vector_set(x, 11 + i * 12, v.at<double>(0));
-        gsl_vector_set(x, 12 + i * 12, v.at<double>(1));
-        gsl_vector_set(x, 13 + i * 12, v.at<double>(2));
+        gsl_vector_set(x, 5 + i * 12, v.at<double>(0));
+        gsl_vector_set(x, 6 + i * 12, v.at<double>(1));
+        gsl_vector_set(x, 7 + i * 12, v.at<double>(2));
+
+        if  (KFit->mnId != 0) {
+            Rwc = KFit->getRotation();
+            Rwc_w = rotm2axang(Rwc);
+            gsl_vector_set(x, 8 + i * 12, Rwc_w.at<double>(0));
+            gsl_vector_set(x, 9 + i * 12, Rwc_w.at<double>(1));
+            gsl_vector_set(x, 10 + i * 12, Rwc_w.at<double>(2));
+
+            twc = KFit->getTranslation();
+            gsl_vector_set(x, 11 + i * 12, twc.at<double>(0));
+            gsl_vector_set(x, 12 + i * 12, twc.at<double>(1));
+            gsl_vector_set(x, 13 + i * 12, twc.at<double>(2));
+        } else {
+            LOG(INFO)<< "KFit->mnId" << KFit->mnId;
+        }
         i++;
     }
 
@@ -711,33 +721,39 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
 
     i = 0;
     for (auto KFit :KFs ) {
-        Rwc_w.at<double>(0) = result[2 + i * 12];
-        Rwc_w.at<double>(1) = result[3 + i * 12];
-        Rwc_w.at<double>(2) = result[4 + i * 12];
-
-        Rwc = axang2rotm(Rwc_w);
-
-        twc.at<double>(0) = result[5 + i * 12];
-        twc.at<double>(1) = result[6 + i * 12];
-        twc.at<double>(2) = result[7 + i * 12];
-        // can not resolve scale drift!!
-        twc *= KFit->mScale;
-
-        cv::Mat Twc1 = cv::Mat::eye(4,4,CV_64F);
-        Rwc.copyTo(Twc1.rowRange(0,3).colRange(0,3));
-        twc.copyTo(Twc1.rowRange(0,3).col(3));
-        KFit->setFirstPose(Twc1);
-
-        w.at<double>(0) = result[8 + i * 12];
-        w.at<double>(1) = result[9 + i * 12];
-        w.at<double>(2) = result[10 + i * 12];
+        w.at<double>(0) = result[2 + i * 12];
+        w.at<double>(1) = result[3 + i * 12];
+        w.at<double>(2) = result[4 + i * 12];
         KFit->setAngularVelocity(w);
 
-        v.at<double>(0) = result[11 + i * 12];
-        v.at<double>(1) = result[12 + i * 12];
-        v.at<double>(2) = result[13 + i * 12];
+        v.at<double>(0) = result[5 + i * 12];
+        v.at<double>(1) = result[6 + i * 12];
+        v.at<double>(2) = result[7 + i * 12];
         v *= KFit->mScale;
         KFit->setLinearVelocity(v);
+
+        if  (KFit->mnId != 0) {
+            Rwc_w.at<double>(0) = result[8 + i * 12];
+            Rwc_w.at<double>(1) = result[9 + i * 12];
+            Rwc_w.at<double>(2) = result[10 + i * 12];
+
+            Rwc = axang2rotm(Rwc_w);
+
+            twc.at<double>(0) = result[11 + i * 12];
+            twc.at<double>(1) = result[12 + i * 12];
+            twc.at<double>(2) = result[13 + i * 12];
+            // can not resolve scale drift!!
+            twc *= KFit->mScale;
+
+            cv::Mat Twc1 = cv::Mat::eye(4,4,CV_64F);
+            Rwc.copyTo(Twc1.rowRange(0,3).colRange(0,3));
+            twc.copyTo(Twc1.rowRange(0,3).col(3));
+            KFit->setFirstPose(Twc1);
+        } else {
+            Rwc = cv::Mat::eye(3, 3, CV_64F);
+            twc = cv::Mat::zeros(3, 1, CV_64F);
+            LOG(INFO)<<KFit->getFirstPose();
+        }
 
         double dt = KFit->dt;
         cv::Mat dw = w * dt;
@@ -752,25 +768,23 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
         i++;
     }
 
-    cv::Mat occupancy_map, occupancy_frame,
-            image_frame, occupancy_overlap;
+//    cv::Mat occupancy_map, occupancy_frame,
+//            image_frame, occupancy_overlap;
 
-    double res[14] = {};
-    res[0] = result[0];
-    res[1] = result[1];
-    for (int j = 2; j < 14; j++)
-        res[j] =  result[j + (i-1) * 12];
+//    double res[14] = {};
+//    for (int j = 0; j < 14; j++)
+//        res[j] =  result[j];
 
-    intensity(image_frame, res, pKF.get());
+//    intensity(image_frame, res, pKF.get());
 
-    int threshold_value = -1;
-    int const max_BINARY_value = 1;
-    cv::threshold(image_frame, occupancy_frame, threshold_value, max_BINARY_value, cv::THRESH_BINARY_INV);
-    // last result drawn to mBack??
-    cv::threshold(pMP->mBack, occupancy_map, threshold_value, max_BINARY_value, cv::THRESH_BINARY_INV);
-    cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
-    double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
-    LOG(INFO) << "key frame overlap " << overlap_rate;
+//    int threshold_value = -1;
+//    int const max_BINARY_value = 1;
+//    cv::threshold(image_frame, occupancy_frame, threshold_value, max_BINARY_value, cv::THRESH_BINARY_INV);
+//    // last result drawn to mBack??
+//    cv::threshold(pMP->mBack, occupancy_map, threshold_value, max_BINARY_value, cv::THRESH_BINARY_INV);
+//    cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
+//    double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
+//    LOG(INFO) << "key frame overlap " << overlap_rate;
 //    if (overlap_rate < 0.8)
 //        return false;
     return true;

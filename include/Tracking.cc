@@ -2,7 +2,7 @@
 
 namespace ev {
 
-int Tracking::nInitializer = 4;
+int Tracking::nInitializer = 1;
 int Tracking::nMapper = 3;
 cv::Mat Tracking::w = cv::Mat::zeros(3, 1, CV_64F);
 cv::Mat Tracking::v = cv::Mat::zeros(3, 1, CV_64F);

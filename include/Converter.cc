@@ -16,7 +16,7 @@ std::vector<cv::Mat> Converter::toDescriptorVector(const cv::Mat &Descriptors)
 
 cv::Mat Converter::toCvMat(const Eigen::Matrix<double,4,4> &m)
 {
-    cv::Mat cvMat(4,4,CV_32F);
+    cv::Mat cvMat(4,4,CV_64F);
     for(int i=0;i<4;i++)
         for(int j=0; j<4; j++)
             cvMat.at<double>(i,j)=m(i,j);
@@ -26,7 +26,7 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix<double,4,4> &m)
 
 cv::Mat Converter::toCvMat(const Eigen::Matrix3d &m)
 {
-    cv::Mat cvMat(3,3,CV_32F);
+    cv::Mat cvMat(3,3,CV_64F);
     for(int i=0;i<3;i++)
         for(int j=0; j<3; j++)
             cvMat.at<double>(i,j)=m(i,j);
@@ -36,7 +36,7 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix3d &m)
 
 cv::Mat Converter::toCvMat(const Eigen::Matrix<double,3,1> &m)
 {
-    cv::Mat cvMat(3,1,CV_32F);
+    cv::Mat cvMat(3,1,CV_64F);
     for(int i=0;i<3;i++)
             cvMat.at<double>(i)=m(i);
 

@@ -13,7 +13,7 @@ class Frame;
 struct idxOrder {
    template <class F>
    bool operator()(const std::shared_ptr<F>& lhs, const std::shared_ptr<F>& rhs) const {
-       return lhs->mnId < rhs->mnId;
+       return lhs->mnId > rhs->mnId;
    }
 };
 

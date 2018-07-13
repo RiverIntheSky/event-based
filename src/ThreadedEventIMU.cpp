@@ -175,20 +175,92 @@ void ThreadedEventIMU::eventConsumerLoop() {
             mCurrentFrame->vEvents.insert(data);
 
             if (mCurrentFrame->events() == parameters_.window_size) {
-                double t = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp.toSec();
-                LOG(INFO) << "time stamp: "<< t;
+                double time = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp.toSec();
+                LOG(INFO) << "time stamp: "<< time;
                 mpTracker->Track();
                 auto pMP = mpMap->getAllMapPoints().front();
                 imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
-                imshowRescaled(pMP->mFront, 1, "map");
+                imshowRescaled(pMP->mFront, 1, "map");               
+
+                LOG(INFO) << "keyframes " << mpMap->getAllKeyFrames().size();
+                LOG(INFO) << "frames " << ++count;
+                LOG(INFO) << "normal " << pMP->getNormal();
+
+
+                Eigen::Quaterniond R0 = maconMeasurements_.front().measurement.q.inverse();
+                Eigen::Vector3d t0 = maconMeasurements_.front().measurement.p;
 
                 if (parameters_.write_to_file) {
 
+                    okvis::Time begin =(*(mCurrentFrame->vEvents.begin()))->timeStamp;
+                    okvis::Time end = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
+
+                    ev::Pose p1, p2;
+                    // of camera
+                    Eigen::Vector3d linear_velocity;
+                    Eigen::Quaterniond angular_velocity;
+                    if (interpolateGroundtruth(p1, begin) && interpolateGroundtruth(p2, end)) {
+                        linear_velocity = (p1.q).inverse().toRotationMatrix() * (p2.p - p1.p) / (end.toSec() - begin.toSec());
+                        angular_velocity =  (p1.q).inverse() * p2.q ;
+
+                    } else {
+                        linear_velocity = Eigen::Vector3d(0, 0, 0);
+                        angular_velocity = Eigen::Quaterniond(1, 0, 0, 0);
+                    }
+                    Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(angular_velocity);
+                    Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle() / (end.toSec() - begin.toSec());
+
+                    Eigen::Matrix3d R_ = (R0 * p1.q).toRotationMatrix();
+                    cv::Mat R = Converter::toCvMat(R_);
+                    cv::Mat R_w = rotm2axang(R);
+
+                    Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
+
+                    std::ofstream  myfile_pr(files_path + "groundtruth_pose_rotation.txt", std::ios_base::app);
+                    if (myfile_pr.is_open()) {
+                        myfile_pr << begin.toSec() << " "
+                               << R_w.at<double>(0) << " "
+                               << R_w.at<double>(1) << " "
+                               << R_w.at<double>(2) << "\n";
+                        myfile_pr.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile_pt(files_path + "groundtruth_pose_translation.txt", std::ios_base::app);
+                    if (myfile_pt.is_open()) {
+                        myfile_pt << begin.toSec() << " "
+                               << t(0) << " "
+                               << t(1) << " "
+                               << t(2) << "\n";
+                        myfile_pt.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile(files_path + "groundtruth_rotation.txt", std::ios_base::app);
+                    if (myfile.is_open()) {
+                        myfile << begin.toSec() << " "
+                               << angularVelocity(0) << " "
+                               << angularVelocity(1) << " "
+                               << angularVelocity(2) << "\n";
+                        myfile.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
                     std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
+
+                    std::ofstream  myfilet(files_path + "groundtruth_translation.txt", std::ios_base::app);
+                    if (myfilet.is_open()) {
+                        myfilet << begin.toSec() << " "
+                                << linear_velocity(0) << " "
+                                << linear_velocity(1) << " "
+                                << linear_velocity(2) << '\n';
+                        myfilet.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
                     std::ofstream  myfile_(files_path + "estimated_rotation.txt", std::ios_base::app);
                     if (myfile_.is_open()) {
-                        myfile_ << t << " "
+                        myfile_ << begin.toSec() << " "
                                 << (mpTracker->w).at<double>(0) << " "
                                 << (mpTracker->w).at<double>(1) << " "
                                 << (mpTracker->w).at<double>(2) << "\n";
@@ -198,7 +270,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                     std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
                     if (myfile_t.is_open()) {
-                        myfile_t<< t << " "
+                        myfile_t<< begin.toSec() << " "
                                 << (mpTracker->v).at<double>(0) << " "
                                 << (mpTracker->v).at<double>(1) << " "
                                 << (mpTracker->v).at<double>(2) << " ";
@@ -209,7 +281,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                     std::ofstream  myfile_r(files_path + "estimated_pose_rotation.txt", std::ios_base::app);
                     if (myfile_r.is_open()) {
-                        myfile_r << t << " "
+                        myfile_r << begin.toSec() << " "
                                 << (mpTracker->r).at<double>(0) << " "
                                 << (mpTracker->r).at<double>(1) << " "
                                 << (mpTracker->r).at<double>(2) << "\n";
@@ -219,7 +291,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                     std::ofstream  myfile_tt(files_path + "estimated_pose_translation.txt", std::ios_base::app);
                     if (myfile_tt.is_open()) {
-                        myfile_tt<< t << " "
+                        myfile_tt<< begin.toSec() << " "
                                 << (mpTracker->t).at<double>(0) << " "
                                 << (mpTracker->t).at<double>(1) << " "
                                 << (mpTracker->t).at<double>(2) << " ";
