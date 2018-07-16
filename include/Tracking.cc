@@ -31,15 +31,62 @@ void Tracking::Track() {
 
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
-//    LOG(INFO) << "current velocity model:";
-//    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
-//    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
-//    LOG(INFO);
+    LOG(INFO) << "current velocity model:";
+    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
+    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+    LOG(INFO);
     w = mCurrentFrame->w;
     v = mCurrentFrame->v;
     cv::Mat R = mCurrentFrame->getRotation();
     r = rotm2axang(R);
     t = mCurrentFrame->getTranslation();
+//    LOG(INFO) << mCurrentFrame->mScale;
+    mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
+
+    // under certain conditions, Create KeyFrame
+
+    // delete currentFrame
+}
+
+void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
+    // Get Map Mutex -> Map cannot be changed
+    unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
+    undistortEvents();
+    mCurrentFrame->mTimeStamp = (*(mCurrentFrame->vEvents.cbegin()))->timeStamp;
+    mCurrentFrame->dt = ((*(mCurrentFrame->vEvents.crbegin()))->timeStamp - mCurrentFrame->mTimeStamp).toSec();
+    cv::Mat Twc1 = cv::Mat::eye(4,4,CV_64F);
+    R_.copyTo(Twc1.rowRange(0,3).colRange(0,3));
+    t_.copyTo(Twc1.rowRange(0,3).col(3));
+    mCurrentFrame->setAngularVelocity(w_);
+    mCurrentFrame->setLinearVelocity(v_);
+
+    LOG(INFO) << "groundtruth velocity model:";
+    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
+    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
+    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+    LOG(INFO);
+
+    if(mState==NOT_INITIALIZED) {
+        // assume success??
+        init();
+    } else if(mState==OK) {
+        estimate();
+    }
+
+    // add frame to map
+    mpMap->addFrame(mCurrentFrame);
+
+    LOG(INFO) << "current velocity model:";
+    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
+    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
+    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+    LOG(INFO);
+    w = mCurrentFrame->w;
+    v = mCurrentFrame->v;
+    cv::Mat R = mCurrentFrame->getRotation();
+    r = rotm2axang(R);
+    t = mCurrentFrame->getTranslation();
+
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
 
     // under certain conditions, Create KeyFrame
@@ -106,6 +153,7 @@ bool Tracking::estimate() {
             pMP->addObservation(pKF);
             pMP->swap(true);
             mpMap->addKeyFrame(pKF);
+            LOG(INFO) << "keyframe id " << pKF->mnFrameId;
         }
     }
     return true;

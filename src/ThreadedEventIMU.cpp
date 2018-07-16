@@ -159,6 +159,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
     std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
+    Eigen::Quaterniond R0 = maconMeasurements_.front().measurement.q.inverse();
+    Eigen::Vector3d t0 = maconMeasurements_.front().measurement.p;
+
     for (;;) {
 
         // get data and check for termination request
@@ -177,7 +180,36 @@ void ThreadedEventIMU::eventConsumerLoop() {
             if (mCurrentFrame->events() == parameters_.window_size) {
                 double time = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp.toSec();
                 LOG(INFO) << "time stamp: "<< time;
-                mpTracker->Track();
+
+
+                // feed in groundtruth
+                okvis::Time begin =(*(mCurrentFrame->vEvents.begin()))->timeStamp;
+                okvis::Time end = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
+
+                ev::Pose p1, p2;
+                // of camera
+                Eigen::Vector3d linear_velocity;
+                Eigen::Quaterniond angular_velocity;
+                if (interpolateGroundtruth(p1, begin) && interpolateGroundtruth(p2, end)) {
+                    linear_velocity = (p1.q).inverse().toRotationMatrix() * (p2.p - p1.p) / (end.toSec() - begin.toSec());
+                    angular_velocity =  (p1.q).inverse() * p2.q ;
+
+                } else {
+                    linear_velocity = Eigen::Vector3d(0, 0, 0);
+                    angular_velocity = Eigen::Quaterniond(1, 0, 0, 0);
+                }
+                Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(angular_velocity);
+                Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle() / (end.toSec() - begin.toSec());
+
+                Eigen::Matrix3d R_ = (R0 * p1.q).toRotationMatrix();
+                cv::Mat R = Converter::toCvMat(R_);
+                cv::Mat R_w = rotm2axang(R);
+
+                Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
+
+//                mpTracker->Track(R, Converter::toCvMat(t), Converter::toCvMat(angularVelocity), Converter::toCvMat(linear_velocity));
+mpTracker->Track();
+
                 auto pMP = mpMap->getAllMapPoints().front();
                 imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
                 imshowRescaled(pMP->mFront, 1, "map");               
@@ -186,35 +218,31 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 LOG(INFO) << "frames " << ++count;
                 LOG(INFO) << "normal " << pMP->getNormal();
 
-
-                Eigen::Quaterniond R0 = maconMeasurements_.front().measurement.q.inverse();
-                Eigen::Vector3d t0 = maconMeasurements_.front().measurement.p;
-
                 if (parameters_.write_to_file) {
 
-                    okvis::Time begin =(*(mCurrentFrame->vEvents.begin()))->timeStamp;
-                    okvis::Time end = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
+//                    okvis::Time begin =(*(mCurrentFrame->vEvents.begin()))->timeStamp;
+//                    okvis::Time end = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
 
-                    ev::Pose p1, p2;
-                    // of camera
-                    Eigen::Vector3d linear_velocity;
-                    Eigen::Quaterniond angular_velocity;
-                    if (interpolateGroundtruth(p1, begin) && interpolateGroundtruth(p2, end)) {
-                        linear_velocity = (p1.q).inverse().toRotationMatrix() * (p2.p - p1.p) / (end.toSec() - begin.toSec());
-                        angular_velocity =  (p1.q).inverse() * p2.q ;
+//                    ev::Pose p1, p2;
+//                    // of camera
+//                    Eigen::Vector3d linear_velocity;
+//                    Eigen::Quaterniond angular_velocity;
+//                    if (interpolateGroundtruth(p1, begin) && interpolateGroundtruth(p2, end)) {
+//                        linear_velocity = (p1.q).inverse().toRotationMatrix() * (p2.p - p1.p) / (end.toSec() - begin.toSec());
+//                        angular_velocity =  (p1.q).inverse() * p2.q ;
 
-                    } else {
-                        linear_velocity = Eigen::Vector3d(0, 0, 0);
-                        angular_velocity = Eigen::Quaterniond(1, 0, 0, 0);
-                    }
-                    Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(angular_velocity);
-                    Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle() / (end.toSec() - begin.toSec());
+//                    } else {
+//                        linear_velocity = Eigen::Vector3d(0, 0, 0);
+//                        angular_velocity = Eigen::Quaterniond(1, 0, 0, 0);
+//                    }
+//                    Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(angular_velocity);
+//                    Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle() / (end.toSec() - begin.toSec());
 
-                    Eigen::Matrix3d R_ = (R0 * p1.q).toRotationMatrix();
-                    cv::Mat R = Converter::toCvMat(R_);
-                    cv::Mat R_w = rotm2axang(R);
+//                    Eigen::Matrix3d R_ = (R0 * p1.q).toRotationMatrix();
+//                    cv::Mat R = Converter::toCvMat(R_);
+//                    cv::Mat R_w = rotm2axang(R);
 
-                    Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
+//                    Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
 
                     std::ofstream  myfile_pr(files_path + "groundtruth_pose_rotation.txt", std::ios_base::app);
                     if (myfile_pr.is_open()) {

@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
 
-    okvis::Duration deltaT(0);
+    okvis::Duration deltaT(0.2);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);

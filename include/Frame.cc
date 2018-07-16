@@ -12,14 +12,16 @@ Frame::Frame(Map *pMap): mpMap(pMap), shouldBeKeyFrame(false){
     setFirstPose(Twc);
     w = (cv::Mat_<double>(3, 1) << 0, 0, 0);
     v = (cv::Mat_<double>(3, 1) << 0, 0, 0);
-    mScale = 0.8;
+    mScale = .8;
 }
 
 Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
     mnId = nNextId++;
     setFirstPose(other.getLastPose());
     cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
-    mScale = other.mScale + (other.getRotation() * other.v * other.dt).dot(n);
+    cv::Mat dT = other.getLastPose().rowRange(0,3).col(3) - other.getFirstPose().rowRange(0,3).col(3);
+    mScale = other.mScale + dT.dot(n);
+    LOG(INFO) << mScale;
     w = other.w.clone();
     v = other.v.clone();
     ev::EventMeasurement* event = new ev::EventMeasurement();
@@ -83,9 +85,6 @@ double& Frame::getScale() {
 }
 
 void Frame::addEvent(EventMeasurement* event) {
-    // first event ??
-    if (vEvents.empty())
-        mTimeStamp = event->timeStamp;
     vEvents.insert(event);
 }
 
