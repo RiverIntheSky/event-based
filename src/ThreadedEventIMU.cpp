@@ -212,7 +212,9 @@ mpTracker->Track();
 
                 auto pMP = mpMap->getAllMapPoints().front();
                 imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
-                imshowRescaled(pMP->mFront, 1, "map");               
+                cv::Mat blurred_map;
+                cv::GaussianBlur(pMP->mFront, blurred_map, cv::Size(0, 0), 1, 0);
+                imshowRescaled(blurred_map, 1, "map");
 
                 LOG(INFO) << "keyframes " << mpMap->getAllKeyFrames().size();
                 LOG(INFO) << "frames " << ++count;

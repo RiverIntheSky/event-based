@@ -54,6 +54,7 @@ public:
 
     // scale
     double mScale;
+    static double gScale;
 
     // camera pose of first event
     cv::Mat mTwc1;

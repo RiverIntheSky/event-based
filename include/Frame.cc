@@ -2,7 +2,7 @@
 
 namespace ev
 {
-
+double Frame::gScale = 1.;
 unsigned int Frame::nNextId = 0;
 
 // first pose of a frame is always set at construction
@@ -12,7 +12,7 @@ Frame::Frame(Map *pMap): mpMap(pMap), shouldBeKeyFrame(false){
     setFirstPose(Twc);
     w = (cv::Mat_<double>(3, 1) << 0, 0, 0);
     v = (cv::Mat_<double>(3, 1) << 0, 0, 0);
-    mScale = .8;
+    mScale = gScale;
 }
 
 Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
