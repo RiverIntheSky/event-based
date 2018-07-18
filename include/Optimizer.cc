@@ -867,10 +867,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
     cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
     double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
     LOG(INFO) << "key frame overlap " << overlap_rate;
-    if (overlap_rate < 0.7) {
-        imshowRescaled(current_frame_blurred);
-        imshowRescaled(other_frames_blurred);
-        imshowRescaled(occupancy_overlap);
+    if (overlap_rate < 0.7 || cv::countNonZero(occupancy_frame) < 10) {
         return false;
     }
 
