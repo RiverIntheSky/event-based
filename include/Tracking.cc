@@ -6,6 +6,7 @@ int Tracking::nInitializer = 1;
 int Tracking::nMapper = 3;
 cv::Mat Tracking::w = cv::Mat::zeros(3, 1, CV_64F);
 cv::Mat Tracking::v = cv::Mat::zeros(3, 1, CV_64F);
+cv::Mat Tracking::R = cv::Mat::eye(3, 3, CV_64F);
 cv::Mat Tracking::r = cv::Mat::zeros(3, 1, CV_64F);
 cv::Mat Tracking::t = cv::Mat::zeros(3, 1, CV_64F);
 
@@ -27,7 +28,6 @@ void Tracking::Track() {
     } else if(mState==OK) {
         estimate();
     }
-    //
 
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
@@ -72,6 +72,15 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     } else if(mState==OK) {
         estimate();
     }
+    if (mState == LOST) {
+        cv::Mat R_ = mCurrentFrame->getRotation();
+        cv::Mat t_ = mCurrentFrame->getTranslation();
+        if (!relocalize(R_, t_, mCurrentFrame->w, mCurrentFrame->v)) {
+            relocalize(R, t, w, v);
+            // need better solution;
+            mState = OK;
+        }
+    }
 
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
@@ -83,7 +92,7 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     LOG(INFO);
     w = mCurrentFrame->w;
     v = mCurrentFrame->v;
-    cv::Mat R = mCurrentFrame->getRotation();
+    R = mCurrentFrame->getRotation();
     r = rotm2axang(R);
     t = mCurrentFrame->getTranslation();
 
@@ -92,24 +101,6 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     // under certain conditions, Create KeyFrame
 
     // delete currentFrame
-}
-
-bool Tracking::undistortEvents() {
-    std::vector<cv::Point2d> inputDistortedPoints;
-    std::vector<cv::Point2d> outputUndistortedPoints;
-    for (auto it: mCurrentFrame->vEvents) {
-        cv::Point2d point(it->measurement.x, it->measurement.y);
-        inputDistortedPoints.push_back(point);
-    }
-    cv::undistortPoints(inputDistortedPoints, outputUndistortedPoints,
-                        mK, mDistCoeffs);
-    auto it = mCurrentFrame->vEvents.begin();
-    auto p_it = outputUndistortedPoints.begin();
-    for (; it != mCurrentFrame->vEvents.end(); it++, p_it++) {
-        (*it)->measurement.x = p_it->x;
-        (*it)->measurement.y = p_it->y;
-    }
-    return true;
 }
 
 bool Tracking::init() {
@@ -159,15 +150,44 @@ bool Tracking::estimate() {
     return true;
 }
 
+bool Tracking::relocalize(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
+    auto pMP = mpMap->getAllMapPoints().front();
+    if(Optimizer::optimize(pMP.get(), mCurrentFrame.get(), Rwc, twc, w, v)) {
+        mState == OK;
+        return true;
+    }
+    return false;
+}
+
 bool Tracking::insertKeyFrame(shared_ptr<KeyFrame>& pKF) {
     auto pMP = mpMap->getAllMapPoints().front();
 
     if (Optimizer::optimize(pMP.get(), pKF)) {
         return true;
     } else {
+        mState == LOST;
+        LOG(ERROR) << "LOST";
         KeyFrame::nNextId--;
         return false;
     }
+}
+
+bool Tracking::undistortEvents() {
+    std::vector<cv::Point2d> inputDistortedPoints;
+    std::vector<cv::Point2d> outputUndistortedPoints;
+    for (auto it: mCurrentFrame->vEvents) {
+        cv::Point2d point(it->measurement.x, it->measurement.y);
+        inputDistortedPoints.push_back(point);
+    }
+    cv::undistortPoints(inputDistortedPoints, outputUndistortedPoints,
+                        mK, mDistCoeffs);
+    auto it = mCurrentFrame->vEvents.begin();
+    auto p_it = outputUndistortedPoints.begin();
+    for (; it != mCurrentFrame->vEvents.end(); it++, p_it++) {
+        (*it)->measurement.x = p_it->x;
+        (*it)->measurement.y = p_it->y;
+    }
+    return true;
 }
 
 }

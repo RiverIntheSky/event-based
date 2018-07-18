@@ -15,10 +15,11 @@ public:
     shared_ptr<Frame> getCurrentFrame();
     void Track();
     void Track(cv::Mat R, cv::Mat t, cv::Mat w, cv::Mat v);
-    bool undistortEvents();
     bool init();
     bool estimate();
+    bool relocalize(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
     bool insertKeyFrame(shared_ptr<KeyFrame>& pKF);
+    bool undistortEvents();
 
 public:
 
@@ -36,6 +37,7 @@ public:
     static int nMapper;
     static cv::Mat w;
     static cv::Mat v;
+    static cv::Mat R;
     static cv::Mat r;
     static cv::Mat t;
 protected:

@@ -19,8 +19,8 @@ Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
     mnId = nNextId++;
     setFirstPose(other.getLastPose());
     cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
-    cv::Mat dT = other.getLastPose().rowRange(0,3).col(3) - other.getFirstPose().rowRange(0,3).col(3);
-    mScale = other.mScale + dT.dot(n);
+    cv::Mat twc = getFirstPose().rowRange(0,3).col(3);
+    mScale = gScale + twc.dot(n);
     LOG(INFO) << mScale;
     w = other.w.clone();
     v = other.v.clone();
