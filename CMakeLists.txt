@@ -31,13 +31,13 @@ find_package( Ceres REQUIRED )
 include_directories(${CERES_INCLUDE_DIRS})
 
 # require OpenMP
-OPTION (USE_OpenMP "Use OpenMP to enamble <omp.h>" ON)
+OPTION (USE_OpenMP "Use OpenMP to enamble <omp.h>" OFF)
 
 find_package(GSL REQUIRED)
 
-if(USE_OpenMP)
-  find_package(OpenMP REQUIRED)
-endif(USE_OpenMP)
+#if(USE_OpenMP)
+#  find_package(OpenMP REQUIRED)
+#endif(USE_OpenMP)
 
 if(OPENMP_FOUND)
 message("OPENMP FOUND")
@@ -60,7 +60,7 @@ endif()
 
 find_package(glog REQUIRED)
 
-find_package(Gnuplot REQUIRED)
+#find_package(Gnuplot REQUIRED)
 
 FIND_PACKAGE(Boost COMPONENTS filesystem system iostreams REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
@@ -68,14 +68,49 @@ include_directories(${Boost_INCLUDE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include)
 
+# Add GLFW lib (with disabled spam)
+option(GLFW_BUILD_EXAMPLES "" OFF)
+option(GLFW_BUILD_TESTS "" OFF)
+option(GLFW_BUILD_DOCS "" OFF)
+option(GLFW_INSTALL "" OFF)
+option(BUILD_SHARED_LIBS "" ON)
+add_subdirectory(libs/glfw ${CMAKE_BINARY_DIR}/libs/glfw)
+
+add_subdirectory(libs/glad ${CMAKE_BINARY_DIR}/libs/glad)
+
 # only for editting, delete all non-executables afterwards
-add_executable(${PROJECT_NAME} "main.cpp"
-    "${PROJECT_SOURCE_DIR}/event.cpp"
-    "${PROJECT_SOURCE_DIR}/ThreadedEventIMU.cpp"
-    "${PROJECT_SOURCE_DIR}/Frontend.cpp"
-    "${CMAKE_SOURCE_DIR}/include/util/utils.cpp")
+add_library(${PROJECT_NAME} SHARED
+${PROJECT_SOURCE_DIR}/event.cpp
+${PROJECT_SOURCE_DIR}/ThreadedEventIMU.cpp
+${PROJECT_SOURCE_DIR}/Frontend.cpp
+include/util/utils.cpp
+include/KeyFrame.cc
+include/Map.cc
+include/MapPoint.cc
+include/Tracking.cc
+include/Frame.cc
+include/Converter.cc
+include/Optimizer.cc
+include/MapDrawer.h
+include/MapDrawer.cc
+shaders/shader.vsh
+shaders/shader.fsh
+include/Shader.h
+include/Shader.cc)
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+    ${CMAKE_SOURCE_DIR}/libs)
+
+add_executable(event_based
+    main.cpp
+)
 
 target_link_libraries(${PROJECT_NAME}
+    glad
+    glfw)
+
+target_link_libraries(event_based PUBLIC
+    ${PROJECT_NAME}
     glog::glog
     ${OpenCV_LIBS}
     ${OKVIS_LIBRARIES}
@@ -84,5 +119,5 @@ target_link_libraries(${PROJECT_NAME}
     GSL::gslcblas)
 
 if(${VISENSORDRIVER_FOUND})
-    target_link_libraries(ev ${VISensorDriver_LIBRARY})
+    target_link_libraries(${PROJECT_NAME} ${VISensorDriver_LIBRARY} )
 endif()

@@ -1,5 +1,4 @@
-#ifndef EVENT_H
-#define EVENT_H
+#pragma once
 
 #include <okvis/VioParametersReader.hpp>
 #include <okvis/ThreadedKFVio.hpp>
@@ -27,11 +26,7 @@ namespace ev {
     struct eventFrameMeasurement {
         std::vector<EventMeasurement> events;
         unsigned counter_w{0}; // counter for temporal window size
-        int max_patch;
 
         eventFrameMeasurement() {}
     };
 }
-
-
-#endif // EVENT_H

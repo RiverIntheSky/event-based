@@ -70,7 +70,7 @@ inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& 
     x_v = H.inverse() * x;
     x_v /= x_v(2);
 
-    x_v = param_.cameraMatrix_ * x_v;
+    x_v = param_.K_ * x_v;
 
 //    if (dW != NULL) {
 //        Eigen::MatrixXd dW_(3, 6);
@@ -78,10 +78,10 @@ inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& 
 //               -z_*t_*(x(1)*x_w(1)+1),     z_*t_*x(0)*x_w(1),  z_*t_*x(0),  0, t_, -t_*x_w(1),
 //                                    0,                     0,           0,  0,  0,          0;
 
-//        (*dW) = (param_.cameraMatrix_ / z * dW_).block(0, 0, 2, 6);
+//        (*dW) = (param_.K_ / z * dW_).block(0, 0, 2, 6);
 //    }
 
-//    x_v = param_.cameraMatrix_ * x_v;
+//    x_v = param_.K_ * x_v;
 
 }
 
@@ -121,13 +121,13 @@ inline void ComputeVarianceFunction::fuse(Eigen::MatrixXd& image, Eigen::Vector2
 
 void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd* dIdw,
                                         Eigen::Vector3d& w, Eigen::Vector3d& v, double* normal) const {
-    auto& param = param_;
+  /*  auto& param = param_;
 
     int patch_num_x = std::ceil(param.array_size_x / param.patch_width);
     int patch_num_y = std::ceil(param.array_size_y / param.patch_width);
 
     auto patch = [&param, patch_num_x, patch_num_y](Eigen::Vector3d p)  -> int {
-        Eigen::Vector3d p_ = param.cameraMatrix_ * p;
+        Eigen::Vector3d p_ = param.K_ * p;
         return truncate(std::floor(p_(0)/param.patch_width), 0, patch_num_x-1) * patch_num_y
                 + truncate(std::floor(p_(1)/param.patch_width), 0, patch_num_y-1);
     };
@@ -253,6 +253,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
     cv::eigen2cv(image, src);
     cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
     cv::cv2eigen(dst, image);
+    */
 }
 
 // Constructor.

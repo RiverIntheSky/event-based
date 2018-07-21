@@ -4,6 +4,7 @@
 #include <chrono>
 
 Eigen::MatrixXd ev::ComputeVarianceFunction::intensity = Eigen::MatrixXd::Zero(180, 240);
+ev::Parameters* ev::Optimizer::param = NULL;
 
 int main(int argc, char *argv[])
 {
@@ -18,8 +19,8 @@ int main(int argc, char *argv[])
     FLAGS_logtostderr = 1;
 
     if (argc <= 1) {
-        LOG(ERROR) << "\nusage: " << "./ev dataset_name window_size overlap_rate experiment_name\n"
-                  << "example: " << "./ev "
+        LOG(ERROR) << "\nusage: " << "./event_based dataset_name window_size overlap_rate experiment_name\n"
+                  << "example: " << "./event_based "
                   << "/home/weizhen/Documents/dataset/slider_hdr_close"
                   << " 10000 0.5 x_only\n";
         return 1;
@@ -57,12 +58,14 @@ int main(int argc, char *argv[])
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
 
-    okvis::Duration deltaT(0);
+    okvis::Duration deltaT(0.2);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
     ev::Parameters parameters;
     pr.getParameter(parameters);
+    ev::Optimizer::param = &parameters;
+    ev::Optimizer::mCameraProjectionMat = parameters.K_;
 
     parameters.path = path;
     if (argc > 2) {

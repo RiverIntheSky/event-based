@@ -1,4 +1,4 @@
-
+#include "MapDrawer.h"
 #include "ThreadedEventIMU.h"
 
 namespace ev {
@@ -22,10 +22,17 @@ ThreadedEventIMU::~ThreadedEventIMU() {
     // consumer threads
     imuConsumerThread_.join();
     eventConsumerThread_.join();
-
+    drawThread_.join();
 }
 
 void ThreadedEventIMU::init() {
+    mpMap = new Map();
+    mpTracker = new Tracking(parameters_.K, parameters_.distCoeffs, mpMap);
+    mpMapDrawer = new MapDrawer(&parameters_, mpMap, mpTracker);
+    Optimizer::mCameraProjectionMat(0, 0) = 200;
+    Optimizer::mCameraProjectionMat(1, 1) = 200;
+    Optimizer::mCameraProjectionMat(0, 2) = 150;
+    Optimizer::mCameraProjectionMat(1, 2) = 150;
     startThreads();
 }
 
@@ -37,8 +44,6 @@ bool ThreadedEventIMU::addEventMeasurement(okvis::Time& t, unsigned int x, unsig
     event_measurement.measurement.z = 1;
     event_measurement.measurement.p = p;
     event_measurement.timeStamp = t;
-
-    // std::cout << event.t << " " << event.x << " " << event.y << " " << event.p << std::endl;
 
     if (blocking_) {
         eventMeasurementsReceived_.PushBlockingIfFull(event_measurement, 1);
@@ -147,91 +152,40 @@ void ThreadedEventIMU::imuConsumerLoop() {
 
 // Loop to process event measurements.
 void ThreadedEventIMU::eventConsumerLoop() {
-    std::cout.setf(std::ios::left);
-    std::cout.fill(' ');
-    std::cerr<< std::setw(31) << "e";
-    LOG(INFO) << "I am event consumer loop";
+    LOG(INFO) << "Event consumer loop joined";
 
-    ev::EventMeasurement data;
-    // ??
-    TimerSwitchable processEventTimer("0 processEventMeasurements",true);
-    std::deque<std::shared_ptr<eventFrameMeasurement>> eventFrames;
-    std::default_random_engine gen;
-    std::uniform_real_distribution<double> dis(-0.02, 0.02);
-    double w[] = {0, 0, 0};
-    double v[] = {0, M_PI/2};
-//    double p[] = {0, M_PI}; // normal (0, 0, -1)
-    double p[3*parameters_.patch_num] = {};
-    for (int i = 0; i < 3*parameters_.patch_num; i+=3) {
-                        p[i] = 0;
-    }
-    for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
-                        p[i] = M_PI/2;
-    }
-    for (int i = 2; i < 3*parameters_.patch_num; i+=3) {
-                        p[i] = 1.;
-    }
-    double p_[3*parameters_.patch_num] = {};
-    for (int i = 0; i < 3*parameters_.patch_num; i+=3) {
-                        p_[i] = 0;
-    }
-
-    for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
-                        p_[i] = M_PI/2;
-    }
-    for (int i = 2; i < 3*parameters_.patch_num; i+=3) {
-                        p_[i] = 1.;
-    }
-
-    while (!allGroundtruthAdded_) {LOG(INFO) << "LOADING GROUNDTRUTH";}
+    while (!allGroundtruthAdded_) {system("sleep 1");}
 
     count = 0;
 
-    // helper function, divide scene into patches
+    std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
+
+    Eigen::Quaterniond R0 = maconMeasurements_.front().measurement.q.inverse();
+    Eigen::Vector3d t0 = maconMeasurements_.front().measurement.p;
 
     for (;;) {
+
         // get data and check for termination request
-        if (eventMeasurementsReceived_.PopBlocking(&data) == false) {
+        ev::EventMeasurement* data = new ev::EventMeasurement();
+        if (eventMeasurementsReceived_.PopBlocking(data) == false) {
             std::lock_guard<std::mutex> lock(eventMeasurements_mutex_);
             LOG(INFO) << "size " << eventMeasurementsReceived_.Size();
             return;
         }
 
-
         {
-
             std::lock_guard<std::mutex> lock(eventMeasurements_mutex_);
+            mCurrentFrame = mpTracker->getCurrentFrame();
+            mCurrentFrame->vEvents.insert(data);
 
-            if (counter_s_ == 0) {
-                eventFrames.push_back(std::make_shared<eventFrameMeasurement>());
-            }
+            if (mCurrentFrame->events() == parameters_.window_size) {
+                double time = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp.toSec();
+                LOG(INFO) << "time stamp: "<< time;
 
-            for (auto it = eventFrames.begin(); it != eventFrames.end(); it++) {
-                (*it)->events.push_back(data);
-                (*it)->counter_w++;
-            }
 
-            auto em = eventFrames.front();
-
-            if (em->counter_w == parameters_.window_size) {
-
-                undistortEvents(em);
-
-                ev::ComputeVarianceFunction varianceVisualizer(em, parameters_);
-
-                Eigen::MatrixXd zero_motion;
-
-                Eigen::Vector3d zero_vec3 = Eigen::Vector3d::Zero();
-                Eigen::Vector3d vertical;
-                vertical << 0, 0, -1;
-//                varianceVisualizer.Intensity(zero_motion, NULL, zero_vec3, zero_vec3, vertical);
-//                double cost = contrastCost(zero_motion);
-
-                // ground truth
-                okvis::Time begin = em->events.front().timeStamp;
-                okvis::Time end = em->events.back().timeStamp;
-
-                // ???
+                // feed in groundtruth
+                okvis::Time begin =(*(mCurrentFrame->vEvents.begin()))->timeStamp;
+                okvis::Time end = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
 
                 ev::Pose p1, p2;
                 // of camera
@@ -246,184 +200,48 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     angular_velocity = Eigen::Quaterniond(1, 0, 0, 0);
                 }
                 Eigen::AngleAxisd angleAxis = Eigen::AngleAxisd(angular_velocity);
-                Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle()  / (end.toSec() - begin.toSec());
+                Eigen::Vector3d angularVelocity = angleAxis.axis() * angleAxis.angle() / (end.toSec() - begin.toSec());
 
-                std::stringstream ss;
-                ss << "\nground truth:\n\n"
-                   << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
-                   << std::setw(15) << angularVelocity(0)  << std::setw(15) << linear_velocity(0) << '\n'
-                   << std::setw(15) << angularVelocity(1)  << std::setw(15) << linear_velocity(1) << '\n'
-                   << std::setw(15) << angularVelocity(2)  << std::setw(15) << linear_velocity(2) << '\n';
+                Eigen::Matrix3d R_ = (R0 * p1.q).toRotationMatrix();
+                cv::Mat R = Converter::toCvMat(R_);
+                cv::Mat R_w = rotm2axang(R);
 
-                LOG(INFO) << ss.str();
+                Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
 
-//                w[0] = angularVelocity(0) + dis(gen);
-//                w[1] = angularVelocity(1) + dis(gen);
-//                w[2] = angularVelocity(2) + dis(gen);
+                mpTracker->Track(R, Converter::toCvMat(t), Converter::toCvMat(angularVelocity), Converter::toCvMat(linear_velocity));
+//mpTracker->Track();
 
-//                v[0] = linear_velocity(0) + dis(gen);
-//                v[1] = linear_velocity(1) + dis(gen);
-//                v[2] = linear_velocity(2) + dis(gen);
+                auto pMP = mpMap->getAllMapPoints().front();
+                imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
+                cv::Mat blurred_map;
+                cv::GaussianBlur(pMP->mFront, blurred_map, cv::Size(0, 0), 1, 0);
+                imshowRescaled(blurred_map, 1, "map");
 
-//                                w[0] = angularVelocity(0);
-//                                w[1] = angularVelocity(1);
-//                                w[2] = angularVelocity(2);
+                LOG(INFO) << "keyframes " << mpMap->getAllKeyFrames().size();
+                LOG(INFO) << "frames " << ++count;
+                LOG(INFO) << "normal " << pMP->getNormal();
 
-//                                v[0] = linear_velocity(0);
-//                                v[1] = linear_velocity(1);
-//                                v[2] = linear_velocity(2);
+                if (false) {
 
-                Eigen::MatrixXd ground_truth;
-                std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
-//#if !optimize
-#if 0
-                std::ofstream  myfile(files_path + "z.txt", std::ios_base::app);
-                if (myfile.is_open() && linear_velocity(0) > 0.3) {
-                    for (double i=-10.; i<10.;i++){
-                        groundtruth_depth[2] = i/10+0.01;
-                        groundtruth_depth[5] = i/10+0.01;
-                        groundtruth_depth[8] = i/10+0.01;
-                        groundtruth_depth[11] = i/10+0.01;
-                        varianceVisualizer.Intensity(ground_truth, NULL, angularVelocity, linear_velocity, &groundtruth_depth);
+                    std::ofstream  myfile_pr(files_path + "groundtruth_pose_rotation.txt", std::ios_base::app);
+                    if (myfile_pr.is_open()) {
+                        myfile_pr << begin.toSec() << " "
+                               << R_w.at<double>(0) << " "
+                               << R_w.at<double>(1) << " "
+                               << R_w.at<double>(2) << "\n";
+                        myfile_pr.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
-                        double cost_zero = contrastCost(ground_truth);
-                        ev::imshowRescaled(ground_truth, 10, files_path+std::to_string(cost_zero), groundtruth_depth);
-                    }
-
-                    LOG(INFO) << "sleep";
-                    system("sleep 10");
-                    myfile.close();
-                }
-
-#else
-
-                Eigen::Vector3d l = linear_velocity/0.231;
-                varianceVisualizer.Intensity(ground_truth, NULL, zero_vec3, zero_vec3, p_);
-                double cost = contrastCost(ground_truth);
-//                std::string caption =  "cost = " + std::to_string(cost);
-                LOG(INFO)<<"cost = " << cost;
-                ev::imshowRescaled(ground_truth, 10, files_path + "zero_motion", NULL);
-
-                processEventTimer.start();
-
-                ev::ComputeVarianceFunction param(em, parameters_);
-
-                const gsl_multimin_fminimizer_type *T =
-                  gsl_multimin_fminimizer_nmsimplex2;
-                gsl_multimin_fminimizer *s = NULL;
-                gsl_vector *step_size, *x;
-                gsl_multimin_function minex_func;
-
-                size_t iter = 0;
-                int status;
-                double size;
-
-                /* Starting point */
-                x = gsl_vector_alloc(41);
-
-                for (int i = 0; i < 3; i ++)
-                    gsl_vector_set(x, i, w[i]);
-
-                for (int i = 0; i < 2; i ++)
-                    gsl_vector_set(x, i+3, v[i]);
-
-                for (int i = 0; i < 36; i ++)
-                    gsl_vector_set(x, i+5, p[i]);
-
-                /* Set initial step sizes to 1 */
-                step_size = gsl_vector_alloc(41);
-                gsl_vector_set_all(step_size, 1);
-
-                /* Initialize method and iterate */
-                minex_func.n = 41;
-                minex_func.f = variance;
-                minex_func.params = &param;
-
-                s = gsl_multimin_fminimizer_alloc(T, 41);
-                gsl_multimin_fminimizer_set(s, &minex_func, x, step_size);
-
-                do
-                {
-                    iter++;
-                    status = gsl_multimin_fminimizer_iterate(s);
-
-                    if (status)
-                        break;
-
-                    size = gsl_multimin_fminimizer_size(s);
-                    status = gsl_multimin_test_size(size, 1e-2);
-
-//                    if (status == GSL_SUCCESS)
-//                    {
-//                        printf ("converged to minimum at\n");
-//                    }
-
-//                    LOG(INFO) << size;
-
-                }
-                while (status == GSL_CONTINUE && iter < 100);
-
-                for (int i = 0; i < 3; i++) {
-                    w[i] = gsl_vector_get(s->x, i);
-
-                }
-                for (int i = 0; i < 2; i++) {
-                    v[i] = gsl_vector_get(s->x, i+3);
-                }
-                for (int i = 0; i < 3*parameters_.patch_num; i+=3) {
-                    p[i] = gsl_vector_get(s->x, i+5);
-                }
-                for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
-                    p[i] = gsl_vector_get(s->x, i+5);
-                }
-
-
-                gsl_vector_free(x);
-                gsl_vector_free(step_size);
-                gsl_multimin_fminimizer_free (s);
-
-
-#if !show_optimizing_process
-
-                ev::imshowRescaled(param.intensity,
-                                   1, files_path + "optimized", NULL);
-
-                count++;
-
-
-
-#endif
-
-                processEventTimer.stop();
-
-                LOG(INFO) << okvis::timing::Timing::print();
-
-                ss.str(std::string());
-                ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
-                   << std::setw(15) << w[0] << std::setw(15) << std::cos(v[0]) * std::sin(v[1]) << '\n'
-                   << std::setw(15) << w[1] << std::setw(15) << std::sin(v[0]) * std::sin(v[1]) << '\n'
-                   << std::setw(15) << w[2] << std::setw(15) << std::cos(v[1]) << '\n';
-
-                LOG(INFO) << ss.str();
-//                LOG(INFO) << "normal " << std::cos(p[0]) * std::sin(p[1]) << ' ' << std::sin(p[0]) * std::sin(p[1]) << ' ' << std::cos(p[1]);
-                LOG(INFO)<<"cost = " << contrastCost(param.intensity);
-                Eigen::Vector3d rotation_(w[0], w[1], w[2]);
-                Eigen::AngleAxisd angleAxis_;
-                rotation_ *= ((end.toSec() - begin.toSec()));
-                if (rotation_.norm() == 0) {
-                    angleAxis_ = Eigen::AngleAxisd(0, (Eigen::Vector3d() << 0, 0, 1).finished());
-                } else {
-                    angleAxis_ = Eigen::AngleAxisd(rotation_.norm(), rotation_.normalized());
-                }
-                Eigen::AngleAxisd difference = Eigen::AngleAxisd(angleAxis_ * angleAxis.inverse());
-                double error = difference.angle() / (end.toSec() - begin.toSec());
-
-                LOG(ERROR) << "error: " << error << " rad/s";
-
-                if (parameters_.write_to_file) {
-
-                    std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
-
+                    std::ofstream  myfile_pt(files_path + "groundtruth_pose_translation.txt", std::ios_base::app);
+                    if (myfile_pt.is_open()) {
+                        myfile_pt << begin.toSec() << " "
+                               << t(0) << " "
+                               << t(1) << " "
+                               << t(2) << "\n";
+                        myfile_pt.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
                     std::ofstream  myfile(files_path + "groundtruth_rotation.txt", std::ios_base::app);
                     if (myfile.is_open()) {
@@ -435,15 +253,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     } else
                         std::cout << "怎么肥四"<<std::endl;
 
-                    std::ofstream  myfile_(files_path + "estimated_rotation.txt", std::ios_base::app);
-                    if (myfile_.is_open()) {
-                        myfile_ << begin.toSec() << " "
-                                << w[0] << " "
-                                << w[1] << " "
-                                << w[2] << "\n";
-                        myfile_.close();
-                    } else
-                        std::cout << "怎么肥四"<<std::endl;
+                    std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
                     std::ofstream  myfilet(files_path + "groundtruth_translation.txt", std::ios_base::app);
                     if (myfilet.is_open()) {
@@ -455,29 +265,54 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     } else
                         std::cout << "怎么肥四"<<std::endl;
 
+                    std::ofstream  myfile_(files_path + "estimated_rotation.txt", std::ios_base::app);
+                    if (myfile_.is_open()) {
+                        myfile_ << begin.toSec() << " "
+                                << (mpTracker->w).at<double>(0) << " "
+                                << (mpTracker->w).at<double>(1) << " "
+                                << (mpTracker->w).at<double>(2) << "\n";
+                        myfile_.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
                     std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
                     if (myfile_t.is_open()) {
                         myfile_t<< begin.toSec() << " "
-                                << std::cos(v[0]) * std::sin(v[1]) << " "
-                                << std::sin(v[0]) * std::sin(v[1]) << " "
-                                << std::cos(v[1]) << " ";
+                                << (mpTracker->v).at<double>(0) << " "
+                                << (mpTracker->v).at<double>(1) << " "
+                                << (mpTracker->v).at<double>(2) << " ";
                         myfile_t << '\n';
                         myfile_t.close();
                     } else
                         std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile_r(files_path + "estimated_pose_rotation.txt", std::ios_base::app);
+                    if (myfile_r.is_open()) {
+                        myfile_r << begin.toSec() << " "
+                                << (mpTracker->r).at<double>(0) << " "
+                                << (mpTracker->r).at<double>(1) << " "
+                                << (mpTracker->r).at<double>(2) << "\n";
+                        myfile_r.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile_tt(files_path + "estimated_pose_translation.txt", std::ios_base::app);
+                    if (myfile_tt.is_open()) {
+                        myfile_tt<< begin.toSec() << " "
+                                << (mpTracker->t).at<double>(0) << " "
+                                << (mpTracker->t).at<double>(1) << " "
+                                << (mpTracker->t).at<double>(2) << " ";
+                        myfile_tt << '\n';
+                        myfile_tt.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
                 }
-#endif         
-                eventFrames.pop_front();
             }
-            counter_s_ = (counter_s_ + 1) % parameters_.step_size;
-
         }
-        // LOG(INFO) << okvis::timing::Timing::print();
-
     }
 }
 
-// Set the blocking variable that indicates whether the addMeasurement() functions
+        // Set the blocking variable that indicates whether the addMeasurement() functions
 // should return immediately (blocking=false), or only when the processing is complete.
 void ThreadedEventIMU::setBlocking(bool blocking) {
     blocking_ = blocking;
@@ -493,8 +328,10 @@ void ThreadedEventIMU::setBlocking(bool blocking) {
 void ThreadedEventIMU::startThreads() {
     imuConsumerThread_ = std::thread(&ThreadedEventIMU::imuConsumerLoop, this);
     eventConsumerThread_ = std::thread(&ThreadedEventIMU::eventConsumerLoop, this);
+    drawThread_ = std::thread(&MapDrawer::drawMapPoints, mpMapDrawer);
 }
 
+// to be deleted !!
 bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& em) {
 
     std::vector<cv::Point2d> inputDistortedPoints;
@@ -504,7 +341,7 @@ bool ThreadedEventIMU::undistortEvents(std::shared_ptr<eventFrameMeasurement>& e
         inputDistortedPoints.push_back(point);
     }
     cv::undistortPoints(inputDistortedPoints, outputUndistortedPoints,
-                        parameters_.cameraMatrix, parameters_.distCoeffs);
+                        parameters_.K, parameters_.distCoeffs);
     auto it = em->events.begin();
     auto p_it = outputUndistortedPoints.begin();
     for (; it != em->events.end(); it++, p_it++) {
