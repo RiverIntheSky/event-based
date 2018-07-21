@@ -36,8 +36,6 @@ double Optimizer::optimize(Frame* frame) {
             }
         }
 
-//        LOG(INFO) << pixels.size();
-
         std::set<pixel, pixel_value> points;
         auto it = pixels.begin();
 
@@ -53,7 +51,6 @@ double Optimizer::optimize(Frame* frame) {
             }
             if (pit == points.end()) {
                 points.insert(*it);
-//                LOG(INFO) << it->p;
             }
             it++;
         } while (points.size() < 15 && it != pixels.end() && it->p > 100);
@@ -69,9 +66,7 @@ double Optimizer::optimize(Frame* frame) {
         frame->mpMap->isDirty = true;
         LOG(INFO) << "true";
         while (frame->mpMap->isDirty) {std::this_thread::yield();}
-                LOG(INFO) << "false";
-        system("sleep 100");
-        cv::imshow("img", frame->mpMap->drawer->framePartition);
+//        cv::imshow("img", frame->mpMap->drawer->framePartition);
         cv::waitKey();
     }
 }

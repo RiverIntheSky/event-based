@@ -16,6 +16,10 @@ void MapDrawer::drawMapPoints() {
         0, 1, 3,
         1, 2, 3
     };
+    typedef struct {
+        float x, y, p, t;
+    } event;
+
     GLFWwindow* window;
     if (!glfwInit())
         exit(EXIT_FAILURE);
@@ -36,48 +40,66 @@ void MapDrawer::drawMapPoints() {
 
     glClearColor(0.f, 0.f, 0.f, 1.0f);
 
-    GLuint VAO, VBO, EBO, vertexShader, fragmentShader, shaderProgram;
+    // patch
+    GLuint patchVAO, patchVBO, patchEBO, patchVS, patchFS, patchShader;
     GLint apos_location, model_location, view_location, projection_location;
 
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
+    glGenVertexArrays(1, &patchVAO);
+    glBindVertexArray(patchVAO);
 
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glGenBuffers(1, &patchVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, patchVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glGenBuffers(1, &patchEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, patchEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     std::string file_path(__FILE__);
     file_path = file_path.substr(0, file_path.find_last_of("/\\"));
     file_path = file_path.substr(0, file_path.find_last_of("/\\"));
     file_path += "/shaders/";
-    std::string vsh_path = file_path + "shader.vsh",
-                fsh_path = file_path + "shader.fsh";
-    const char* vertexShaderFile = vsh_path.c_str();
-    const char* fragmentShaderFile = fsh_path.c_str();
-    vertexShader = createShader(GL_VERTEX_SHADER, vertexShaderFile);
-    fragmentShader = createShader(GL_FRAGMENT_SHADER, fragmentShaderFile);
+    std::string patch_vsh_path = file_path + "patch.vsh",
+                patch_fsh_path = file_path + "patch.fsh";
+    const char* patchVSFile = patch_vsh_path.c_str();
+    const char* patchFSFile = patch_fsh_path.c_str();
+    patchVS = createShader(GL_VERTEX_SHADER, patchVSFile);
+    patchFS = createShader(GL_FRAGMENT_SHADER, patchFSFile);
 
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
+    patchShader = glCreateProgram();
+    glAttachShader(patchShader, patchVS);
+    glAttachShader(patchShader, patchFS);
 
-    glLinkProgram(shaderProgram);
-    glUseProgram(shaderProgram);
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    glLinkProgram(patchShader);
+    glUseProgram(patchShader);
+    glDeleteShader(patchVS);
+    glDeleteShader(patchFS);
 
-    apos_location = glGetAttribLocation(shaderProgram, "aPos");
+    apos_location = glGetAttribLocation(patchShader, "aPos");
     glEnableVertexAttribArray(apos_location);
     glVertexAttribPointer(apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
 
-    glEnable(GL_DEPTH_TEST);
-    // draw plane only when facing camera??
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    // patch framebuffer
+    GLuint patchFramebuffer;
+    glGenFramebuffers(1, &patchFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
+    GLuint patchOcclusion;
+    glGenTextures(1, &patchOcclusion);
+    glBindTexture(GL_TEXTURE_2D, patchOcclusion);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE); // automatic mipmap
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, param->width, param->height, 0,
+                 GL_RGBA, GL_FLOAT, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                           GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D,
+                           patchOcclusion,
+                           0);
 
     glm::vec3 color;
     glm::mat4 projection;
@@ -94,19 +116,68 @@ void MapDrawer::drawMapPoints() {
     projection[3][2] = 2.f * param->zfar * param->znear / (param->znear - param->zfar);
     projection[3][3] = 0.f;
 
-    model_location = glGetUniformLocation(shaderProgram, "model");
-    view_location = glGetUniformLocation(shaderProgram, "view");
-    projection_location = glGetUniformLocation(shaderProgram, "projection");
+    model_location = glGetUniformLocation(patchShader, "model");
+    view_location = glGetUniformLocation(patchShader, "view");
+    projection_location = glGetUniformLocation(patchShader, "projection");
     glUniformMatrix4fv(projection_location, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // events
+    GLuint eventVAO, eventVBO, eventVS, eventFS, eventShader;
+    GLint event_apos_location, w_location, v_location, camera_matrix_location,
+          near_plane_location, occlusion_map_location;
+
+    glGenVertexArrays(1, &eventVAO);
+    glBindVertexArray(eventVAO);
+
+    glGenBuffers(1, &eventVBO);
+//    glBindBuffer(GL_ARRAY_BUFFER, patchVBO);
+//    glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+
+    std::string event_vsh_path = file_path + "event.vsh",
+                event_fsh_path = file_path + "event.fsh";
+    const char* eventVSFile = event_vsh_path.c_str();
+    const char* eventFSFile = event_fsh_path.c_str();
+    eventVS = createShader(GL_VERTEX_SHADER, eventVSFile);
+    eventFS = createShader(GL_FRAGMENT_SHADER, eventFSFile);
+
+    eventShader = glCreateProgram();
+    glAttachShader(eventShader, eventVS);
+    glAttachShader(eventShader, eventFS);
+
+    glLinkProgram(eventShader);
+    glUseProgram(eventShader);
+    glDeleteShader(eventVS);
+    glDeleteShader(eventFS);
+
+    event_apos_location = glGetAttribLocation(eventShader, "aPos");
+    glEnableVertexAttribArray(event_apos_location);
+
+    w_location = glGetUniformLocation(eventShader, "w");
+    v_location = glGetUniformLocation(eventShader, "v");
+    camera_matrix_location = glGetUniformLocation(eventShader, "cameraMatrix");
+    glm::mat3 K;
+    K[0][0] = param->fx;
+    K[1][1] = param->fy;
+    K[2][0] = param->cx;
+    K[2][1] = param->cy;
+    glUniformMatrix3fv(camera_matrix_location, 1, GL_FALSE, glm::value_ptr(K));
+    near_plane_location = glGetUniformLocation(eventShader, "nearPlane");
+    glUniform1f(near_plane_location, param->znear);
+    occlusion_map_location = glGetUniformLocation(eventShader, "patchTexture");
+
+    glEnable(GL_DEPTH_TEST);
+    // draw plane only when facing camera??
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
 
     LOG(INFO) << "drawwwwwwwwwwwwwwwwwwwww";
 
     while(!glfwWindowShouldClose(window)) {
         if (map->isDirty) {
-                LOG(INFO) << "dirty";
+            LOG(INFO) << "dirty";
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            glUseProgram(shaderProgram);
+            glUseProgram(patchShader);
 
             // camera view matrix
             auto frame = tracking->getCurrentFrame();
@@ -124,12 +195,14 @@ void MapDrawer::drawMapPoints() {
             glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
 
             for (auto mpPoint: map->mspMapPoints) {
-                cv::Mat nw = mpPoint->getNormal();
 
                 // color stores normal and distance information of the plane
-                // -1 < x, y < 1, -zfar < d < zfar ??
-                color = glm::vec3((nw.at<double>(0)+1)/2, (nw.at<double>(1)+1)/2, (mpPoint->d/param->zfar+1)/2);
-                glUniform3fv(glGetUniformLocation(shaderProgram, "aColor"), 1, glm::value_ptr(color));
+                // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
+                cv::Mat nw = mpPoint->getNormal();
+                cv::Mat nc = frame->getRotation().t() * nw;
+                float inverse_Depth = 1.f/(1.f/mpPoint->d + frame->getTranslation().dot(nw));
+                color = glm::vec3((nc.at<double>(0)+1)/2, (-nc.at<double>(1)+1)/2, (inverse_Depth*param->znear+1)/2);
+                glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
 
                 // model matrix of the plane
                 cv::Mat pos = mpPoint->getWorldPos();
@@ -139,9 +212,48 @@ void MapDrawer::drawMapPoints() {
                 model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
                 glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
 
-                glBindVertexArray(VAO);
+                glBindVertexArray(patchVAO);
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             }
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, patchOcclusion);
+            glActiveTexture(GL_TEXTURE0);
+            glUseProgram(eventShader);
+            glUniform1i(occlusion_map_location, 1);
+            glm::vec3 w = Converter::toGlmVec3(frame->getAngularVelocity());
+            glUniform3fv(w_location, 1, glm::value_ptr(w));
+            glm::vec3 v = Converter::toGlmVec3(frame->getLinearVelocity());
+            glUniform3fv(v_location, 1, glm::value_ptr(v));
+
+            std::vector<event> events;
+            events.reserve(param->window_size);
+            auto t0 = frame->mTimeStamp;
+            for (auto e: frame->vEvents) {
+                event e_;
+                e_.x = float(e->measurement.x);
+                e_.y = float(e->measurement.y);
+                LOG(INFO) << e_.x;
+                LOG(INFO) << e_.y;
+                e_.p = float(e->measurement.p);
+                e_.t = float((e->timeStamp - t0).toSec());
+                events.push_back(e_);
+            }
+
+            glBindVertexArray(eventVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, eventVBO);
+            glBufferData(GL_ARRAY_BUFFER, events.size() * sizeof(event), &events[0], GL_STATIC_DRAW);
+            glVertexAttribPointer(event_apos_location, 4, GL_FLOAT, GL_FALSE, sizeof(event), (void*)&events[0]);
+//    glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE, GL_ONE);
+            glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glDrawArrays(GL_POINTS, 0, 4);
+
+            glDisable(GL_BLEND);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
@@ -152,14 +264,15 @@ void MapDrawer::drawMapPoints() {
             glReadPixels(0, 0, param->width, param->height, GL_RGB, GL_FLOAT, &data[0]);
             for (int j = param->height-1; j >= 0; j--) {
                 for (int i = 0; i < param->width; i++) {
+//                    LOG(INFO) << data[3*(i+param->width*j)];
                     framePartition.at<float>(j, i, 0) = data[3*(i+param->width*j)] * 2 - 1; // x
                     framePartition.at<float>(j, i, 1) = data[3*(i+param->width*j)+1] * 2 - 1; // y
                     framePartition.at<float>(j, i, 2) = (data[3*(i+param->width*j)+2] * 2 - 1) * param->zfar; // d
                 }
             }
-            map->isDirty = false;
+//            map->isDirty = false;
         }
-        std::this_thread::yield();
+//        std::this_thread::yield();
     }
     glfwTerminate();
 }

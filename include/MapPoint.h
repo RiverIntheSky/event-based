@@ -60,7 +60,7 @@ public:
     // a point on the plane, could be center of the patch
     cv::Mat mWorldPos;
 
-    // distance to the origin
+    // inverse depth to the origin
     double d;
 
     mutex mMutexPos;

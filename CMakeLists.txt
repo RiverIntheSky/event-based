@@ -78,25 +78,8 @@ add_subdirectory(libs/glfw ${CMAKE_BINARY_DIR}/libs/glfw)
 
 add_subdirectory(libs/glad ${CMAKE_BINARY_DIR}/libs/glad)
 
-# only for editting, delete all non-executables afterwards
-add_library(${PROJECT_NAME} SHARED
-${PROJECT_SOURCE_DIR}/event.cpp
-${PROJECT_SOURCE_DIR}/ThreadedEventIMU.cpp
-${PROJECT_SOURCE_DIR}/Frontend.cpp
-include/util/utils.cpp
-include/KeyFrame.cc
-include/Map.cc
-include/MapPoint.cc
-include/Tracking.cc
-include/Frame.cc
-include/Converter.cc
-include/Optimizer.cc
-include/MapDrawer.h
-include/MapDrawer.cc
-shaders/shader.vsh
-shaders/shader.fsh
-include/Shader.h
-include/Shader.cc)
+file(GLOB_RECURSE LIBS "*.cc" "*.h" "*.*sh")
+add_library(${PROJECT_NAME} SHARED ${LIBS})
 
 target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/libs)
