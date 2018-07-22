@@ -6,6 +6,12 @@ void MapDrawer::drawMapPoints() {
     // fixed size
     int size[] = {param->height, param->width, 3};
     framePartition = cv::Mat(3, size, CV_32F);
+    GLfloat quad[] = {
+            -1.f,  1.f,
+             1.f,  1.f,
+             1.f, -1.f,
+            -1.f, -1.f
+    };
     GLfloat points[] = {
             -0.1f,  0.1f,
              0.1f,  0.1f,
@@ -86,14 +92,8 @@ void MapDrawer::drawMapPoints() {
     GLuint patchOcclusion;
     glGenTextures(1, &patchOcclusion);
     glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE); // automatic mipmap
     glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB8, param->width, param->height, 0,
                  GL_RGB, GL_UNSIGNED_BYTE, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER,
                            GL_COLOR_ATTACHMENT0,
@@ -167,14 +167,89 @@ void MapDrawer::drawMapPoints() {
     glUniform1f(near_plane_location, param->znear);
 
     occlusion_map_location = glGetUniformLocation(eventShader, "patchTexture");
+    glUniform1i(occlusion_map_location, 0);
 
     event_projection_location = glGetUniformLocation(eventShader, "projection");
     glUniformMatrix4fv(event_projection_location, 1, GL_FALSE, glm::value_ptr(projection));
 
+    // full screen quad
+    GLuint quadVAO, quadVBO, quadEBO;
+
+    glGenVertexArrays(1, &quadVAO);
+    glBindVertexArray(quadVAO);
+
+    glGenBuffers(1, &quadVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &quadEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // compute cost function
+    GLuint warpFramebuffer;
+    glGenFramebuffers(1, &warpFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
+    GLuint warppedImage;
+    glGenTextures(1, &warppedImage);
+    glBindTexture(GL_TEXTURE_RECTANGLE, warppedImage);
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB8, param->width, param->height, 0,
+                 GL_RGB, GL_UNSIGNED_BYTE, 0);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                           GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_RECTANGLE,
+                           warppedImage,
+                           0);
 
     // draw plane only when facing camera??
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+//    glEnable(GL_CULL_FACE);
+//    glCullFace(GL_BACK);
+
+    // gaussian blur
+    GLuint blurFramebuffer;
+    glGenFramebuffers(1, &blurFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
+    GLuint blurredImage;
+    glGenTextures(1, &blurredImage);
+    glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB8, param->width, param->height, 0,
+                 GL_RGB, GL_UNSIGNED_BYTE, 0);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                           GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_RECTANGLE,
+                           blurredImage,
+                           0);
+
+    GLuint blurVS, blurFS, blurShader;
+    GLint blur_apos_location, atex_location, dir_location;
+    std::string blur_vsh_path = file_path + "gaussian_blur.vsh",
+                blur_fsh_path = file_path + "gaussian_blur.fsh";
+    const char* blurVSFile = blur_vsh_path.c_str();
+    const char* blurFSFile = blur_fsh_path.c_str();
+    blurVS = createShader(GL_VERTEX_SHADER, blurVSFile);
+    blurFS = createShader(GL_FRAGMENT_SHADER, blurFSFile);
+
+    blurShader = glCreateProgram();
+    glAttachShader(blurShader, blurVS);
+    glAttachShader(blurShader, blurFS);
+
+    glLinkProgram(blurShader);
+    glUseProgram(blurShader);
+    glDeleteShader(blurVS);
+    glDeleteShader(blurFS);
+
+    atex_location = glGetUniformLocation(blurShader, "tex");
+    glUniform1i(atex_location, 0);
+    dir_location = glGetUniformLocation(blurShader, "dir");
+    blur_apos_location = glGetAttribLocation(blurShader, "aPos");
+    glEnableVertexAttribArray(blur_apos_location);
+    glVertexAttribPointer(blur_apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
+
+    // draw plane only when facing camera??
+//    glEnable(GL_CULL_FACE);
+//    glCullFace(GL_BACK);
 
     LOG(INFO) << "drawwwwwwwwwwwwwwwwwwwww";
 
@@ -201,6 +276,9 @@ void MapDrawer::drawMapPoints() {
             glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
             glEnable(GL_DEPTH_TEST);
 
+            glBindVertexArray(patchVAO);
+            glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
+
             for (auto mpPoint: map->mspMapPoints) {
 
                 // color stores normal and distance information of the plane
@@ -218,13 +296,9 @@ void MapDrawer::drawMapPoints() {
                 glm::vec3 n_ = Converter::toGlmVec3(nw);
                 model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
                 glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
-
-                glBindVertexArray(patchVAO);
-
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             }
 
-            auto t1 = std::chrono::high_resolution_clock::now();
             std::vector<event> events;
             events.reserve(param->window_size);
             auto t0 = frame->mTimeStamp;
@@ -236,33 +310,21 @@ void MapDrawer::drawMapPoints() {
                 e_.t = float((e->timeStamp - t0).toSec());
                 events.push_back(e_);
             }
-            auto t2 = std::chrono::high_resolution_clock::now();
-            double s = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-            LOG(INFO) << "iterate through events "<< s << "msec";
 
-            t1 = std::chrono::high_resolution_clock::now();
             glBindVertexArray(eventVAO);
             glBindBuffer(GL_ARRAY_BUFFER, eventVBO);
             glBufferSubData(GL_ARRAY_BUFFER, 0, events.size() * sizeof(event), &events[0]);
-            t2 = std::chrono::high_resolution_clock::now();
-            s = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-            LOG(INFO) << "upload events to gpu "<< s << "msec";
 
-            t1 = std::chrono::high_resolution_clock::now();
-            glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-//            glfwSwapBuffers(window);
-//            glActiveTexture(GL_TEXTURE0);
             glUseProgram(eventShader);
-            glUniform1i(occlusion_map_location, 0);
+
             glm::vec3 w = Converter::toGlmVec3(frame->getAngularVelocity());
             glUniform3fv(w_location, 1, glm::value_ptr(w));
             glm::vec3 v = Converter::toGlmVec3(frame->getLinearVelocity());
             glUniform3fv(v_location, 1, glm::value_ptr(v));
 
-
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+            glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
+//                        glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glEnable(GL_BLEND);
             glBlendFunc(GL_ONE, GL_ONE);
             glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
@@ -272,32 +334,53 @@ void MapDrawer::drawMapPoints() {
             glDisable(GL_DEPTH_TEST);
 
             glDrawArrays(GL_POINTS, 0, events.size());
-            t2 = std::chrono::high_resolution_clock::now();
-            s = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / 1e6;
-
 
             glDisable(GL_BLEND);
 
-//            glfwSwapBuffers(window);
+            glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
+            glBindTexture(GL_TEXTURE_RECTANGLE, warppedImage);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glUseProgram(blurShader);
+            glm::vec2 dir(0, 1); // blur_y
+            glUniform2fv(dir_location, 1, glm::value_ptr(dir));
+
+            glBindVertexArray(quadVAO);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+            std::swap(blurFramebuffer, warpFramebuffer);
+            std::swap(warppedImage, blurredImage);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glBindTexture(GL_TEXTURE_RECTANGLE, warppedImage);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glUseProgram(blurShader);
+            dir = glm::vec2(1, 0); // blur_x
+            glUniform2fv(dir_location, 1, glm::value_ptr(dir));
+
+            glBindVertexArray(quadVAO);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+//            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+
+            glfwSwapBuffers(window);
             glfwPollEvents();
-            LOG(INFO) << "draw "<< s << "msec";
             // we could also read GL_DEPTH_COMPONENT here, but we don't,
             // since the depth value might change after the warp, but distance to the plane won't
-
-            t1 = std::chrono::high_resolution_clock::now();
+//glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
+//            glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
             std::vector<GLfloat> data(param->width * param->height * 3);
             glReadPixels(0, 0, param->width, param->height, GL_RGB, GL_FLOAT, &data[0]);
             for (int j = param->height-1; j >= 0; j--) {
                 for (int i = 0; i < param->width; i++) {
 //                    LOG(INFO) << data[3*(i+param->width*j)];
+//                    LOG(INFO) << data[3*(i+param->width*j)+1];
+//                    LOG(INFO) << data[3*(i+param->width*j)+2];
                     framePartition.at<float>(j, i, 0) = data[3*(i+param->width*j)] * 2 - 1; // x
                     framePartition.at<float>(j, i, 1) = data[3*(i+param->width*j)+1] * 2 - 1; // y
                     framePartition.at<float>(j, i, 2) = (data[3*(i+param->width*j)+2] * 2 - 1) * param->zfar; // d
                 }
             }
-            t2 = std::chrono::high_resolution_clock::now();
-            s = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / 1e6;
-            LOG(INFO) << "glReadPixels "<< s << "msec";
 //            map->isDirty = false;
         }
 //        std::this_thread::yield();
