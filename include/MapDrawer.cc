@@ -1,5 +1,5 @@
 #include "MapDrawer.h"
-
+#include <chrono>
 namespace ev {
 typedef void (*framebuffer_size_callback)(void);
 void MapDrawer::drawMapPoints() {
@@ -224,17 +224,7 @@ void MapDrawer::drawMapPoints() {
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             }
 
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-//                        glfwSwapBuffers(window);
-//            glActiveTexture(GL_TEXTURE0);
-            glUseProgram(eventShader);
-            glUniform1i(occlusion_map_location, 0);
-            glm::vec3 w = Converter::toGlmVec3(frame->getAngularVelocity());
-            glUniform3fv(w_location, 1, glm::value_ptr(w));
-            glm::vec3 v = Converter::toGlmVec3(frame->getLinearVelocity());
-            glUniform3fv(v_location, 1, glm::value_ptr(v));
-
+            auto t1 = std::chrono::high_resolution_clock::now();
             std::vector<event> events;
             events.reserve(param->window_size);
             auto t0 = frame->mTimeStamp;
@@ -246,10 +236,31 @@ void MapDrawer::drawMapPoints() {
                 e_.t = float((e->timeStamp - t0).toSec());
                 events.push_back(e_);
             }
+            auto t2 = std::chrono::high_resolution_clock::now();
+            double s = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+            LOG(INFO) << "iterate through events "<< s << "msec";
 
+            t1 = std::chrono::high_resolution_clock::now();
             glBindVertexArray(eventVAO);
             glBindBuffer(GL_ARRAY_BUFFER, eventVBO);
             glBufferSubData(GL_ARRAY_BUFFER, 0, events.size() * sizeof(event), &events[0]);
+            t2 = std::chrono::high_resolution_clock::now();
+            s = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+            LOG(INFO) << "upload events to gpu "<< s << "msec";
+
+            t1 = std::chrono::high_resolution_clock::now();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+//            glfwSwapBuffers(window);
+//            glActiveTexture(GL_TEXTURE0);
+            glUseProgram(eventShader);
+            glUniform1i(occlusion_map_location, 0);
+            glm::vec3 w = Converter::toGlmVec3(frame->getAngularVelocity());
+            glUniform3fv(w_location, 1, glm::value_ptr(w));
+            glm::vec3 v = Converter::toGlmVec3(frame->getLinearVelocity());
+            glUniform3fv(v_location, 1, glm::value_ptr(v));
+
+
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
             glEnable(GL_BLEND);
@@ -259,15 +270,21 @@ void MapDrawer::drawMapPoints() {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glDisable(GL_DEPTH_TEST);
+
             glDrawArrays(GL_POINTS, 0, events.size());
+            t2 = std::chrono::high_resolution_clock::now();
+            s = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / 1e6;
+
 
             glDisable(GL_BLEND);
 
-            glfwSwapBuffers(window);
+//            glfwSwapBuffers(window);
             glfwPollEvents();
-
+            LOG(INFO) << "draw "<< s << "msec";
             // we could also read GL_DEPTH_COMPONENT here, but we don't,
             // since the depth value might change after the warp, but distance to the plane won't
+
+            t1 = std::chrono::high_resolution_clock::now();
             std::vector<GLfloat> data(param->width * param->height * 3);
             glReadPixels(0, 0, param->width, param->height, GL_RGB, GL_FLOAT, &data[0]);
             for (int j = param->height-1; j >= 0; j--) {
@@ -278,6 +295,9 @@ void MapDrawer::drawMapPoints() {
                     framePartition.at<float>(j, i, 2) = (data[3*(i+param->width*j)+2] * 2 - 1) * param->zfar; // d
                 }
             }
+            t2 = std::chrono::high_resolution_clock::now();
+            s = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / 1e6;
+            LOG(INFO) << "glReadPixels "<< s << "msec";
 //            map->isDirty = false;
         }
 //        std::this_thread::yield();
