@@ -130,8 +130,8 @@ void MapDrawer::drawMapPoints() {
     glBindVertexArray(eventVAO);
 
     glGenBuffers(1, &eventVBO);
-//    glBindBuffer(GL_ARRAY_BUFFER, patchVBO);
-//    glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, eventVBO);
+    glBufferData(GL_ARRAY_BUFFER, param->window_size * sizeof(event), NULL, GL_DYNAMIC_DRAW);
 
     std::string event_vsh_path = file_path + "event.vsh",
                 event_fsh_path = file_path + "event.fsh";
@@ -151,6 +151,7 @@ void MapDrawer::drawMapPoints() {
 
     event_apos_location = glGetAttribLocation(eventShader, "aPos");
     glEnableVertexAttribArray(event_apos_location);
+    glVertexAttribPointer(event_apos_location, 4, GL_FLOAT, GL_FALSE, 0 * sizeof(event), (void*)0);
 
     w_location = glGetUniformLocation(eventShader, "w");
     v_location = glGetUniformLocation(eventShader, "v");
@@ -174,7 +175,7 @@ void MapDrawer::drawMapPoints() {
 
     while(!glfwWindowShouldClose(window)) {
         if (map->isDirty) {
-            LOG(INFO) << "dirty";
+//            LOG(INFO) << "dirty";
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glUseProgram(patchShader);
@@ -234,8 +235,6 @@ void MapDrawer::drawMapPoints() {
                 event e_;
                 e_.x = float(e->measurement.x);
                 e_.y = float(e->measurement.y);
-                LOG(INFO) << e_.x;
-                LOG(INFO) << e_.y;
                 e_.p = float(e->measurement.p);
                 e_.t = float((e->timeStamp - t0).toSec());
                 events.push_back(e_);
@@ -243,15 +242,14 @@ void MapDrawer::drawMapPoints() {
 
             glBindVertexArray(eventVAO);
             glBindBuffer(GL_ARRAY_BUFFER, eventVBO);
-            glBufferData(GL_ARRAY_BUFFER, events.size() * sizeof(event), &events[0], GL_STATIC_DRAW);
-            glVertexAttribPointer(event_apos_location, 4, GL_FLOAT, GL_FALSE, sizeof(event), (void*)&events[0]);
-//    glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, events.size() * sizeof(event), &events[0]);
+
             glEnable(GL_BLEND);
             glBlendFunc(GL_ONE, GL_ONE);
             glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            glDrawArrays(GL_POINTS, 0, 4);
+            glDrawArrays(GL_POINTS, 0, events.size());
 
             glDisable(GL_BLEND);
 
