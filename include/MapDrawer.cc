@@ -13,8 +13,8 @@ void MapDrawer::drawMapPoints() {
             -0.1f, -0.1f
     };
     unsigned int indices[] = {
-        0, 1, 3,
-        1, 2, 3
+        3, 1, 0,
+        3, 2, 1
     };
     typedef struct {
         float x, y, p, t;
@@ -86,18 +86,18 @@ void MapDrawer::drawMapPoints() {
     GLuint patchOcclusion;
     glGenTextures(1, &patchOcclusion);
     glBindTexture(GL_TEXTURE_2D, patchOcclusion);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE); // automatic mipmap
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, param->width, param->height, 0,
-                 GL_RGBA, GL_FLOAT, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE); // automatic mipmap
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB, param->width, param->height, 0,
+                 GL_RGB, GL_UNSIGNED_BYTE, 0);
+    glBindTexture(GL_TEXTURE_RECTANGLE, 0);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER,
                            GL_COLOR_ATTACHMENT0,
-                           GL_TEXTURE_2D,
+                           GL_TEXTURE_RECTANGLE,
                            patchOcclusion,
                            0);
 
@@ -106,7 +106,7 @@ void MapDrawer::drawMapPoints() {
 
     projection[0][0] = 2.f * param->fx / param->width;
 
-    projection[1][1] = -2.f * param->fy / param->height;
+    projection[1][1] = 2.f * param->fy / param->height;
 
     projection[2][0] = 1.f - 2.f * param->cx / param->width;
     projection[2][1] = 2.f * param->cy / param->height - 1.f;
@@ -225,9 +225,10 @@ void MapDrawer::drawMapPoints() {
             }
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glActiveTexture(GL_TEXTURE1);
+//            glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, patchOcclusion);
-            glActiveTexture(GL_TEXTURE0);
+//                        glfwSwapBuffers(window);
+//            glActiveTexture(GL_TEXTURE0);
             glUseProgram(eventShader);
             glUniform1i(occlusion_map_location, 1);
             glm::vec3 w = Converter::toGlmVec3(frame->getAngularVelocity());
@@ -241,9 +242,9 @@ void MapDrawer::drawMapPoints() {
             for (auto e: frame->vEvents) {
                 event e_;
                 e_.x = float(e->measurement.x);
-                LOG(INFO) << e->measurement.x;
-                LOG(INFO) << e_.x;
-                LOG(INFO) ;
+//                LOG(INFO) << e->measurement.x;
+//                LOG(INFO) << e_.x;
+//                LOG(INFO) ;
                 e_.y = float(e->measurement.y);
                 e_.p = float(e->measurement.p);
                 e_.t = float((e->timeStamp - t0).toSec());
@@ -257,7 +258,7 @@ void MapDrawer::drawMapPoints() {
             glEnable(GL_BLEND);
             glBlendFunc(GL_ONE, GL_ONE);
             glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glDisable(GL_DEPTH_TEST);
             glDrawArrays(GL_POINTS, 0, events.size());

@@ -27,8 +27,8 @@ mat3 rotationMatrix(vec3 axis, float angle)
 
 void main()
 {
-    float width = textureSize(patchTexture).x;
-    float height = textureSize(patchTexture).y;
+    int width = textureSize(patchTexture).x;
+    int height = textureSize(patchTexture).y;
 
     vec3 worldPos = vec3(aPos.x, -aPos.y, 1.f);
 //    vec3 framePos = cameraMatrix * worldPos;
@@ -46,8 +46,8 @@ void main()
     vec3 newFramePos = cameraMatrix * vec3(newWorldPos.x / newWorldPos.z,
                                           -newWorldPos.y / newWorldPos.z,
                                            1.f);
-//    gl_Position = vec4((newFramePos.x-width/2)/(width/2), (height/2-newFramePos.y)/(height/2), 0.f, 1.f);
-gl_Position = vec4((newFramePos.x-120.f)/(120.f), (90.f-newFramePos.y)/(90.f), 0.f, 1.f);
+    gl_Position = vec4((newFramePos.x-width/2)/(width/2), (height/2-newFramePos.y)/(height/2), 0.f, 1.f);
+//gl_Position = vec4((newFramePos.x-120.f)/(120.f), (90.f-newFramePos.y)/(90.f), 0.f, 1.f);
 //    gl_Position = vec4(aPos.x, -aPos.y, 1.f, 1.f);
     float polarity = 0.1f;
 

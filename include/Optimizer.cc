@@ -62,7 +62,10 @@ double Optimizer::optimize(Frame* frame) {
             auto mp = make_shared<MapPoint>(posInWorld);
 //            frame->mvpMapPoints.push_back(mp);
             frame->mpMap->mspMapPoints.insert(mp);
+            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));
         }
+        cv::imshow("img", img);
+                cv::waitKey();
         frame->mpMap->isDirty = true;
         LOG(INFO) << "true";
         while (frame->mpMap->isDirty) {std::this_thread::yield();}
