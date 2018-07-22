@@ -85,15 +85,15 @@ void MapDrawer::drawMapPoints() {
     glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
     GLuint patchOcclusion;
     glGenTextures(1, &patchOcclusion);
-    glBindTexture(GL_TEXTURE_2D, patchOcclusion);
+    glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
 //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 //    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE); // automatic mipmap
-    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB, param->width, param->height, 0,
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB8, param->width, param->height, 0,
                  GL_RGB, GL_UNSIGNED_BYTE, 0);
-    glBindTexture(GL_TEXTURE_RECTANGLE, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER,
                            GL_COLOR_ATTACHMENT0,
@@ -224,13 +224,12 @@ void MapDrawer::drawMapPoints() {
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             }
 
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, patchOcclusion);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
 //                        glfwSwapBuffers(window);
 //            glActiveTexture(GL_TEXTURE0);
             glUseProgram(eventShader);
-            glUniform1i(occlusion_map_location, 1);
+            glUniform1i(occlusion_map_location, 0);
             glm::vec3 w = Converter::toGlmVec3(frame->getAngularVelocity());
             glUniform3fv(w_location, 1, glm::value_ptr(w));
             glm::vec3 v = Converter::toGlmVec3(frame->getLinearVelocity());
@@ -242,9 +241,6 @@ void MapDrawer::drawMapPoints() {
             for (auto e: frame->vEvents) {
                 event e_;
                 e_.x = float(e->measurement.x);
-//                LOG(INFO) << e->measurement.x;
-//                LOG(INFO) << e_.x;
-//                LOG(INFO) ;
                 e_.y = float(e->measurement.y);
                 e_.p = float(e->measurement.p);
                 e_.t = float((e->timeStamp - t0).toSec());
@@ -254,11 +250,13 @@ void MapDrawer::drawMapPoints() {
             glBindVertexArray(eventVAO);
             glBindBuffer(GL_ARRAY_BUFFER, eventVBO);
             glBufferSubData(GL_ARRAY_BUFFER, 0, events.size() * sizeof(event), &events[0]);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
             glEnable(GL_BLEND);
             glBlendFunc(GL_ONE, GL_ONE);
             glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-//            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glDisable(GL_DEPTH_TEST);
             glDrawArrays(GL_POINTS, 0, events.size());
