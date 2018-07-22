@@ -124,7 +124,7 @@ void MapDrawer::drawMapPoints() {
     // events
     GLuint eventVAO, eventVBO, eventVS, eventFS, eventShader;
     GLint event_apos_location, w_location, v_location, camera_matrix_location,
-          near_plane_location, occlusion_map_location;
+          near_plane_location, occlusion_map_location, event_projection_location;
 
     glGenVertexArrays(1, &eventVAO);
     glBindVertexArray(eventVAO);
@@ -162,11 +162,16 @@ void MapDrawer::drawMapPoints() {
     K[2][0] = param->cx;
     K[2][1] = param->cy;
     glUniformMatrix3fv(camera_matrix_location, 1, GL_FALSE, glm::value_ptr(K));
+
     near_plane_location = glGetUniformLocation(eventShader, "nearPlane");
     glUniform1f(near_plane_location, param->znear);
+
     occlusion_map_location = glGetUniformLocation(eventShader, "patchTexture");
 
-    glEnable(GL_DEPTH_TEST);
+    event_projection_location = glGetUniformLocation(eventShader, "projection");
+    glUniformMatrix4fv(event_projection_location, 1, GL_FALSE, glm::value_ptr(projection));
+
+
     // draw plane only when facing camera??
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -194,6 +199,7 @@ void MapDrawer::drawMapPoints() {
             }
 
             glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
+            glEnable(GL_DEPTH_TEST);
 
             for (auto mpPoint: map->mspMapPoints) {
 
@@ -214,6 +220,7 @@ void MapDrawer::drawMapPoints() {
                 glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
 
                 glBindVertexArray(patchVAO);
+
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             }
 
@@ -234,6 +241,9 @@ void MapDrawer::drawMapPoints() {
             for (auto e: frame->vEvents) {
                 event e_;
                 e_.x = float(e->measurement.x);
+                LOG(INFO) << e->measurement.x;
+                LOG(INFO) << e_.x;
+                LOG(INFO) ;
                 e_.y = float(e->measurement.y);
                 e_.p = float(e->measurement.p);
                 e_.t = float((e->timeStamp - t0).toSec());
@@ -249,6 +259,7 @@ void MapDrawer::drawMapPoints() {
             glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+            glDisable(GL_DEPTH_TEST);
             glDrawArrays(GL_POINTS, 0, events.size());
 
             glDisable(GL_BLEND);
