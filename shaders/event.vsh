@@ -1,4 +1,4 @@
-#version 330 core
+#version 430 core
 
 in vec4 aPos;
 
@@ -31,8 +31,7 @@ void main()
 
     vec3 worldPos = vec3(aPos.x, aPos.y, 1.f);
     vec3 framePos = cameraMatrix * worldPos;
-//    float polarity = aPos.z * 2 - 1;
-    float polarity = 0.1f;
+    float polarity = aPos.z * 2 - 1;
     float t = aPos.w;
     vec3 pixel = texture(patchTexture, vec2(framePos.x, height - framePos.y)).xyz;
     float inverseDepth = (pixel.z * 2 - 1) / nearPlane;

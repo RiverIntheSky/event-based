@@ -88,26 +88,48 @@ void MapDrawer::drawMapPoints() {
             std::swap(warppedImage, blurredImage);
             gaussianBlur(warpFramebuffer, warppedImage, blurFramebuffer, blurredImage, glm::vec2(1, 0));
 
+            glBindFramebuffer(GL_FRAMEBUFFER, squareFramebuffer);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
+            glUseProgram(squareShader);
+            drawQuad();
+
+            glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//            size_t currentW = param->width, currentH = param->height;
+////            while (currentW != 1) {
+
+////            }
+            glBindTexture(GL_TEXTURE_RECTANGLE, sumImage);
+            glUseProgram(sumShader);
+            drawQuad();
+
             glEnable(GL_BLEND);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
+            glBindTexture(GL_TEXTURE_RECTANGLE, squaredImage);
             drawQuad();
-            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-            drawQuad();
+
+
+
+
+//            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+//            drawQuad();
             glDisable(GL_BLEND);
 
             glfwSwapBuffers(window);
+            glViewport(0, 0, param->width/2, param->height/2);
             glfwPollEvents();
-
+            glViewport(0, 0, param->width, param->height);
             // we could also read GL_DEPTH_COMPONENT here, but we don't,
             // since the depth value might change after the warp, but distance to the plane won't
 
+            glBindFramebuffer(GL_FRAMEBUFFER, squareFramebuffer);
             std::vector<GLfloat> data(param->width * param->height * 3);
             glReadPixels(0, 0, param->width, param->height, GL_RGB, GL_FLOAT, &data[0]);
             for (int j = param->height-1; j >= 0; j--) {
                 for (int i = 0; i < param->width; i++) {
-//                    LOG(INFO) << data[3*(i+param->width*j)];
+                    LOG(INFO) << data[3*(i+param->width*j)];
 //                    LOG(INFO) << data[3*(i+param->width*j)+1];
 //                    LOG(INFO) << data[3*(i+param->width*j)+2];
                     framePartition.at<float>(j, i, 0) = data[3*(i+param->width*j)] * 2 - 1; // x
@@ -152,6 +174,8 @@ void MapDrawer::setUp() {
     setUpEventShader();
     setUpQuadShader();
     setUpGaussianBlurShader();
+    setUpSquareShader();
+    setUpSummationShader();
 }
 
 void MapDrawer::setUpPatchShader() {
@@ -167,128 +191,87 @@ void MapDrawer::setUpPatchShader() {
         3, 2, 1
     };
 
-    glGenVertexArrays(1, &patchVAO);
-    glBindVertexArray(patchVAO);
+    // create vao
+    {
+        glGenVertexArrays(1, &patchVAO);
+        glBindVertexArray(patchVAO);
 
-    glGenBuffers(1, &patchVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, patchVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+        glGenBuffers(1, &patchVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, patchVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &patchEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, patchEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+        glGenBuffers(1, &patchEBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, patchEBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    }
 
-    std::string patch_vsh_path = shaderFilePath + "patch.vsh",
-            patch_fsh_path = shaderFilePath + "patch.fsh";
-    const char* patchVSFile = patch_vsh_path.c_str();
-    const char* patchFSFile = patch_fsh_path.c_str();
-    patchVS = createShader(GL_VERTEX_SHADER, patchVSFile);
-    patchFS = createShader(GL_FRAGMENT_SHADER, patchFSFile);
+    setUpShader(patchShader, "patch");
+    setUp2DRect(patchFramebuffer, patchOcclusion);
 
-    patchShader = glCreateProgram();
-    glAttachShader(patchShader, patchVS);
-    glAttachShader(patchShader, patchFS);
+    // set up uniforms and attributes
+    {
+        apos_location = glGetAttribLocation(patchShader, "aPos");
+        glEnableVertexAttribArray(apos_location);
+        glVertexAttribPointer(apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
 
-    glLinkProgram(patchShader);
-    glUseProgram(patchShader);
-    glDeleteShader(patchVS);
-    glDeleteShader(patchFS);
+        glm::mat4 projection;
 
-    apos_location = glGetAttribLocation(patchShader, "aPos");
-    glEnableVertexAttribArray(apos_location);
-    glVertexAttribPointer(apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
+        projection[0][0] = 2.f * param->fx / param->width;
 
-    // patch framebuffer
-    glGenFramebuffers(1, &patchFramebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
-    glGenTextures(1, &patchOcclusion);
-    glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB8, param->width, param->height, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, 0);
+        projection[1][1] = 2.f * param->fy / param->height;
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER,
-                           GL_COLOR_ATTACHMENT0,
-                           GL_TEXTURE_RECTANGLE,
-                           patchOcclusion,
-                           0);
+        projection[2][0] = 1.f - 2.f * param->cx / param->width;
+        projection[2][1] = 2.f * param->cy / param->height - 1.f;
+        projection[2][2] = (param->zfar + param->znear) / (param->znear - param->zfar);
+        projection[2][3] = -1.f;
 
-    glm::mat4 projection;
+        projection[3][2] = 2.f * param->zfar * param->znear / (param->znear - param->zfar);
+        projection[3][3] = 0.f;
 
-    projection[0][0] = 2.f * param->fx / param->width;
-
-    projection[1][1] = 2.f * param->fy / param->height;
-
-    projection[2][0] = 1.f - 2.f * param->cx / param->width;
-    projection[2][1] = 2.f * param->cy / param->height - 1.f;
-    projection[2][2] = (param->zfar + param->znear) / (param->znear - param->zfar);
-    projection[2][3] = -1.f;
-
-    projection[3][2] = 2.f * param->zfar * param->znear / (param->znear - param->zfar);
-    projection[3][3] = 0.f;
-
-    model_location = glGetUniformLocation(patchShader, "model");
-    view_location = glGetUniformLocation(patchShader, "view");
-    projection_location = glGetUniformLocation(patchShader, "projection");
-    glUniformMatrix4fv(projection_location, 1, GL_FALSE, glm::value_ptr(projection));
+        model_location = glGetUniformLocation(patchShader, "model");
+        view_location = glGetUniformLocation(patchShader, "view");
+        projection_location = glGetUniformLocation(patchShader, "projection");
+        glUniformMatrix4fv(projection_location, 1, GL_FALSE, glm::value_ptr(projection));
+    }
 }
 
 void MapDrawer::setUpEventShader() {
-    glGenVertexArrays(1, &eventVAO);
-    glBindVertexArray(eventVAO);
 
-    glGenBuffers(1, &eventVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, eventVBO);
-    glBufferData(GL_ARRAY_BUFFER, param->window_size * sizeof(event), NULL, GL_DYNAMIC_DRAW);
+    // create vao
+    {
+        glGenVertexArrays(1, &eventVAO);
+        glBindVertexArray(eventVAO);
 
-    std::string event_vsh_path = shaderFilePath + "event.vsh",
-                event_fsh_path = shaderFilePath + "event.fsh";
-    const char* eventVSFile = event_vsh_path.c_str();
-    const char* eventFSFile = event_fsh_path.c_str();
-    eventVS = createShader(GL_VERTEX_SHADER, eventVSFile);
-    eventFS = createShader(GL_FRAGMENT_SHADER, eventFSFile);
+        glGenBuffers(1, &eventVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, eventVBO);
+        glBufferData(GL_ARRAY_BUFFER, param->window_size * sizeof(event), NULL, GL_DYNAMIC_DRAW);
+    }
 
-    eventShader = glCreateProgram();
-    glAttachShader(eventShader, eventVS);
-    glAttachShader(eventShader, eventFS);
+    setUpShader(eventShader, "event");
+    setUp2DRect(warpFramebuffer, warppedImage);
 
-    glLinkProgram(eventShader);
-    glUseProgram(eventShader);
-    glDeleteShader(eventVS);
-    glDeleteShader(eventFS);
+    // set up uniforms and attributes
+    {
+        event_apos_location = glGetAttribLocation(eventShader, "aPos");
+        glEnableVertexAttribArray(event_apos_location);
+        glVertexAttribPointer(event_apos_location, 4, GL_FLOAT, GL_FALSE, 0 * sizeof(event), (void*)0);
 
-    event_apos_location = glGetAttribLocation(eventShader, "aPos");
-    glEnableVertexAttribArray(event_apos_location);
-    glVertexAttribPointer(event_apos_location, 4, GL_FLOAT, GL_FALSE, 0 * sizeof(event), (void*)0);
+        w_location = glGetUniformLocation(eventShader, "w");
+        v_location = glGetUniformLocation(eventShader, "v");
+        camera_matrix_location = glGetUniformLocation(eventShader, "cameraMatrix");
+        glm::mat3 K;
+        K[0][0] = param->fx;
+        K[1][1] = param->fy;
+        K[2][0] = param->cx;
+        K[2][1] = param->cy;
+        glUniformMatrix3fv(camera_matrix_location, 1, GL_FALSE, glm::value_ptr(K));
 
-    w_location = glGetUniformLocation(eventShader, "w");
-    v_location = glGetUniformLocation(eventShader, "v");
-    camera_matrix_location = glGetUniformLocation(eventShader, "cameraMatrix");
-    glm::mat3 K;
-    K[0][0] = param->fx;
-    K[1][1] = param->fy;
-    K[2][0] = param->cx;
-    K[2][1] = param->cy;
-    glUniformMatrix3fv(camera_matrix_location, 1, GL_FALSE, glm::value_ptr(K));
+        near_plane_location = glGetUniformLocation(eventShader, "nearPlane");
+        glUniform1f(near_plane_location, param->znear);
 
-    near_plane_location = glGetUniformLocation(eventShader, "nearPlane");
-    glUniform1f(near_plane_location, param->znear);
-
-    occlusion_map_location = glGetUniformLocation(eventShader, "patchTexture");
-    glUniform1i(occlusion_map_location, 0);
-
-    glGenFramebuffers(1, &warpFramebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
-    glGenTextures(1, &warppedImage);
-    glBindTexture(GL_TEXTURE_RECTANGLE, warppedImage);
-    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB8, param->width, param->height, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, 0);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER,
-                           GL_COLOR_ATTACHMENT0,
-                           GL_TEXTURE_RECTANGLE,
-                           warppedImage,
-                           0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        occlusion_map_location = glGetUniformLocation(eventShader, "patchTexture");
+        glUniform1i(occlusion_map_location, 0);
+    }
 }
 
 void MapDrawer::setUpQuadShader() {
@@ -336,42 +319,88 @@ void MapDrawer::setUpQuadShader() {
 //    glUniform1i(atex_location, 0);
 }
 
+void MapDrawer::setUpSquareShader() {
+    setUp2DRect(squareFramebuffer, squaredImage);
+    setUpShader(squareShader, "square");
+
+    // set up uniforms and attributes
+    {
+        atex_location = glGetUniformLocation(squareShader, "tex");
+        glUniform1i(atex_location, 0);
+        square_apos_location = glGetAttribLocation(squareShader, "aPos");
+        glEnableVertexAttribArray(square_apos_location);
+        glVertexAttribPointer(square_apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
+    }
+}
+void MapDrawer::setUpSummationShader() {
+    setUp2DRect(sumFramebuffer, sumImage);
+    setUpShader(sumShader, "summation");
+
+    // set up uniforms and attributes
+    {
+        sum_tex_location = glGetUniformLocation(sumShader, "tex");
+        glUniform1i(atex_location, 0);
+        sum_apos_location = glGetAttribLocation(blurShader, "aPos");
+        glEnableVertexAttribArray(blur_apos_location);
+        glVertexAttribPointer(blur_apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
+    }
+}
+
 void MapDrawer::setUpGaussianBlurShader() {
-    glGenFramebuffers(1, &blurFramebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
-    glGenTextures(1, &blurredImage);
-    glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
-    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB8, param->width, param->height, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, 0);
+    setUp2DRect(blurFramebuffer, blurredImage);
+    setUpShader(blurShader, "gaussian_blur");
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER,
-                           GL_COLOR_ATTACHMENT0,
-                           GL_TEXTURE_RECTANGLE,
-                           blurredImage,
-                           0);
+    // set up uniforms and attributes
+    {
+        atex_location = glGetUniformLocation(blurShader, "tex");
+        glUniform1i(atex_location, 0);
+        dir_location = glGetUniformLocation(blurShader, "dir");
+        blur_apos_location = glGetAttribLocation(blurShader, "aPos");
+        glEnableVertexAttribArray(blur_apos_location);
+        glVertexAttribPointer(blur_apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
+    }
+}
 
-    std::string blur_vsh_path = shaderFilePath + "gaussian_blur.vsh",
-            blur_fsh_path = shaderFilePath + "gaussian_blur.fsh";
-    const char* blurVSFile = blur_vsh_path.c_str();
-    const char* blurFSFile = blur_fsh_path.c_str();
-    blurVS = createShader(GL_VERTEX_SHADER, blurVSFile);
-    blurFS = createShader(GL_FRAGMENT_SHADER, blurFSFile);
+void MapDrawer::setUp2DRect(GLuint& FBO, GLuint& tex) {
+    glGenFramebuffers(1, &FBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_RECTANGLE, tex);
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB16F, param->width, param->height, 0,
+                 GL_RGB, GL_FLOAT, 0);
 
-    blurShader = glCreateProgram();
-    glAttachShader(blurShader, blurVS);
-    glAttachShader(blurShader, blurFS);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE, tex, 0);
+}
 
-    glLinkProgram(blurShader);
-    glUseProgram(blurShader);
-    glDeleteShader(blurVS);
-    glDeleteShader(blurFS);
+void MapDrawer::setUpSampler2D(GLuint& FBO, GLuint& tex) {
+    glGenFramebuffers(1, &FBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, param->width, param->height, 0,
+                 GL_RGB, GL_FLOAT, 0);
 
-    atex_location = glGetUniformLocation(blurShader, "tex");
-    glUniform1i(atex_location, 0);
-    dir_location = glGetUniformLocation(blurShader, "dir");
-    blur_apos_location = glGetAttribLocation(blurShader, "aPos");
-    glEnableVertexAttribArray(blur_apos_location);
-    glVertexAttribPointer(blur_apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+}
+
+void MapDrawer::setUpShader(GLuint& shader, const char* filename) {
+    std::string f(filename);
+    std::string vsh_path = shaderFilePath + f + ".vsh",
+                fsh_path = shaderFilePath + f + ".fsh";
+    const char* vsh_file = vsh_path.c_str();
+    const char* fsh_file = fsh_path.c_str();
+    GLuint vsh, fsh;
+    vsh = createShader(GL_VERTEX_SHADER, vsh_file);
+    fsh = createShader(GL_FRAGMENT_SHADER, fsh_file);
+
+    shader = glCreateProgram();
+    glAttachShader(shader, vsh);
+    glAttachShader(shader, fsh);
+
+    glLinkProgram(shader);
+    glUseProgram(shader);
+    glDeleteShader(vsh);
+    glDeleteShader(fsh);
 }
 
 void MapDrawer::drawQuad() {

@@ -1,18 +1,9 @@
-#version 330 core
+#version 430 core
 
 uniform sampler2DRect tex;
 uniform vec2 dir;
 
 out vec4 fColor;
-
-//vec4 blur5(sampler2DRect image, vec2 coord, vec2 dir) {
-//  vec4 color = vec4(0.0);
-//  vec2 off = vec2(1.3333333333333333) * dir;
-//  color += texture(image, coord) * 0.29411764705882354;
-//  color += texture(image, coord + off) * 0.35294117647058826;
-//  color += texture(image, coord - off) * 0.35294117647058826;
-//  return color;
-//}
 
 // http://rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
 // sigma = 1; kerner_size = 7;
@@ -30,5 +21,4 @@ vec4 blur7(sampler2DRect image, vec2 coord, vec2 dir) {
 void main()
 {
     fColor = blur7(tex, gl_FragCoord.xy, dir);
-//    fColor = vec4(0.2f, 0.3f, 0.3f, 1.f);
 }

@@ -42,26 +42,36 @@ public:
     // events
     void setUpEventShader();
     void updateEvents();
+    void setUpSquareShader();
+    void setUpSummationShader();
+
+    // shader
+    void setUp2DRect(GLuint& FBO, GLuint& tex);
+    void setUpShader(GLuint& shader, const char* filename);
+    void setUpSampler2D(GLuint& FBO, GLuint& tex);
 
     void drawMapPoints();
 //    void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
-    GLuint patchVAO, patchVBO, patchEBO, patchVS, patchFS, patchShader;
+    GLuint patchVAO, patchVBO, patchEBO, patchVS, patchFS, patchShader,
+           patchFramebuffer, patchOcclusion;
     GLint apos_location, model_location, view_location, projection_location;
-    GLuint patchFramebuffer, patchOcclusion;
 
     GLuint quadVAO, quadVBO, quadEBO, quadVS, quadFS, quadShader;
     GLint quad_tex_location;
 
-    GLuint eventVAO, eventVBO, eventVS, eventFS, eventShader;
+    GLuint eventVAO, eventVBO, eventVS, eventFS, eventShader, warpFramebuffer, warppedImage;
     GLint event_apos_location, w_location, v_location, camera_matrix_location,
           near_plane_location, occlusion_map_location, event_projection_location;
-    GLuint warpFramebuffer, warppedImage;
 
-    GLuint blurVS, blurFS, blurShader;
+    GLuint blurShader, blurFramebuffer, blurredImage;
     GLint blur_apos_location, atex_location, dir_location;
-    GLuint blurFramebuffer, blurredImage;
 
+    GLuint squareShader, squareFramebuffer, squaredImage;
+    GLint square_tex_location, square_apos_location;
+
+    GLuint sumShader, sumFramebuffer, sumImage;
+    GLint sum_tex_location, sum_apos_location;
 
     std::string shaderFilePath;
     GLFWwindow* window;
