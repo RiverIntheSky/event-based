@@ -6,7 +6,6 @@ uniform vec3 w;
 uniform vec3 v;
 uniform sampler2DRect patchTexture;
 uniform mat3 cameraMatrix;
-uniform mat4 projection;
 uniform float nearPlane;
 
 out float vColor;

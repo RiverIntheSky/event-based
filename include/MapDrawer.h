@@ -16,14 +16,57 @@
 namespace ev {
 class Map;
 class Tracking;
+class Frame;
+
+typedef struct {
+    float x, y, p, t;
+} event;
 
 class MapDrawer {
 public:
     MapDrawer(Parameters* param_, Map* map_, Tracking* tracking_): param(param_), map(map_), tracking(tracking_) {}
 
+    void setUp();
+
+    // patches
+    void setUpPatchShader();
+
+    // full screen quad
+    void setUpQuadShader();
+    void drawQuad();
+
+    // gaussian blur
+    void setUpGaussianBlurShader();
+    void gaussianBlur(GLuint& imageFBO, GLuint& imageTex, GLuint& blurredFBO, GLuint& blurredTex, glm::vec2 dir);
+
+    // events
+    void setUpEventShader();
+    void updateEvents();
+
     void drawMapPoints();
 //    void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+
+    GLuint patchVAO, patchVBO, patchEBO, patchVS, patchFS, patchShader;
+    GLint apos_location, model_location, view_location, projection_location;
+    GLuint patchFramebuffer, patchOcclusion;
+
+    GLuint quadVAO, quadVBO, quadEBO, quadVS, quadFS, quadShader;
+    GLint quad_tex_location;
+
+    GLuint eventVAO, eventVBO, eventVS, eventFS, eventShader;
+    GLint event_apos_location, w_location, v_location, camera_matrix_location,
+          near_plane_location, occlusion_map_location, event_projection_location;
+    GLuint warpFramebuffer, warppedImage;
+
+    GLuint blurVS, blurFS, blurShader;
+    GLint blur_apos_location, atex_location, dir_location;
+    GLuint blurFramebuffer, blurredImage;
+
+
+    std::string shaderFilePath;
+    GLFWwindow* window;
     Parameters* param;
+    Frame* frame;
     Map* map;
     Tracking* tracking;
     // assign this member to frame??
