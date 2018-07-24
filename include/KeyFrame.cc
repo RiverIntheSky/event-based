@@ -74,12 +74,12 @@ cv::Mat KeyFrame::getTranslation() {
     return mTwc1.rowRange(0,3).col(3).clone();
 }
 
-void KeyFrame::setScale(double& scale) {
+void KeyFrame::setScale(float& scale) {
     lock_guard<mutex> lock(mMutexPose);
     mScale = scale;
 }
 
-double& KeyFrame::getScale() {
+float& KeyFrame::getScale() {
     lock_guard<mutex> lock(mMutexPose);
     return mScale;
 }

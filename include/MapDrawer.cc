@@ -13,8 +13,9 @@ void MapDrawer::drawMapPoints() {
 
     while(!glfwWindowShouldClose(window)) {
         if (map->isDirty) {
+            initialize_map();
 
-            frame = tracking->getCurrentFrame().get();
+            system("sleep 100");
 
             // camera view matrix
             cv::Mat t = frame->getTranslation();
@@ -40,6 +41,7 @@ void MapDrawer::drawMapPoints() {
             glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+
             for (auto mpPoint: map->mspMapPoints) {
 
                 // color stores normal and distance information of the plane
@@ -58,58 +60,10 @@ void MapDrawer::drawMapPoints() {
                 model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
                 glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-            }
+            }            
 
-            updateEvents();
-           LOG(INFO) << "begin";
-            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-            glUseProgram(eventShader);
 
-            glm::vec3 w = Converter::toGlmVec3(frame->getAngularVelocity());
-            glUniform3fv(w_location, 1, glm::value_ptr(w));
-            glm::vec3 v = Converter::toGlmVec3(frame->getLinearVelocity());
-            glUniform3fv(v_location, 1, glm::value_ptr(v));
-
-            glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);          
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_ONE, GL_ONE);
-            glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            glDisable(GL_DEPTH_TEST);
-
-            glDrawArrays(GL_POINTS, 0, frame->events());
-
-            glDisable(GL_BLEND);
-
-            gaussianBlur(warpFramebuffer, warppedImage, blurFramebuffer, blurredImage, glm::vec2(0, 1));
-            std::swap(blurFramebuffer, warpFramebuffer);
-            std::swap(blurredImage, warppedImage);
-            gaussianBlur(warpFramebuffer, warppedImage, blurFramebuffer, blurredImage, glm::vec2(1, 0));
-
-            glBindFramebuffer(GL_FRAMEBUFFER, squareFramebuffer);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
-            glUseProgram(squareShader);
-            drawQuad();
-
-            GLfloat sum;
-            glUseProgram(sumShader);
-            float currentW = param->width;
-            while (currentW > 1) {
-                glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
-                glBindTexture(GL_TEXTURE_RECTANGLE, squaredImage);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                drawQuad();
-
-                std::swap(squareFramebuffer, sumFramebuffer);
-                std::swap(squaredImage, sumImage);
-                currentW = std::ceil(currentW / 2);
-            }
-
-            glReadPixels(0, 0, 1, 1, GL_RED, GL_FLOAT, &sum);
-            LOG(INFO) << "sum gpu "<<sum;
+//            LOG(INFO) << "cost " << cost();
 
 //            glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
 //            glBindTexture(GL_TEXTURE_RECTANGLE, squaredImage);
@@ -189,10 +143,10 @@ void MapDrawer::setUp() {
 void MapDrawer::setUpPatchShader() {
 
     GLfloat points[] = {
-            -0.1f,  0.1f,
-             0.1f,  0.1f,
-             0.1f, -0.1f,
-            -0.1f, -0.1f
+            -10.f,  10.f,
+             10.f,  10.f,
+             10.f, -10.f,
+            -10.f, -10.f
     };
     unsigned int indices[] = {
         3, 1, 0,
@@ -296,35 +250,26 @@ void MapDrawer::setUpQuadShader() {
         3, 2, 1
     };
 
-    glGenVertexArrays(1, &quadVAO);
-    glBindVertexArray(quadVAO);
+    // create vao
+    {
+        glGenVertexArrays(1, &quadVAO);
+        glBindVertexArray(quadVAO);
 
-    glGenBuffers(1, &quadVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+        glGenBuffers(1, &quadVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &quadEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+        glGenBuffers(1, &quadEBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    }
 
-//    std::string quad_vsh_path = shaderFilePath + "screen.vsh",
-//                quad_fsh_path = shaderFilePath + "screen.fsh";
-//    const char* quadVSFile = quad_vsh_path.c_str();
-//    const char* quadFSFile = quad_fsh_path.c_str();
-//    quadVS = createShader(GL_VERTEX_SHADER, quadVSFile);
-//    quadFS = createShader(GL_FRAGMENT_SHADER, quadFSFile);
+    setUpShader(quadShader, "screen");
 
-//    quadShader = glCreateProgram();
-//    glAttachShader(quadShader, quadVS);
-//    glAttachShader(quadShader, quadFS);
-
-//    glLinkProgram(quadShader);
-//    glUseProgram(quadShader);
-//    glDeleteShader(quadVS);
-//    glDeleteShader(quadFS);
-
-//    atex_location = glGetUniformLocation(quadShader, "tex");
-//    glUniform1i(atex_location, 0);
+    {
+        atex_location = glGetUniformLocation(quadShader, "tex");
+        glUniform1i(atex_location, 0);
+    }
 }
 
 void MapDrawer::setUpSquareShader() {
@@ -340,6 +285,7 @@ void MapDrawer::setUpSquareShader() {
         glVertexAttribPointer(square_apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
     }
 }
+
 void MapDrawer::setUpSummationShader() {
     setUp2DRect(sumFramebuffer, sumImage);
     setUpShader(sumShader, "summation");
@@ -429,8 +375,8 @@ void MapDrawer::gaussianBlur(GLuint& imageFBO, GLuint& imageTex, GLuint& blurred
     drawQuad();
 }
 
-void MapDrawer::updateEvents() {
-
+void MapDrawer::updateFrame() {
+    frame = tracking->getCurrentFrame().get();
     std::vector<event> events;
     events.reserve(param->window_size);
     auto t0 = frame->mTimeStamp;
@@ -443,9 +389,126 @@ void MapDrawer::updateEvents() {
         events.push_back(e_);
     }
 
-    glBindVertexArray(eventVAO);
     glBindBuffer(GL_ARRAY_BUFFER, eventVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, events.size() * sizeof(event), &events[0]);
+}
+
+float MapDrawer::cost_func(cv::Mat& w, cv::Mat& v) {
+
+
+    glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+    glUseProgram(eventShader);
+
+    glm::vec3 w_ = Converter::toGlmVec3(w);
+    glUniform3fv(w_location, 1, glm::value_ptr(w_));
+    glm::vec3 v_ = Converter::toGlmVec3(v);
+    glUniform3fv(v_location, 1, glm::value_ptr(v_));
+
+    glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+
+    glBindVertexArray(eventVAO);
+    glDrawArrays(GL_POINTS, 0, frame->events());
+
+    glDisable(GL_BLEND);
+
+    gaussianBlur(warpFramebuffer, warppedImage, blurFramebuffer, blurredImage, glm::vec2(0, 1));
+    std::swap(blurFramebuffer, warpFramebuffer);
+    std::swap(blurredImage, warppedImage);
+    gaussianBlur(warpFramebuffer, warppedImage, blurFramebuffer, blurredImage, glm::vec2(1, 0));
+
+    glBindFramebuffer(GL_FRAMEBUFFER, squareFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
+    glUseProgram(squareShader);
+    drawQuad();
+
+    float sum;
+    glUseProgram(sumShader);
+    float currentW = param->width;
+    while (currentW > 1) {
+        glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
+        glBindTexture(GL_TEXTURE_RECTANGLE, squaredImage);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        drawQuad();
+
+        std::swap(squareFramebuffer, sumFramebuffer);
+        std::swap(squaredImage, sumImage);
+        currentW = std::ceil(currentW / 2);
+    }
+
+    glReadPixels(0, 0, 1, 1, GL_RED, GL_FLOAT, &sum);
+
+    glEnable(GL_BLEND);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glUseProgram(quadShader);
+    glBindTexture(GL_TEXTURE_RECTANGLE, warppedImage);
+    drawQuad();
+    glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+    drawQuad();
+    glDisable(GL_BLEND);
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+
+
+    return -sum/(param->width * param->height);
+}
+
+float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v) {
+    // camera view matrix
+    cv::Mat t = frame->getTranslation();
+    glm::mat4 view = glm::translate(glm::mat4(), Converter::toGlmVec3(t));
+    cv::Mat R = frame->getRotation();
+    cv::Mat axang = rotm2axang(R);
+    glm::vec3 axang_ = Converter::toGlmVec3(axang);
+    float angle = glm::length(axang_);
+    if (std::abs(angle) > 1e-6) {
+        glm::vec3 axis = glm::normalize(axang_);
+        view = glm::rotate(view, -angle, axis);
+    }
+
+    glUseProgram(patchShader);
+    glBindVertexArray(patchVAO);
+    glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
+    glEnable(GL_DEPTH_TEST);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
+    int i = 0;
+    for (auto mpPoint: map->mspMapPoints) {
+
+        // color stores normal and distance information of the plane
+        // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
+        cv::Mat nw = nws.col(i);
+        cv::Mat nc = R.t() * nw;
+        float inv_d_c = 1.f/(1.f/inv_d_ws[i] + t.dot(nw));
+        glm::vec3 color = glm::vec3((nc.at<double>(0)+1)/2, (-nc.at<double>(1)+1)/2, (inv_d_c*param->znear+1)/2);
+        glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
+
+        // model matrix of the plane
+        cv::Mat pos = mpPoint->getWorldPos();
+        pos = pos /(-inv_d_ws[i] * pos.dot(nw)); /* n'x + d = 0 */
+        glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
+        glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
+        glm::vec3 n_ = Converter::toGlmVec3(nw);
+        model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
+        glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        i++;
+    }
+
+    float cost = cost_func(w, v);
+    return cost;
 }
 
 //void MapDrawer::framebuffer_size_callback(GLFWwindow* window, int width, int height){

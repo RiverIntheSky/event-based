@@ -2,18 +2,18 @@
 
 namespace ev
 {
-double Frame::gScale = 1.;
+float Frame::gScale = 1.;
 unsigned int Frame::nNextId = 0;
 
 // first pose of a frame is always set at construction
 Frame::Frame(Map *pMap): mpMap(pMap), shouldBeKeyFrame(false){
     mnId = nNextId++;
-    cv::Mat Twc = cv::Mat::eye(4,4,CV_64F);
+    cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
     setFirstPose(Twc);
-    w = (cv::Mat_<double>(3, 1) << 0, 0, 0);
-    v = (cv::Mat_<double>(3, 1) << 0, 0, 0);
+    w = (cv::Mat_<float>(3, 1) << 0, 0, 0);
+    v = (cv::Mat_<float>(3, 1) << 0, 0, 0);
     mScale = gScale;
-    depthMap = cv::Mat(240, 180, CV_64F, std::numeric_limits<double>::max());
+    depthMap = cv::Mat(240, 180, CV_32F, std::numeric_limits<float>::max());
 }
 
 Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
@@ -29,7 +29,7 @@ Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
     *event = **(other.vEvents.rbegin());
     vEvents.insert(event);
     // ??
-    depthMap = cv::Mat(240, 180, CV_64F, std::numeric_limits<double>::max());
+    depthMap = cv::Mat(240, 180, CV_32F, std::numeric_limits<float>::max());
 }
 
 cv::Mat Frame::getFirstPose()
@@ -79,11 +79,11 @@ cv::Mat Frame::getTranslation() {
     return mTwc1.rowRange(0,3).col(3).clone();
 }
 
-void Frame::setScale(double& scale) {
+void Frame::setScale(float& scale) {
     mScale = scale;
 }
 
-double& Frame::getScale() {
+float& Frame::getScale() {
     return mScale;
 }
 

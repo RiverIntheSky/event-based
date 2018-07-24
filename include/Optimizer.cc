@@ -701,7 +701,7 @@ void Optimizer::optimize(MapPoint* pMP) {
     pMP->setWorldPos(pos);
 
     i = 0;
-    double scale = (*(KFs.rbegin()))->getScale();
+    float scale = (*(KFs.rbegin()))->getScale();
     cv::Mat Twc_last = (*(KFs.rbegin()))->getFirstPose();
     for (auto KFit = KFs.rbegin(); KFit != KFs.rend(); KFit++) {
         cv::Mat w = (cv::Mat_<double>(3,1) << result[2 + i * 6],
@@ -952,7 +952,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
             twc.at<double>(2) = result[13 + i * 12];
             twc *= Frame::gScale;
 
-            double scale = Frame::gScale + twc.dot(pMP->getNormal());
+            float scale = Frame::gScale + twc.dot(pMP->getNormal());
             KFit->setScale(scale);
 
             cv::Mat Twc1 = cv::Mat::eye(4,4,CV_64F);
@@ -1058,7 +1058,7 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
         Rwc = axang2rotm(Rwc_w);
         twc *= Frame::gScale;
 
-        double scale = Frame::gScale + twc.dot(pMP->getNormal());
+        float scale = Frame::gScale + twc.dot(pMP->getNormal());
         v *= scale;
 
         Rwc.copyTo(Twc1.rowRange(0,3).colRange(0,3));

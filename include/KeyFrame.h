@@ -31,8 +31,8 @@ public:
     void setLinearVelocity(const cv::Mat& v_);
     cv::Mat getRotation();
     cv::Mat getTranslation();
-    void setScale(double& scale);
-    double& getScale();
+    void setScale(float& scale);
+    float& getScale();
 public:
     // Frame and keyframe id
     unsigned mnId;
@@ -49,7 +49,7 @@ public:
     cv::Mat v;
 
     // scale
-    double mScale;
+    float mScale;
 
     // camera pose of first event
     cv::Mat mTwc1;
@@ -64,7 +64,7 @@ public:
     okvis::Time mTimeStamp;
 
     // timespan of the events
-    double dt;
+    float dt;
 
     // mutex
     std::mutex mMutexPose;

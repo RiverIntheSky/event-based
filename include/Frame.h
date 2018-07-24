@@ -37,8 +37,8 @@ public:
     void setLinearVelocity(const cv::Mat& v_);
     cv::Mat getRotation();
     cv::Mat getTranslation();
-    void setScale(double& scale);
-    double& getScale();
+    void setScale(float& scale);
+    float& getScale();
 
 public:
     // Frame id
@@ -55,8 +55,8 @@ public:
     cv::Mat v;
 
     // scale
-    double mScale;
-    static double gScale;
+    float mScale;
+    static float gScale;
 
     // depth map, store distance from frame grid to MapPoint
     cv::Mat depthMap;
@@ -71,7 +71,7 @@ public:
     cv::Mat mtwc;
 
     // timespan of the events
-    double dt;
+    float dt;
 
     // timestamp of first event in frame
     okvis::Time mTimeStamp;

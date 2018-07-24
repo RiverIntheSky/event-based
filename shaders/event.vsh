@@ -35,12 +35,13 @@ void main()
     float t = aPos.w;
     vec3 pixel = texture(patchTexture, vec2(framePos.x, height - framePos.y)).xyz;
     float inverseDepth = (pixel.z * 2 - 1) / nearPlane;
-    inverseDepth /= 0.584;
     float nx = pixel.x * 2 - 1;
     float ny = pixel.y * 2 - 1;
     float nz = sqrt(1 - nx * nx - ny * ny);
     mat3 R = rotationMatrix(w, t * length(w));
-    mat3 H = R * (mat3(1.f) + outerProduct(v * t * inverseDepth, vec3(nx, ny, nz)));
+    // mat3 H = R * (mat3(1.f) + outerProduct(v * t * inverseDepth, vec3(nx, ny, nz)));
+    mat3 H =  R * mat3(1.f) + outerProduct(v * t * inverseDepth, vec3(nx, ny, nz));
+
     vec3 newWorldPos = inverse(H) * vec3(aPos.x, -aPos.y, -1.f);
     vec3 newFramePos = cameraMatrix * vec3(-newWorldPos.x / newWorldPos.z,
                                             newWorldPos.y / newWorldPos.z,

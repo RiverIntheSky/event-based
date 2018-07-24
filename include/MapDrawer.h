@@ -5,10 +5,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "GLFW/linmath.h"
+
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_multimin.h>
+
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
+
+#include "GLFW/linmath.h"
 #include "parameters.h"
 #include "Map.h"
 #include "Tracking.h"
@@ -41,14 +47,24 @@ public:
 
     // events
     void setUpEventShader();
-    void updateEvents();
+    void updateFrame();
     void setUpSquareShader();
     void setUpSummationShader();
+
+    float cost_func(cv::Mat& w, cv::Mat& v);
 
     // shader
     void setUp2DRect(GLuint& FBO, GLuint& tex);
     void setUpShader(GLuint& shader, const char* filename);
     void setUpSampler2D(GLuint& FBO, GLuint& tex);
+
+    // optimization pipeline
+    void optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,
+                             gsl_multimin_fminimizer* s, gsl_vector* x, double* res, size_t iter);
+    void initialize_map();
+    static double initialize_cost_func(const gsl_vector *vec, void *params);
+    float initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v);
+    void optimize_map();
 
     void drawMapPoints();
 //    void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -60,7 +76,7 @@ public:
     GLuint quadVAO, quadVBO, quadEBO, quadVS, quadFS, quadShader;
     GLint quad_tex_location;
 
-    GLuint eventVAO, eventVBO, eventVS, eventFS, eventShader, warpFramebuffer, warppedImage;
+    GLuint eventVAO, eventVBO, eventShader, warpFramebuffer, warppedImage;
     GLint event_apos_location, w_location, v_location, camera_matrix_location,
           near_plane_location, occlusion_map_location, event_projection_location;
 

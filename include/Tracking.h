@@ -14,7 +14,7 @@ public:
     Tracking();
 
     Tracking(cv::Mat& K, cv::Mat& DistCoeffs, Map* mpMap_)
-        : mState(NOT_INITIALIZED), mK(K), mDistCoeffs(DistCoeffs), mpMap(mpMap_){}
+        : mState(NOT_INITIALIZED), mpMap(mpMap_), mK(K), mDistCoeffs(DistCoeffs) {}
 
     std::shared_ptr<Frame> getCurrentFrame();
     void Track();
@@ -44,11 +44,11 @@ public:
     static cv::Mat R;
     static cv::Mat r;
     static cv::Mat t;
-protected:
+    Map* mpMap;
     std::shared_ptr<Frame> mCurrentFrame;
+protected:
     cv::Mat mK;
     cv::Vec<double, 5> mDistCoeffs;
-    Map* mpMap;
 
 };
 }
