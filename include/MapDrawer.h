@@ -56,7 +56,7 @@ public:
     // shader
     void setUp2DRect(GLuint& FBO, GLuint& tex);
     void setUpShader(GLuint& shader, const char* filename);
-    void setUpSampler2D(GLuint& FBO, GLuint& tex);
+    void setUp2DMultisample(GLuint& FBO, GLuint& tex);
 
     // optimization pipeline
     void optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,
@@ -88,6 +88,8 @@ public:
 
     GLuint sumShader, sumFramebuffer, sumImage;
     GLint sum_tex_location, sum_apos_location;
+
+    GLuint tmpFramebuffer, tmpImage;
 
     std::string shaderFilePath;
     GLFWwindow* window;

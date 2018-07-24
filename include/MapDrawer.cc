@@ -14,6 +14,20 @@ void MapDrawer::drawMapPoints() {
     while(!glfwWindowShouldClose(window)) {
         if (map->isDirty) {
             initialize_map();
+            // visualization
+            {
+                glEnable(GL_BLEND);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                glUseProgram(quadShader);
+                glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
+                drawQuad();
+                glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+                drawQuad();
+                glDisable(GL_BLEND);
+                glfwSwapBuffers(window);
+                glfwPollEvents();
+            }
 
             system("sleep 100");
 
@@ -138,6 +152,7 @@ void MapDrawer::setUp() {
     setUpGaussianBlurShader();
     setUpSquareShader();
     setUpSummationShader();
+    setUp2DRect(tmpFramebuffer, tmpImage);
 }
 
 void MapDrawer::setUpPatchShader() {
@@ -210,7 +225,7 @@ void MapDrawer::setUpEventShader() {
     }
 
     setUpShader(eventShader, "event");
-    setUp2DRect(warpFramebuffer, warppedImage);
+    setUp2DMultisample(warpFramebuffer, warppedImage);
 
     // set up uniforms and attributes
     {
@@ -326,17 +341,16 @@ void MapDrawer::setUp2DRect(GLuint& FBO, GLuint& tex) {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE, tex, 0);
 }
 
-void MapDrawer::setUpSampler2D(GLuint& FBO, GLuint& tex) {
+void MapDrawer::setUp2DMultisample(GLuint& FBO, GLuint& tex) {
     glGenFramebuffers(1, &FBO);
     glBindFramebuffer(GL_FRAMEBUFFER, FBO);
     glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, param->width, param->height, 0,
-                 GL_RGB, GL_FLOAT, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 16, GL_RGBA32F, param->width, param->height, false);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, tex, 0);
 }
 
 void MapDrawer::setUpShader(GLuint& shader, const char* filename) {
@@ -417,10 +431,16 @@ float MapDrawer::cost_func(cv::Mat& w, cv::Mat& v) {
 
     glDisable(GL_BLEND);
 
-    gaussianBlur(warpFramebuffer, warppedImage, blurFramebuffer, blurredImage, glm::vec2(0, 1));
-    std::swap(blurFramebuffer, warpFramebuffer);
-    std::swap(blurredImage, warppedImage);
-    gaussianBlur(warpFramebuffer, warppedImage, blurFramebuffer, blurredImage, glm::vec2(1, 0));
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, tmpFramebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, warpFramebuffer);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, warppedImage);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBlitFramebuffer(0, 0, param->width, param->height, 0, 0, param->width, param->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    gaussianBlur(tmpFramebuffer, tmpImage, blurFramebuffer, blurredImage, glm::vec2(0, 1));
+    std::swap(blurFramebuffer, tmpFramebuffer);
+    std::swap(blurredImage, tmpImage);
+    gaussianBlur(tmpFramebuffer, tmpImage, blurFramebuffer, blurredImage, glm::vec2(1, 0));
 
     glBindFramebuffer(GL_FRAMEBUFFER, squareFramebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -443,19 +463,6 @@ float MapDrawer::cost_func(cv::Mat& w, cv::Mat& v) {
     }
 
     glReadPixels(0, 0, 1, 1, GL_RED, GL_FLOAT, &sum);
-
-    glEnable(GL_BLEND);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glUseProgram(quadShader);
-    glBindTexture(GL_TEXTURE_RECTANGLE, warppedImage);
-    drawQuad();
-    glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-    drawQuad();
-    glDisable(GL_BLEND);
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-
 
     return -sum/(param->width * param->height);
 }

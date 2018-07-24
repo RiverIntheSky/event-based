@@ -134,8 +134,6 @@ void MapDrawer::optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, v
             printf ("converged to minimum\n");
         }
 
-        LOG(INFO) << size;
-
     }
     while (status == GSL_CONTINUE && it < iter);
 
