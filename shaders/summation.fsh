@@ -7,5 +7,5 @@ out vec4 fColor;
 
 void main()
 {
-    fColor = texture(tex, gl_FragCoord.xy * 2+0.5);
+    fColor = 4 * texture(tex, vec2(gl_FragCoord.xy * 2));
 }

@@ -61,7 +61,7 @@ void MapDrawer::drawMapPoints() {
             }
 
             updateEvents();
-
+           LOG(INFO) << "begin";
             glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
             glUseProgram(eventShader);
 
@@ -70,7 +70,7 @@ void MapDrawer::drawMapPoints() {
             glm::vec3 v = Converter::toGlmVec3(frame->getLinearVelocity());
             glUniform3fv(v_location, 1, glm::value_ptr(v));
 
-            glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
+            glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);          
             glEnable(GL_BLEND);
             glBlendFunc(GL_ONE, GL_ONE);
             glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
@@ -85,7 +85,7 @@ void MapDrawer::drawMapPoints() {
 
             gaussianBlur(warpFramebuffer, warppedImage, blurFramebuffer, blurredImage, glm::vec2(0, 1));
             std::swap(blurFramebuffer, warpFramebuffer);
-            std::swap(warppedImage, blurredImage);
+            std::swap(blurredImage, warppedImage);
             gaussianBlur(warpFramebuffer, warppedImage, blurFramebuffer, blurredImage, glm::vec2(1, 0));
 
             glBindFramebuffer(GL_FRAMEBUFFER, squareFramebuffer);
@@ -94,49 +94,57 @@ void MapDrawer::drawMapPoints() {
             glUseProgram(squareShader);
             drawQuad();
 
-            glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//            size_t currentW = param->width, currentH = param->height;
-////            while (currentW != 1) {
-
-////            }
-            glBindTexture(GL_TEXTURE_RECTANGLE, sumImage);
+            GLfloat sum;
             glUseProgram(sumShader);
-            drawQuad();
+            float currentW = param->width;
+            while (currentW > 1) {
+                glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
+                glBindTexture(GL_TEXTURE_RECTANGLE, squaredImage);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                drawQuad();
+
+                std::swap(squareFramebuffer, sumFramebuffer);
+                std::swap(squaredImage, sumImage);
+                currentW = std::ceil(currentW / 2);
+            }
+
+            glReadPixels(0, 0, 1, 1, GL_RED, GL_FLOAT, &sum);
+            LOG(INFO) << "sum gpu "<<sum;
+
+//            glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
+//            glBindTexture(GL_TEXTURE_RECTANGLE, squaredImage);
+//            drawQuad();
 
             glEnable(GL_BLEND);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glBindTexture(GL_TEXTURE_RECTANGLE, squaredImage);
+            glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
             drawQuad();
-
-
-
 
 //            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
 //            drawQuad();
             glDisable(GL_BLEND);
 
             glfwSwapBuffers(window);
-            glViewport(0, 0, param->width/2, param->height/2);
             glfwPollEvents();
-            glViewport(0, 0, param->width, param->height);
             // we could also read GL_DEPTH_COMPONENT here, but we don't,
             // since the depth value might change after the warp, but distance to the plane won't
 
-            glBindFramebuffer(GL_FRAMEBUFFER, squareFramebuffer);
-            std::vector<GLfloat> data(param->width * param->height * 3);
-            glReadPixels(0, 0, param->width, param->height, GL_RGB, GL_FLOAT, &data[0]);
-            for (int j = param->height-1; j >= 0; j--) {
-                for (int i = 0; i < param->width; i++) {
-                    LOG(INFO) << data[3*(i+param->width*j)];
-//                    LOG(INFO) << data[3*(i+param->width*j)+1];
-//                    LOG(INFO) << data[3*(i+param->width*j)+2];
-                    framePartition.at<float>(j, i, 0) = data[3*(i+param->width*j)] * 2 - 1; // x
-                    framePartition.at<float>(j, i, 1) = data[3*(i+param->width*j)+1] * 2 - 1; // y
-                    framePartition.at<float>(j, i, 2) = (data[3*(i+param->width*j)+2] * 2 - 1) * param->zfar; // d
-                }
-            }
+//                glBindFramebuffer(GL_FRAMEBUFFER, squareFramebuffer);
+//            std::vector<GLfloat> data(param->width * param->height * 3);
+//            glReadPixels(0, 0, param->width, param->height, GL_RGB, GL_FLOAT, &data[0]);
+//            int count = 0;
+//            for (int j = param->height-1; j >= 0; j--) {
+//                for (int i = 0; i < param->width; i++) {
+////                    LOG(INFO) << j << " " << i <<" " << data[3*(count++)];
+////                    LOG(INFO) << data[3*(i+param->width*j)+1];
+////                    LOG(INFO) << data[3*(i+param->width*j)+2];
+//                    framePartition.at<float>(j, i, 0) = data[3*(i+param->width*j)] * 2 - 1; // x
+//                    framePartition.at<float>(j, i, 1) = data[3*(i+param->width*j)+1] * 2 - 1; // y
+//                    framePartition.at<float>(j, i, 2) = (data[3*(i+param->width*j)+2] * 2 - 1) * param->zfar; // d
+//                }
+//            }
+
 //            map->isDirty = false;
         }
 //        std::this_thread::yield();
@@ -366,7 +374,7 @@ void MapDrawer::setUp2DRect(GLuint& FBO, GLuint& tex) {
     glBindFramebuffer(GL_FRAMEBUFFER, FBO);
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_RECTANGLE, tex);
-    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB16F, param->width, param->height, 0,
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB32F, param->width, param->height, 0,
                  GL_RGB, GL_FLOAT, 0);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE, tex, 0);
@@ -377,8 +385,10 @@ void MapDrawer::setUpSampler2D(GLuint& FBO, GLuint& tex) {
     glBindFramebuffer(GL_FRAMEBUFFER, FBO);
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, param->width, param->height, 0,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, param->width, param->height, 0,
                  GL_RGB, GL_FLOAT, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
 }
