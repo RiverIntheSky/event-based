@@ -9,100 +9,20 @@ void MapDrawer::drawMapPoints() {
 
     setUp();
 
-    LOG(INFO) << "drawwwwwwwwwwwwwwwwwwwww";
-
     while(!glfwWindowShouldClose(window)) {
         if (map->isDirty) {
-            initialize_map();
-            visualize_map();
-
-            system("sleep 100");
-
-            // camera view matrix
-            cv::Mat t = frame->getTranslation();
-            glm::mat4 view = glm::translate(glm::mat4(), Converter::toGlmVec3(t));
-            cv::Mat R = frame->getRotation();
-            cv::Mat axang = rotm2axang(R);
-            glm::vec3 axang_ = Converter::toGlmVec3(axang);
-            float angle = glm::length(axang_);
-            if (std::abs(angle) > 1e-6) {
-                glm::vec3 axis = glm::normalize(axang_);
-                view = glm::rotate(view, -angle, axis);
+            if (map->mspMapPoints.empty()) {
+                initialize_map();
+            } else {
+                optimize_frame();
             }
 
-            glUseProgram(patchShader);
-            glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
-            glEnable(GL_DEPTH_TEST);
-
-// draw plane only when facing camera??
-//            glEnable(GL_CULL_FACE);
-//            glCullFace(GL_BACK);
-
-            glBindVertexArray(patchVAO);
-            glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
-            for (auto mpPoint: frame->mvpMapPoints) {
-
-                // color stores normal and distance information of the plane
-                // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
-                cv::Mat nw = mpPoint->getNormal();
-                cv::Mat nc = frame->getRotation().t() * nw;
-                float inverse_Depth = 1.f/(1.f/mpPoint->d + frame->getTranslation().dot(nw));
-                glm::vec3 color = glm::vec3((nc.at<double>(0)+1)/2, (-nc.at<double>(1)+1)/2, (inverse_Depth*param->znear+1)/2);
-                glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
-
-                // model matrix of the plane
-                cv::Mat pos = mpPoint->getWorldPos();
-                glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
-                glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
-                glm::vec3 n_ = Converter::toGlmVec3(nw);
-                model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
-                glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
-                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-            }            
-
-
-//            LOG(INFO) << "cost " << cost();
-
-//            glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
-//            glBindTexture(GL_TEXTURE_RECTANGLE, squaredImage);
-//            drawQuad();
-
-            glEnable(GL_BLEND);
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
-            drawQuad();
-
-//            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-//            drawQuad();
-            glDisable(GL_BLEND);
-
-            glfwSwapBuffers(window);
-            glfwPollEvents();
-            // we could also read GL_DEPTH_COMPONENT here, but we don't,
-            // since the depth value might change after the warp, but distance to the plane won't
-
-//                glBindFramebuffer(GL_FRAMEBUFFER, squareFramebuffer);
-//            std::vector<GLfloat> data(param->width * param->height * 3);
-//            glReadPixels(0, 0, param->width, param->height, GL_RGB, GL_FLOAT, &data[0]);
-//            int count = 0;
-//            for (int j = param->height-1; j >= 0; j--) {
-//                for (int i = 0; i < param->width; i++) {
-////                    LOG(INFO) << j << " " << i <<" " << data[3*(count++)];
-////                    LOG(INFO) << data[3*(i+param->width*j)+1];
-////                    LOG(INFO) << data[3*(i+param->width*j)+2];
-//                    framePartition.at<float>(j, i, 0) = data[3*(i+param->width*j)] * 2 - 1; // x
-//                    framePartition.at<float>(j, i, 1) = data[3*(i+param->width*j)+1] * 2 - 1; // y
-//                    framePartition.at<float>(j, i, 2) = (data[3*(i+param->width*j)+2] * 2 - 1) * param->zfar; // d
-//                }
-//            }
-
-//            map->isDirty = false;
+            visualize_map();
+            glFinish();
+            system("sleep 1");
+            map->isDirty = false;
         }
-//        std::this_thread::yield();
+        std::this_thread::yield();
     }
     glfwTerminate();
 }
@@ -518,6 +438,58 @@ float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws,
     return cost;
 }
 
+float MapDrawer::optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v) {
+    // camera view matrix
+
+    cv::Mat t = frame->getTranslation();
+    glm::mat4 view = glm::translate(glm::mat4(), Converter::toGlmVec3(t));
+    cv::Mat R = frame->getRotation();
+    cv::Mat axang = rotm2axang(R);
+    glm::vec3 axang_ = Converter::toGlmVec3(axang);
+    float angle = glm::length(axang_);
+    if (std::abs(angle) > 1e-6) {
+        glm::vec3 axis = glm::normalize(axang_);
+        view = glm::rotate(view, -angle, axis);
+    }
+
+    glUseProgram(patchShader);
+    glBindVertexArray(patchVAO);
+    glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
+    glEnable(GL_DEPTH_TEST);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
+    int i = 0;
+    for (auto mpPoint: map->mspMapPoints) {
+        // color stores normal and distance information of the plane
+        // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
+
+        cv::Mat nw = nws.col(i);
+        cv::Mat nc = R.t() * nw;
+        float inv_d_c = 1.f/(1.f/inv_d_ws[i] + t.dot(nw));
+        glm::vec3 color = glm::vec3((nc.at<double>(0)+1)/2, (-nc.at<double>(1)+1)/2, inv_d_c*param->znear);
+        glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
+
+        // model matrix of the plane
+        cv::Mat pos = mpPoint->getWorldPos();
+        pos = pos /(-inv_d_ws[i] * pos.dot(nw)); /* n'x + d = 0 */
+        glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
+        glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
+        glm::vec3 n_ = Converter::toGlmVec3(nw);
+        model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
+        glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        i++;
+    }
+
+    float cost = cost_func(w, v);
+    return cost;
+}
+
 void MapDrawer::visualize_map(){
 
         cv::Mat t = frame->getTranslation();
@@ -604,7 +576,6 @@ void MapDrawer::visualize_map(){
                 cv::Mat nw = mpPoint->getNormal();
                 cv::Mat nc = R.t() * nw;
                 glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, -nc.at<float>(2));
-                LOG(INFO) << color[0] << " " << color[1] << " " << color[2];
                 glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
 
                 // model matrix of the plane

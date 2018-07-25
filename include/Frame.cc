@@ -18,18 +18,18 @@ Frame::Frame(Map *pMap): mpMap(pMap), shouldBeKeyFrame(false){
 
 Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
     mnId = nNextId++;
-    setFirstPose(other.getLastPose());
-    cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
-    cv::Mat twc = getFirstPose().rowRange(0,3).col(3);
-    mScale = gScale + twc.dot(n);
-    LOG(INFO) << mScale;
+//    setFirstPose(other.getLastPose());
+//    cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
+//    cv::Mat twc = getFirstPose().rowRange(0,3).col(3);
+//    mScale = gScale + twc.dot(n);
+//    LOG(INFO) << mScale;
     w = other.w.clone();
     v = other.v.clone();
     ev::EventMeasurement* event = new ev::EventMeasurement();
     *event = **(other.vEvents.rbegin());
     vEvents.insert(event);
     // ??
-    depthMap = cv::Mat(240, 180, CV_32F, std::numeric_limits<float>::max());
+//    depthMap = cv::Mat(240, 180, CV_32F, std::numeric_limits<float>::max());
 }
 
 cv::Mat Frame::getFirstPose()

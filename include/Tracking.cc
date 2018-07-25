@@ -26,7 +26,8 @@ void Tracking::Track() {
         // assume success??
         init();
     } else if(mState==OK) {
-        estimate();
+        /*estimate();*/
+        Optimizer::optimize(mCurrentFrame.get());
     }
 
     // add frame to map
@@ -54,11 +55,12 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     undistortEvents();
     mCurrentFrame->mTimeStamp = (*(mCurrentFrame->vEvents.cbegin()))->timeStamp;
     mCurrentFrame->dt = ((*(mCurrentFrame->vEvents.crbegin()))->timeStamp - mCurrentFrame->mTimeStamp).toSec();
-    cv::Mat Twc1 = cv::Mat::eye(4,4,CV_64F);
+    cv::Mat Twc1 = cv::Mat::eye(4,4,CV_32F);
     R_.copyTo(Twc1.rowRange(0,3).colRange(0,3));
     t_.copyTo(Twc1.rowRange(0,3).col(3));
-    mCurrentFrame->setAngularVelocity(w_);
-    mCurrentFrame->setLinearVelocity(v_);
+    mCurrentFrame->setFirstPose(Twc1);
+//    mCurrentFrame->setAngularVelocity(w_);
+//    mCurrentFrame->setLinearVelocity(v_);
 
     LOG(INFO) << "groundtruth velocity model:";
     LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
@@ -69,8 +71,8 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     if(mState==NOT_INITIALIZED) {
         // assume success??
         init();
-    } else if(mState==OK) {
-        estimate();
+    } else if(mState==OK) {/*estimate();*/
+        Optimizer::optimize(mCurrentFrame.get());
     }
     if (mState == LOST) {
         cv::Mat R_ = mCurrentFrame->getRotation();
@@ -86,18 +88,18 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     mpMap->addFrame(mCurrentFrame);
 
     LOG(INFO) << "current velocity model:";
-    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
-    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
-    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+//    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
+    LOG(INFO) << "\nw\n" << mCurrentFrame->getAngularVelocity();
+    LOG(INFO) << "\nv\n" << mCurrentFrame->getLinearVelocity();
     LOG(INFO);
     w = mCurrentFrame->w;
     v = mCurrentFrame->v;
     R = mCurrentFrame->getRotation();
     r = rotm2axang(R);
     t = mCurrentFrame->getTranslation();
-
+    LOG(INFO)<<"------------------";
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
-
+    LOG(INFO)<<"------------------";
     // under certain conditions, Create KeyFrame
 
     // delete currentFrame
@@ -128,7 +130,7 @@ bool Tracking::init() {
 //    mCurrentFrame->setScale(pKF->getScale());
 
 //    if (pMP->observations() >= nInitializer) {
-//        mState = OK;
+        mState = OK;
 //        pMP->swap(true);
 //    }
     return true;
@@ -136,6 +138,7 @@ bool Tracking::init() {
 
 bool Tracking::estimate() {
     // WIP
+
     auto pMP = mpMap->getAllMapPoints().front();
     Optimizer::optimize(pMP.get(), mCurrentFrame.get());
     if (mCurrentFrame->shouldBeKeyFrame) {

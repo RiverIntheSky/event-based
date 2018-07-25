@@ -12,8 +12,8 @@ int Optimizer::sigma = 1;
 int Optimizer::count_frame = 0;
 int Optimizer::count_map = 0;
 
-double Optimizer::optimize(Frame* frame) {
-    if (frame->mvpMapPoints.empty()) {
+void Optimizer::optimize(Frame* frame) {
+    if (frame->mpMap->mspMapPoints.empty()) {
         cv::Mat img, dst;
         int ddepth = -1,
                 // might be too small??
@@ -61,14 +61,14 @@ double Optimizer::optimize(Frame* frame) {
             cv::Mat posInWorld = param->K.inv() * posOnFrame;
             auto mp = make_shared<MapPoint>(posInWorld);
             frame->mvpMapPoints.insert(mp);
-            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));
+//            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));
         }
-        cv::imshow("img", img);
-        cv::waitKey(1);
-        frame->mpMap->isDirty = true;
-        LOG(INFO) << "true";
-        while (frame->mpMap->isDirty) {std::this_thread::yield();}
+//        cv::imshow("img", img);
+//        cv::waitKey(1);
     }
+
+    while (frame->mpMap->isDirty) {std::this_thread::yield();}
+
 }
 
 double Optimizer::variance_map(const gsl_vector *vec, void *params) {

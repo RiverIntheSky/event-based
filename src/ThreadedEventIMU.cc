@@ -209,39 +209,39 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
 
                 mpTracker->Track(R, Converter::toCvMat(t), Converter::toCvMat(angularVelocity), Converter::toCvMat(linear_velocity));
-//mpTracker->Track();
+//                mpTracker->Track();
 
-                auto pMP = mpMap->getAllMapPoints().front();
-                imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
-                cv::Mat blurred_map;
-                cv::GaussianBlur(pMP->mFront, blurred_map, cv::Size(0, 0), 1, 0);
-                imshowRescaled(blurred_map, 1, "map");
+//                auto pMP = mpMap->getAllMapPoints().front();
+//                imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
+//                cv::Mat blurred_map;
+//                cv::GaussianBlur(pMP->mFront, blurred_map, cv::Size(0, 0), 1, 0);
+//                imshowRescaled(blurred_map, 1, "map");
 
-                LOG(INFO) << "keyframes " << mpMap->getAllKeyFrames().size();
-                LOG(INFO) << "frames " << ++count;
-                LOG(INFO) << "normal " << pMP->getNormal();
+//                LOG(INFO) << "keyframes " << mpMap->getAllKeyFrames().size();
+//                LOG(INFO) << "frames " << ++count;
+//                LOG(INFO) << "normal " << pMP->getNormal();
 
-                if (false) {
+                if (parameters_.write_to_file) {
+ LOG(INFO)<<"------------------";
+//                    std::ofstream  myfile_pr(files_path + "groundtruth_pose_rotation.txt", std::ios_base::app);
+//                    if (myfile_pr.is_open()) {
+//                        myfile_pr << begin.toSec() << " "
+//                               << R_w.at<double>(0) << " "
+//                               << R_w.at<double>(1) << " "
+//                               << R_w.at<double>(2) << "\n";
+//                        myfile_pr.close();
+//                    } else
+//                        std::cout << "怎么肥四"<<std::endl;
 
-                    std::ofstream  myfile_pr(files_path + "groundtruth_pose_rotation.txt", std::ios_base::app);
-                    if (myfile_pr.is_open()) {
-                        myfile_pr << begin.toSec() << " "
-                               << R_w.at<double>(0) << " "
-                               << R_w.at<double>(1) << " "
-                               << R_w.at<double>(2) << "\n";
-                        myfile_pr.close();
-                    } else
-                        std::cout << "怎么肥四"<<std::endl;
-
-                    std::ofstream  myfile_pt(files_path + "groundtruth_pose_translation.txt", std::ios_base::app);
-                    if (myfile_pt.is_open()) {
-                        myfile_pt << begin.toSec() << " "
-                               << t(0) << " "
-                               << t(1) << " "
-                               << t(2) << "\n";
-                        myfile_pt.close();
-                    } else
-                        std::cout << "怎么肥四"<<std::endl;
+//                    std::ofstream  myfile_pt(files_path + "groundtruth_pose_translation.txt", std::ios_base::app);
+//                    if (myfile_pt.is_open()) {
+//                        myfile_pt << begin.toSec() << " "
+//                               << t(0) << " "
+//                               << t(1) << " "
+//                               << t(2) << "\n";
+//                        myfile_pt.close();
+//                    } else
+//                        std::cout << "怎么肥四"<<std::endl;
 
                     std::ofstream  myfile(files_path + "groundtruth_rotation.txt", std::ios_base::app);
                     if (myfile.is_open()) {
@@ -286,26 +286,26 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     } else
                         std::cout << "怎么肥四"<<std::endl;
 
-                    std::ofstream  myfile_r(files_path + "estimated_pose_rotation.txt", std::ios_base::app);
-                    if (myfile_r.is_open()) {
-                        myfile_r << begin.toSec() << " "
-                                << (mpTracker->r).at<double>(0) << " "
-                                << (mpTracker->r).at<double>(1) << " "
-                                << (mpTracker->r).at<double>(2) << "\n";
-                        myfile_r.close();
-                    } else
-                        std::cout << "怎么肥四"<<std::endl;
+//                    std::ofstream  myfile_r(files_path + "estimated_pose_rotation.txt", std::ios_base::app);
+//                    if (myfile_r.is_open()) {
+//                        myfile_r << begin.toSec() << " "
+//                                << (mpTracker->r).at<double>(0) << " "
+//                                << (mpTracker->r).at<double>(1) << " "
+//                                << (mpTracker->r).at<double>(2) << "\n";
+//                        myfile_r.close();
+//                    } else
+//                        std::cout << "怎么肥四"<<std::endl;
 
-                    std::ofstream  myfile_tt(files_path + "estimated_pose_translation.txt", std::ios_base::app);
-                    if (myfile_tt.is_open()) {
-                        myfile_tt<< begin.toSec() << " "
-                                << (mpTracker->t).at<double>(0) << " "
-                                << (mpTracker->t).at<double>(1) << " "
-                                << (mpTracker->t).at<double>(2) << " ";
-                        myfile_tt << '\n';
-                        myfile_tt.close();
-                    } else
-                        std::cout << "怎么肥四"<<std::endl;
+//                    std::ofstream  myfile_tt(files_path + "estimated_pose_translation.txt", std::ios_base::app);
+//                    if (myfile_tt.is_open()) {
+//                        myfile_tt<< begin.toSec() << " "
+//                                << (mpTracker->t).at<double>(0) << " "
+//                                << (mpTracker->t).at<double>(1) << " "
+//                                << (mpTracker->t).at<double>(2) << " ";
+//                        myfile_tt << '\n';
+//                        myfile_tt.close();
+//                    } else
+//                        std::cout << "怎么肥四"<<std::endl;
                 }
             }
         }

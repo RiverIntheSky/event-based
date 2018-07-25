@@ -48,7 +48,7 @@ public:
     double static variance_frame(const gsl_vector *vec, void *params);
     double static variance_ba(const gsl_vector *vec, void *params);
     double static variance_relocalization(const gsl_vector *vec, void *params);
-    double static optimize(Frame* frame);
+    void static optimize(Frame* frame);
     void static optimize(MapPoint* pMP);
     void static optimize(MapPoint* pMP, Frame* frame);
     bool static optimize(MapPoint* pMP, std::shared_ptr<KeyFrame>& pKF);
