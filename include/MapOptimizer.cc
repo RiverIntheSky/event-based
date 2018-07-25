@@ -5,13 +5,13 @@ namespace ev {
 void MapDrawer::initialize_map() {
     updateFrame();
 
-    int numMapPoints = map->mspMapPoints.size();
+    int numMapPoints = frame->mvpMapPoints.size();
     int nVariables = numMapPoints * 3 /* depth and normal */
                                   + 5 /* degrees of freedom */;
     double result[nVariables] = {};
 
-    double w[] = {0, 0, 0};
-    double v[] = {0, M_PI/2}; /* normalized velocity direction */
+    cv::Mat w = cv::Mat::zeros(3, 1, CV_32F);
+    cv::Mat v = (cv::Mat_<float>(2, 1) << 0, M_PI/2); /* normalized velocity direction */
                               /* could not represent zero velocity */
 
     gsl_multimin_fminimizer *s = NULL;
@@ -22,32 +22,57 @@ void MapDrawer::initialize_map() {
 
     int i = 0;
     for (; i < 3 * numMapPoints; i += 3) {
-        gsl_vector_set(x, i, 0.);
+        gsl_vector_set(x, i, 0);
         gsl_vector_set(x, i+1, M_PI);
         gsl_vector_set(x, i+2, 0.01);
     }
 
-    gsl_vector_set(x, i, w[0]); i++;
-    gsl_vector_set(x, i, w[1]); i++;
-    gsl_vector_set(x, i, w[2]); i++;
+    gsl_vector_set(x, i, w.at<float>(0)); i++;
+    gsl_vector_set(x, i, w.at<float>(1)); i++;
+    gsl_vector_set(x, i, w.at<float>(2)); i++;
 
-    gsl_vector_set(x, i, v[0]); i++;
-    gsl_vector_set(x, i, v[1]); i++;
+    gsl_vector_set(x, i, v.at<float>(0)); i++;
+    gsl_vector_set(x, i, v.at<float>(1));
 
     optimize_gsl(1, nVariables, initialize_cost_func, this, s, x, result, 500);
+    
+    float depth_norm = 0.;
 
-//    w.at<double>(0) = result[0];
-//    w.at<double>(1) = result[1];
-//    w.at<double>(2) = result[2];
+    for (i = 0; i < 3 * numMapPoints; i += 3) {
+        float d = result[i+2];
+        if (d > 0)
+            depth_norm += 1/(d*d);
+    }
+    depth_norm = std::sqrt(depth_norm);
 
-//    v.at<double>(0) = result[3];
-//    v.at<double>(1) = result[4];
+    auto it = (frame->mvpMapPoints).begin();
+    for (i = 0; i < 3 * numMapPoints; i += 3) {
+        float d = float(result[i+2]);
+        auto current = it++;
+        if (d > 0) {
+            (*current)->setNormalDirection(float(result[i]), float(result[i+1]));
+            (*current)->d = float(result[i+2]) * depth_norm;
+            map->mspMapPoints.insert(*current);
+        } else {
+            frame->mvpMapPoints.erase(current);
+        }
+    }
 
-//    frame->setAngularVelocity(w);
-//    v *= frame->mScale;
-//    frame->setLinearVelocity(v);
+    w.at<float>(0) = float(result[i]); i++;
+    w.at<float>(1) = float(result[i]); i++;
+    w.at<float>(2) = float(result[i]); i++;
 
-//    double dt = frame->dt;
+    float phi = float(result[i]); i++;
+    float psi = float(result[i]);
+    cv::Mat v_normalized = (cv::Mat_<float>(3, 1) << std::cos(phi) * std::sin(psi),
+                                                      std::sin(phi) * std::sin(psi),
+                                                      std::cos(psi));
+    v_normalized /= depth_norm;
+
+    frame->setAngularVelocity(w);
+    frame->setLinearVelocity(v_normalized);
+   
+//    float dt = frame->dt;
 //    cv::Mat dw = w * dt;
 //    cv::Mat Rc1c2 = axang2rotm(dw);
 //    cv::Mat tc1c2 = v * dt; // up to a global scale
@@ -60,14 +85,12 @@ void MapDrawer::initialize_map() {
 //    Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
 //    twc2.copyTo(Twc2.rowRange(0,3).col(3));
 //    frame->setLastPose(Twc2);
-
-
 }
 
 double MapDrawer::initialize_cost_func(const gsl_vector *vec, void *params) {
     MapDrawer* drawer = (MapDrawer *)params;
 
-    int numMapPoints = drawer->map->mspMapPoints.size();
+    int numMapPoints = drawer->frame->mvpMapPoints.size();
     cv::Mat nw = cv::Mat::zeros(3, numMapPoints, CV_32F);
     std::vector<float> depth(numMapPoints);
 

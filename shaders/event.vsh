@@ -34,19 +34,18 @@ void main()
     float polarity = aPos.z * 2 - 1;
     float t = aPos.w;
     vec3 pixel = texture(patchTexture, vec2(framePos.x, height - framePos.y)).xyz;
-    float inverseDepth = (pixel.z * 2 - 1) / nearPlane;
+    float inverseDepth = pixel.z / nearPlane;
     float nx = pixel.x * 2 - 1;
     float ny = pixel.y * 2 - 1;
     float nz = sqrt(1 - nx * nx - ny * ny);
     mat3 R = rotationMatrix(w, t * length(w));
-    // mat3 H = R * (mat3(1.f) + outerProduct(v * t * inverseDepth, vec3(nx, ny, nz)));
-    mat3 H =  R * mat3(1.f) + outerProduct(v * t * inverseDepth, vec3(nx, ny, nz));
+    mat3 H = R * (mat3(1.f) + outerProduct(v * t * inverseDepth, vec3(nx, ny, nz)));
 
     vec3 newWorldPos = inverse(H) * vec3(aPos.x, -aPos.y, -1.f);
     vec3 newFramePos = cameraMatrix * vec3(-newWorldPos.x / newWorldPos.z,
                                             newWorldPos.y / newWorldPos.z,
                                             1.f);
     gl_Position = vec4((newFramePos.x-width/2)/(width/2), (height/2-newFramePos.y)/(height/2), 0.f, 1.f);
-    vColor = polarity;
+    vColor = polarity * 0.1;
 
 }

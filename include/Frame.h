@@ -82,6 +82,6 @@ public:
     bool shouldBeKeyFrame;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
-    std::vector<std::shared_ptr<MapPoint>> mvpMapPoints;
+    std::set<std::shared_ptr<MapPoint>> mvpMapPoints;
 };
 }

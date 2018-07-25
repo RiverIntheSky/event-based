@@ -14,20 +14,7 @@ void MapDrawer::drawMapPoints() {
     while(!glfwWindowShouldClose(window)) {
         if (map->isDirty) {
             initialize_map();
-            // visualization
-            {
-                glEnable(GL_BLEND);
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                glUseProgram(quadShader);
-                glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
-                drawQuad();
-                glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-                drawQuad();
-                glDisable(GL_BLEND);
-                glfwSwapBuffers(window);
-                glfwPollEvents();
-            }
+            visualize_map();
 
             system("sleep 100");
 
@@ -56,7 +43,7 @@ void MapDrawer::drawMapPoints() {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-            for (auto mpPoint: map->mspMapPoints) {
+            for (auto mpPoint: frame->mvpMapPoints) {
 
                 // color stores normal and distance information of the plane
                 // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
@@ -158,10 +145,10 @@ void MapDrawer::setUp() {
 void MapDrawer::setUpPatchShader() {
 
     GLfloat points[] = {
-            -10.f,  10.f,
-             10.f,  10.f,
-             10.f, -10.f,
-            -10.f, -10.f
+            -0.1f,  0.1f,
+             0.1f,  0.1f,
+             0.1f, -0.1f,
+            -0.1f, -0.1f
     };
     unsigned int indices[] = {
         3, 1, 0,
@@ -347,7 +334,7 @@ void MapDrawer::setUp2DMultisample(GLuint& FBO, GLuint& tex) {
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
 
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 16, GL_RGBA32F, param->width, param->height, false);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA32F, param->width, param->height, false);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, tex, 0);
@@ -433,7 +420,7 @@ float MapDrawer::cost_func(cv::Mat& w, cv::Mat& v) {
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, tmpFramebuffer);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, warpFramebuffer);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, warppedImage);
+    glBindTexture(GL_TEXTURE_RECTANGLE, warppedImage);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBlitFramebuffer(0, 0, param->width, param->height, 0, 0, param->width, param->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
@@ -451,11 +438,12 @@ float MapDrawer::cost_func(cv::Mat& w, cv::Mat& v) {
     float sum;
     glUseProgram(sumShader);
     float currentW = param->width;
+    glBindVertexArray(quadVAO);
     while (currentW > 1) {
         glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
         glBindTexture(GL_TEXTURE_RECTANGLE, squaredImage);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        drawQuad();
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         std::swap(squareFramebuffer, sumFramebuffer);
         std::swap(squaredImage, sumImage);
@@ -463,7 +451,20 @@ float MapDrawer::cost_func(cv::Mat& w, cv::Mat& v) {
     }
 
     glReadPixels(0, 0, 1, 1, GL_RED, GL_FLOAT, &sum);
-
+//    LOG(INFO)<<-sum/(param->width * param->height);
+    {
+        glEnable(GL_BLEND);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glUseProgram(quadShader);
+        glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
+        drawQuad();
+        glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+        drawQuad();
+        glDisable(GL_BLEND);
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
     return -sum/(param->width * param->height);
 }
 
@@ -492,14 +493,13 @@ float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws,
     glCullFace(GL_BACK);
 
     int i = 0;
-    for (auto mpPoint: map->mspMapPoints) {
-
+    for (auto mpPoint: frame->mvpMapPoints) {
         // color stores normal and distance information of the plane
         // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
         cv::Mat nw = nws.col(i);
         cv::Mat nc = R.t() * nw;
         float inv_d_c = 1.f/(1.f/inv_d_ws[i] + t.dot(nw));
-        glm::vec3 color = glm::vec3((nc.at<double>(0)+1)/2, (-nc.at<double>(1)+1)/2, (inv_d_c*param->znear+1)/2);
+        glm::vec3 color = glm::vec3((nc.at<double>(0)+1)/2, (-nc.at<double>(1)+1)/2, inv_d_c*param->znear);
         glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
 
         // model matrix of the plane
@@ -518,6 +518,123 @@ float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws,
     return cost;
 }
 
+void MapDrawer::visualize_map(){
+
+        cv::Mat t = frame->getTranslation();
+        glm::mat4 view = glm::translate(glm::mat4(), Converter::toGlmVec3(t));
+        cv::Mat R = frame->getRotation();
+        cv::Mat axang = rotm2axang(R);
+        glm::vec3 axang_ = Converter::toGlmVec3(axang);
+        float angle = glm::length(axang_);
+        if (std::abs(angle) > 1e-6) {
+            glm::vec3 axis = glm::normalize(axang_);
+            view = glm::rotate(view, -angle, axis);
+        }
+
+        glUseProgram(patchShader);
+        glBindVertexArray(patchVAO);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
+        glEnable(GL_DEPTH_TEST);
+
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+
+        for (auto mpPoint: map->mspMapPoints) {
+            // color stores normal and distance information of the plane
+            // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
+            cv::Mat nw = mpPoint->getNormal();
+            cv::Mat nc = R.t() * nw;
+            float inv_d_c = 1.f/(1.f/mpPoint->d + t.dot(nw));
+            glm::vec3 color = glm::vec3((nc.at<double>(0)+1)/2, (-nc.at<double>(1)+1)/2, inv_d_c*param->znear);
+            glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
+
+            // model matrix of the plane
+            cv::Mat pos = mpPoint->getWorldPos();
+            pos = pos /(-mpPoint->d * pos.dot(nw)); /* n'x + d = 0 */
+            glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
+            glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
+            glm::vec3 n_ = Converter::toGlmVec3(nw);
+            model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
+            glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        }
+
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+            glUseProgram(eventShader);
+
+            glm::vec3 w_ = Converter::toGlmVec3(frame->getAngularVelocity());
+            glUniform3fv(w_location, 1, glm::value_ptr(w_));
+            glm::vec3 v_ = Converter::toGlmVec3(frame->getLinearVelocity());
+            glUniform3fv(v_location, 1, glm::value_ptr(v_));
+
+            glEnable(GL_BLEND);
+            glDisable(GL_DEPTH_TEST);
+
+            glBindVertexArray(eventVAO);
+            glDrawArrays(GL_POINTS, 0, frame->events());
+
+            glDisable(GL_BLEND);
+        }
+
+        {
+            gaussianBlur(tmpFramebuffer, tmpImage, blurFramebuffer, blurredImage, glm::vec2(0, 1));
+            std::swap(blurFramebuffer, tmpFramebuffer);
+            std::swap(blurredImage, tmpImage);
+            gaussianBlur(tmpFramebuffer, tmpImage, blurFramebuffer, blurredImage, glm::vec2(1, 0));
+        }
+
+        {
+            glUseProgram(patchShader);
+            glBindVertexArray(patchVAO);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glEnable(GL_DEPTH_TEST);
+            for (auto mpPoint: map->mspMapPoints) {
+                // color stores normal and distance information of the plane
+                // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
+                cv::Mat nw = mpPoint->getNormal();
+                cv::Mat nc = R.t() * nw;
+                glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, -nc.at<float>(2));
+                LOG(INFO) << color[0] << " " << color[1] << " " << color[2];
+                glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
+
+                // model matrix of the plane
+                cv::Mat pos = mpPoint->getWorldPos();
+                pos = pos /(-mpPoint->d * pos.dot(nw)); /* n'x + d = 0 */
+                glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
+                glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
+                glm::vec3 n_ = Converter::toGlmVec3(nw);
+                model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
+                glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            }
+            glDisable(GL_DEPTH_TEST);
+
+            glEnable(GL_BLEND);
+            glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
+            glUseProgram(quadShader);
+            drawQuad();
+            glDisable(GL_BLEND);
+        }
+
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
+            drawQuad();
+            glfwSwapBuffers(window);
+            glfwPollEvents();
+        }
+
+}
 //void MapDrawer::framebuffer_size_callback(GLFWwindow* window, int width, int height){
 //    //lock framebuffer size
 //    glViewport(0, 0, param->width, param->height);

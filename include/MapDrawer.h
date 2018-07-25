@@ -65,6 +65,7 @@ public:
     static double initialize_cost_func(const gsl_vector *vec, void *params);
     float initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v);
     void optimize_map();
+    void visualize_map();
 
     void drawMapPoints();
 //    void framebuffer_size_callback(GLFWwindow* window, int width, int height);
