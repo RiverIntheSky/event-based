@@ -67,6 +67,7 @@ void Optimizer::optimize(Frame* frame) {
 //        cv::waitKey(1);
     }
 
+    frame->mpMap->isDirty = true;
     while (frame->mpMap->isDirty) {std::this_thread::yield();}
 
 }
