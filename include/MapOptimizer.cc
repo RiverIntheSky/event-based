@@ -3,7 +3,6 @@
 namespace ev {
 
 void MapDrawer::initialize_map() {
-    updateFrame();
 
     int numMapPoints = frame->mvpMapPoints.size();
     int nVariables = numMapPoints * 3 /* depth and normal */
@@ -11,7 +10,7 @@ void MapDrawer::initialize_map() {
     double result[nVariables] = {};
 
     cv::Mat w = cv::Mat::zeros(3, 1, CV_32F);
-    cv::Mat v = (cv::Mat_<float>(2, 1) << 0, M_PI/2); /* normalized velocity direction */
+    cv::Mat v_phi = (cv::Mat_<float>(2, 1) << 0, M_PI/2); /* normalized velocity direction */
                               /* could not represent zero velocity */
 
     gsl_multimin_fminimizer *s = NULL;
@@ -31,8 +30,8 @@ void MapDrawer::initialize_map() {
     gsl_vector_set(x, i, w.at<float>(1)); i++;
     gsl_vector_set(x, i, w.at<float>(2)); i++;
 
-    gsl_vector_set(x, i, v.at<float>(0)); i++;
-    gsl_vector_set(x, i, v.at<float>(1));
+    gsl_vector_set(x, i, v_phi.at<float>(0)); i++;
+    gsl_vector_set(x, i, v_phi.at<float>(1));
 
     optimize_gsl(1, nVariables, initialize_cost_func, this, s, x, result, 500);
     
@@ -71,30 +70,82 @@ void MapDrawer::initialize_map() {
 
     frame->setAngularVelocity(w);
     frame->setLinearVelocity(v_normalized);
-//    LOG(INFO) << "w" << w;
-//    LOG(INFO) << "v" << v_normalized;
-//    LOG(INFO) << "w" << frame->getAngularVelocity();
-//    LOG(INFO) << "v" << frame->getLinearVelocity();
    
-//    float dt = frame->dt;
-//    cv::Mat dw = w * dt;
-//    cv::Mat Rc1c2 = axang2rotm(dw);
-//    cv::Mat tc1c2 = v * dt; // up to a global scale
-//    cv::Mat Twc1 = frame->getFirstPose();
-//    cv::Mat Rwc1 = Twc1.rowRange(0,3).colRange(0,3);
-//    cv::Mat twc1 = Twc1.rowRange(0,3).col(3);
-//    cv::Mat Rwc2 = Rwc1 * Rc1c2;
-//    cv::Mat twc2 = Rwc1 * tc1c2 + twc1;
-//    cv::Mat Twc2 = cv::Mat::eye(4,4,CV_64F);
-//    Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
-//    twc2.copyTo(Twc2.rowRange(0,3).col(3));
-//    frame->setLastPose(Twc2);
+    float dt = frame->dt;
+
+    cv::Mat dw = -w * dt;
+    cv::Mat Rc1c2 = axang2rotm(dw);
+    cv::Mat tc1c2 = v_normalized * dt;
+    cv::Mat Twc1 = frame->getFirstPose();
+    cv::Mat Rwc1 = Twc1.rowRange(0,3).colRange(0,3);
+    cv::Mat twc1 = Twc1.rowRange(0,3).col(3);
+    cv::Mat Rwc2 = Rwc1 * Rc1c2;
+    cv::Mat twc2 = Rwc1 * tc1c2 + twc1;
+    cv::Mat Twc2 = cv::Mat::eye(4,4,CV_32F);
+    Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
+    twc2.copyTo(Twc2.rowRange(0,3).col(3));
+    frame->setLastPose(Twc2);
+}
+
+void MapDrawer::track() {
+    LOG(INFO) << "---------------------";
+    int nVariables = 6 /* degrees of freedom */;
+
+    double result[nVariables] = {};
+
+    cv::Mat w = tracking->w.clone();
+    cv::Mat v = tracking->v.clone();
+
+    gsl_multimin_fminimizer *s = NULL;
+    gsl_vector *x;
+
+    /* Starting point */
+    x = gsl_vector_alloc(nVariables);
+
+    gsl_vector_set(x, 0, w.at<float>(0));
+    gsl_vector_set(x, 1, w.at<float>(1));
+    gsl_vector_set(x, 2, w.at<float>(2));
+
+    gsl_vector_set(x, 3, v.at<float>(0));
+    gsl_vector_set(x, 4, v.at<float>(1));
+    gsl_vector_set(x, 5, v.at<float>(2));
+
+    optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 500);
+
+    w.at<float>(0) = float(result[0]);
+    w.at<float>(1) = float(result[1]);
+    w.at<float>(2) = float(result[2]);
+
+    v.at<float>(0) = float(result[3]);
+    v.at<float>(1) = float(result[4]);
+    v.at<float>(2) = float(result[5]);
+
+    LOG(INFO) << "w\n"<<w;
+    LOG(INFO) << "v\n"<<v;
+    LOG(INFO) << "T\n"<<frame->getFirstPose();
+
+    frame->setAngularVelocity(w);
+    frame->setLinearVelocity(v);
+
+    float dt = frame->dt;
+    cv::Mat dw = -w * dt;
+    cv::Mat Rc1c2 = axang2rotm(dw);
+    cv::Mat tc1c2 = v * dt;
+    cv::Mat Twc1 = frame->getFirstPose();
+    cv::Mat Rwc1 = Twc1.rowRange(0,3).colRange(0,3);
+    cv::Mat twc1 = Twc1.rowRange(0,3).col(3);
+    cv::Mat Rwc2 = Rwc1 * Rc1c2;
+    cv::Mat twc2 = Rwc1 * tc1c2 + twc1;
+    cv::Mat Twc2 = cv::Mat::eye(4,4,CV_32F);
+    Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
+    twc2.copyTo(Twc2.rowRange(0,3).col(3));
+    frame->setLastPose(Twc2);
 }
 
 void MapDrawer::optimize_frame() {
-    updateFrame();
 
     int numMapPoints = map->mspMapPoints.size();
+
     int nVariables = numMapPoints * 3 /* depth and normal */
                                   + 5 /* degrees of freedom */;
     double result[nVariables] = {};
@@ -186,6 +237,23 @@ double MapDrawer::initialize_cost_func(const gsl_vector *vec, void *params) {
     v.at<float>(2) = std::cos(psi);
 
     return (double)drawer->initialize_map_draw(nw, depth, w, v);
+}
+
+double MapDrawer::tracking_cost_func(const gsl_vector *vec, void *params) {
+    MapDrawer* drawer = (MapDrawer *)params;
+
+    cv::Mat w = cv::Mat::zeros(3, 1, CV_32F),
+            v = cv::Mat::zeros(3, 1, CV_32F);
+
+    w.at<float>(0) = gsl_vector_get(vec, 0);
+    w.at<float>(1) = gsl_vector_get(vec, 1);
+    w.at<float>(2) = gsl_vector_get(vec, 2);
+
+    v.at<float>(0) = gsl_vector_get(vec, 3);
+    v.at<float>(1) = gsl_vector_get(vec, 4);
+    v.at<float>(2) = gsl_vector_get(vec, 5);
+
+    return (double)drawer->cost_func(w, v);
 }
 
 double MapDrawer::optimize_cost_func(const gsl_vector *vec, void *params) {

@@ -38,7 +38,7 @@ void main()
     float nx = pixel.x * 2 - 1;
     float ny = pixel.y * 2 - 1;
     float nz = sqrt(1 - nx * nx - ny * ny);
-    mat3 R = rotationMatrix(w, t * length(w));
+    mat3 R = rotationMatrix(w, t * length(w)); // Rc2c1
     mat3 H = R * (mat3(1.f) + outerProduct(v * t * inverseDepth, vec3(nx, ny, nz)));
 
     vec3 newWorldPos = inverse(H) * vec3(aPos.x, -aPos.y, -1.f);

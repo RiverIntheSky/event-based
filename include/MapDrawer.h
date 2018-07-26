@@ -58,16 +58,25 @@ public:
     void setUpShader(GLuint& shader, const char* filename);
     void setUp2DMultisample(GLuint& FBO, GLuint& tex);
 
+    // map
+    void draw_map();
+    void visualize_map();
+    void update_map_texture();
+    void draw_map_texture();
+
     // optimization pipeline
     void optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,
                              gsl_multimin_fminimizer* s, gsl_vector* x, double* res, size_t iter);
     void initialize_map();
     static double initialize_cost_func(const gsl_vector *vec, void *params);
+    static double optimize_cost_func(const gsl_vector *vec, void *params);
+    static double tracking_cost_func(const gsl_vector *vec, void *params);
     float initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v);
+    float tracking_draw(cv::Mat& w, cv::Mat& v);
     void optimize_map();
     void optimize_frame();
-    static double optimize_cost_func(const gsl_vector *vec, void *params);
-    void visualize_map();
+    void track();
+
     float optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v);
 
     void drawMapPoints();

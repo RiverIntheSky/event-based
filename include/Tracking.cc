@@ -22,12 +22,12 @@ void Tracking::Track() {
     undistortEvents();
     mCurrentFrame->mTimeStamp = (*(mCurrentFrame->vEvents.cbegin()))->timeStamp;
     mCurrentFrame->dt = ((*(mCurrentFrame->vEvents.crbegin()))->timeStamp - mCurrentFrame->mTimeStamp).toSec();
+
     if(mState==NOT_INITIALIZED) {
         // assume success??
         init();
     } else if(mState==OK) {
-        /*estimate();*/
-        Optimizer::optimize(mCurrentFrame.get());
+        estimate();
     }
 
     // add frame to map
@@ -72,7 +72,7 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
         // assume success??
         init();
     } else if(mState==OK) {/*estimate();*/
-        Optimizer::optimize(mCurrentFrame.get());
+        estimate();
     }
     if (mState == LOST) {
         cv::Mat R_ = mCurrentFrame->getRotation();
@@ -138,23 +138,26 @@ bool Tracking::init() {
 
 bool Tracking::estimate() {
     // WIP
+    newFrame = true;
+    mpMap->isDirty = true;
+    while (newFrame) {std::this_thread::yield();}
 
-    auto pMP = mpMap->getAllMapPoints().front();
-    Optimizer::optimize(pMP.get(), mCurrentFrame.get());
-    if (mCurrentFrame->shouldBeKeyFrame) {
-        shared_ptr<KeyFrame> pKF = make_shared<KeyFrame>(*mCurrentFrame);
-        if(insertKeyFrame(pKF)) {
-            mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
-            mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
-            mCurrentFrame->setFirstPose(pKF->getFirstPose());
-            mCurrentFrame->setLastPose(pKF->getLastPose());
+//    auto pMP = mpMap->getAllMapPoints().front();
+//    Optimizer::optimize(pMP.get(), mCurrentFrame.get());
+//    if (mCurrentFrame->shouldBeKeyFrame) {
+//        shared_ptr<KeyFrame> pKF = make_shared<KeyFrame>(*mCurrentFrame);
+//        if(insertKeyFrame(pKF)) {
+//            mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
+//            mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
+//            mCurrentFrame->setFirstPose(pKF->getFirstPose());
+//            mCurrentFrame->setLastPose(pKF->getLastPose());
 
-            pMP->addObservation(pKF);
-            pMP->swap(true);
-            mpMap->addKeyFrame(pKF);
-            LOG(INFO) << "keyframe id " << pKF->mnFrameId;
-        }
-    }
+//            pMP->addObservation(pKF);
+//            pMP->swap(true);
+//            mpMap->addKeyFrame(pKF);
+//            LOG(INFO) << "keyframe id " << pKF->mnFrameId;
+//        }
+//    }
     return true;
 }
 

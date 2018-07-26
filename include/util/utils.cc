@@ -122,8 +122,8 @@ Eigen::Matrix3d skew(Eigen::Vector3d v){
 }
 
 cv::Mat axang2rotm(const cv::Mat& w) {
-    double angle = cv::norm(w);
-    cv::Mat R = cv::Mat::eye(3, 3, CV_64F);;
+    float angle = cv::norm(w);
+    cv::Mat R = cv::Mat::eye(3, 3, CV_32F);;
     if (std::abs(angle) > EPS) {
         cv::Mat axis = w / angle;
         cv::Mat K = skew(axis);
@@ -144,20 +144,20 @@ Eigen::Matrix3d axang2rotm(const Eigen::Vector3d& w) {
 }
 
 cv::Mat rotm2axang(const cv::Mat& R) {
-    double cos_angle = (cv::trace(R).val[0] - 1)/2;
-    double angle;
-    cv::Mat axis = cv::Mat::zeros(3, 1, CV_64F);
+    float cos_angle = (cv::trace(R).val[0] - 1)/2;
+    float angle;
+    cv::Mat axis = cv::Mat::zeros(3, 1, CV_32F);
     if (std::abs(cos_angle - 1) < EPS)
         return axis;
     if (std::abs(cos_angle + 1) < EPS) {
         angle = M_PI;
-        double xx = (R.at<double>(0, 0) + 1) / 2;
-        double yy = (R.at<double>(1, 1) + 1) / 2;
-        double zz = (R.at<double>(2, 2) + 1) / 2;
-        double xy = (R.at<double>(0, 1) + R.at<double>(1, 0)) / 4;
-        double xz = (R.at<double>(0, 2) + R.at<double>(2, 0)) / 4;
-        double yz = (R.at<double>(1, 2) + R.at<double>(2, 1)) / 4;
-        double x, y, z;
+        float xx = (R.at<float>(0, 0) + 1) / 2;
+        float yy = (R.at<float>(1, 1) + 1) / 2;
+        float zz = (R.at<float>(2, 2) + 1) / 2;
+        float xy = (R.at<float>(0, 1) + R.at<float>(1, 0)) / 4;
+        float xz = (R.at<float>(0, 2) + R.at<float>(2, 0)) / 4;
+        float yz = (R.at<float>(1, 2) + R.at<float>(2, 1)) / 4;
+        float x, y, z;
         if ((xx > yy) && (xx > zz)) {
             if (xx< EPS) {
                 x = 0;
@@ -189,15 +189,15 @@ cv::Mat rotm2axang(const cv::Mat& R) {
                 y = yz / z;
             }
         }
-        axis.at<double>(0) = x;
-        axis.at<double>(1) = y;
-        axis.at<double>(2) = z;
+        axis.at<float>(0) = x;
+        axis.at<float>(1) = y;
+        axis.at<float>(2) = z;
         axis *= angle;
     } else {
        angle = std::acos(cos_angle);
-       axis.at<double>(0) = R.at<double>(2, 1) - R.at<double>(1, 2);
-       axis.at<double>(1) = R.at<double>(0, 2) - R.at<double>(2, 0);
-       axis.at<double>(2) = R.at<double>(1, 0) - R.at<double>(0, 1);
+       axis.at<float>(0) = R.at<float>(2, 1) - R.at<float>(1, 2);
+       axis.at<float>(1) = R.at<float>(0, 2) - R.at<float>(2, 0);
+       axis.at<float>(2) = R.at<float>(1, 0) - R.at<float>(0, 1);
        axis /= (2 * std::sin(angle));
        axis *= angle;
     }

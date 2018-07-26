@@ -208,8 +208,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
 
-                mpTracker->Track(R, Converter::toCvMat(t), Converter::toCvMat(angularVelocity), Converter::toCvMat(linear_velocity));
-//                mpTracker->Track();
+//                mpTracker->Track(R, Converter::toCvMat(t), Converter::toCvMat(angularVelocity), Converter::toCvMat(linear_velocity));
+                mpTracker->Track();
 
 //                auto pMP = mpMap->getAllMapPoints().front();
 //                imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
@@ -222,7 +222,6 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //                LOG(INFO) << "normal " << pMP->getNormal();
 
                 if (parameters_.write_to_file) {
- LOG(INFO)<<"------------------";
 //                    std::ofstream  myfile_pr(files_path + "groundtruth_pose_rotation.txt", std::ios_base::app);
 //                    if (myfile_pr.is_open()) {
 //                        myfile_pr << begin.toSec() << " "
@@ -268,9 +267,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     std::ofstream  myfile_(files_path + "estimated_rotation.txt", std::ios_base::app);
                     if (myfile_.is_open()) {
                         myfile_ << begin.toSec() << " "
-                                << (mpTracker->w).at<double>(0) << " "
-                                << (mpTracker->w).at<double>(1) << " "
-                                << (mpTracker->w).at<double>(2) << "\n";
+                                << (mpTracker->w).at<float>(0) << " "
+                                << (mpTracker->w).at<float>(1) << " "
+                                << (mpTracker->w).at<float>(2) << "\n";
                         myfile_.close();
                     } else
                         std::cout << "怎么肥四"<<std::endl;
@@ -278,9 +277,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
                     if (myfile_t.is_open()) {
                         myfile_t<< begin.toSec() << " "
-                                << (mpTracker->v).at<double>(0) << " "
-                                << (mpTracker->v).at<double>(1) << " "
-                                << (mpTracker->v).at<double>(2) << " ";
+                                << (mpTracker->v).at<float>(0) << " "
+                                << (mpTracker->v).at<float>(1) << " "
+                                << (mpTracker->v).at<float>(2) << " ";
                         myfile_t << '\n';
                         myfile_t.close();
                     } else

@@ -18,7 +18,7 @@ Frame::Frame(Map *pMap): mpMap(pMap), shouldBeKeyFrame(false){
 
 Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
     mnId = nNextId++;
-//    setFirstPose(other.getLastPose());
+    setFirstPose(other.getLastPose());
 //    cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
 //    cv::Mat twc = getFirstPose().rowRange(0,3).col(3);
 //    mScale = gScale + twc.dot(n);

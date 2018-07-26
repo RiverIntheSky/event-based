@@ -79,6 +79,7 @@ int main(int argc, char *argv[])
                 files_path = parameters.path + "/" + parameters.experiment_name + "/" + std::to_string(parameters.window_size);
                 system(("rm -rf " + files_path).c_str());
                 system(("mkdir -p " + files_path).c_str());
+                LOG(INFO) << "write to " << files_path;
             }
         }
     }

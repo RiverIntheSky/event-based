@@ -58,9 +58,9 @@ void quat2eul(Eigen::Quaterniond& q, double* euler);
 Eigen::Matrix3d skew(Eigen::Vector3d v);
 
 inline cv::Mat skew(cv::Mat v){
-    return  (cv::Mat_<double>(3, 3) << 0, -v.at<double>(2), v.at<double>(1),
-                                      v.at<double>(2), 0, -v.at<double>(0),
-                                     -v.at<double>(1), v.at<double>(0), 0);
+    return  (cv::Mat_<float>(3, 3) << 0, -v.at<float>(2), v.at<float>(1),
+                                      v.at<float>(2), 0, -v.at<float>(0),
+                                     -v.at<float>(1), v.at<float>(0), 0);
 }
 
 inline int truncate(int value, int min_value, int max_value) {

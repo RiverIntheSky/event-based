@@ -2,6 +2,7 @@
 #include "Map.h"
 #include "Optimizer.h"
 #include "util/utils.h"
+#include <atomic>
 
 namespace ev {
 class Map;
@@ -14,7 +15,7 @@ public:
     Tracking();
 
     Tracking(cv::Mat& K, cv::Mat& DistCoeffs, Map* mpMap_)
-        : mState(NOT_INITIALIZED), mpMap(mpMap_), mK(K), mDistCoeffs(DistCoeffs) {}
+        : mState(NOT_INITIALIZED), mpMap(mpMap_), newFrame(false), mK(K), mDistCoeffs(DistCoeffs) {}
 
     std::shared_ptr<Frame> getCurrentFrame();
     void Track();
@@ -46,6 +47,7 @@ public:
     static cv::Mat t;
     Map* mpMap;
     std::shared_ptr<Frame> mCurrentFrame;
+    std::atomic<bool> newFrame;
 protected:
     cv::Mat mK;
     cv::Vec<double, 5> mDistCoeffs;
