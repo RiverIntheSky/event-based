@@ -18,7 +18,7 @@ void MapDrawer::drawMapPoints() {
                 initialize_map();
 
             } else {
-
+LOG(INFO) << "---------------------";
                 optimize_map();
             }
 
@@ -548,7 +548,7 @@ float MapDrawer::optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, c
             // color stores normal and distance information of the plane
             // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 
-            cv::Mat nw = nws.col(pit);
+            cv::Mat nw = nws.clone();
             cv::Mat nc = Rwc1.t() * nw;
             float inv_d_c = 1.f/(1.f/inv_d_ws[pit] + twc1.dot(nw));
             glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, inv_d_c*param->znear);
