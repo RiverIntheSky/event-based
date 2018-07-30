@@ -53,7 +53,7 @@ void Optimizer::optimize(Frame* frame) {
                 points.insert(*it);
             }
             it++;
-        } while (points.size() < 20 && it != pixels.end() && it->p > 100);
+        } while (points.size() < 1 && it != pixels.end() && it->p > 100);
 
         for (auto point: points) {
             // initial depth = 1

@@ -33,7 +33,6 @@ public:
     std::atomic<bool> isDirty;
     MapDrawer* drawer;
     std::set<shared_ptr<MapPoint>> mspMapPoints;
-protected:
     // forward declaration doesn't work?
     struct idxOrder {
        template <class F>
@@ -41,11 +40,10 @@ protected:
            return lhs->mnId < rhs->mnId;
        }
     };
-
-    std::set<shared_ptr<KeyFrame>, idxOrder> mspKeyFrames;
-
-    // not yet sure if it's necessary to keep all frames
     std::set<shared_ptr<Frame>, idxOrder> mspFrames;
+
+protected:
+    std::set<shared_ptr<KeyFrame>, idxOrder> mspKeyFrames;
     mutex mMutexMap;
 };
 }

@@ -30,8 +30,11 @@ void Tracking::Track() {
         estimate();
     }
 
-    // add frame to map
-    mpMap->addFrame(mCurrentFrame);
+//    // add frame to map
+//    mpMap->addFrame(mCurrentFrame);
+    // should add keyframe
+
+
     LOG(INFO) << "current velocity model:";
     LOG(INFO) << "\nw\n" << mCurrentFrame->w;
     LOG(INFO) << "\nv\n" << mCurrentFrame->v;
@@ -84,8 +87,8 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
         }
     }
 
-    // add frame to map
-    mpMap->addFrame(mCurrentFrame);
+//    // add frame to map
+//    mpMap->addFrame(mCurrentFrame);
 
     LOG(INFO) << "current velocity model:";
 //    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
@@ -138,9 +141,8 @@ bool Tracking::init() {
 
 bool Tracking::estimate() {
     // WIP
-    newFrame = true;
     mpMap->isDirty = true;
-    while (newFrame) {std::this_thread::yield();}
+    while (mpMap->isDirty) {std::this_thread::yield();}
 
 //    auto pMP = mpMap->getAllMapPoints().front();
 //    Optimizer::optimize(pMP.get(), mCurrentFrame.get());

@@ -86,7 +86,7 @@ Eigen::Matrix<double,3,3> Converter::toMatrix3d(const cv::Mat &cvMat3)
     return M;
 }
 
-glm::vec3 Converter::toGlmVec3(const cv::Mat &cvMat3) {
+glm::vec3 Converter::toGlmVec3(const cv::Mat cvMat3) {
     // different coordinate of dvs and opengl
     // change cv mat to float??
     glm::vec3 vec;

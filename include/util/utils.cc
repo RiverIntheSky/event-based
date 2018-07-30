@@ -143,7 +143,7 @@ Eigen::Matrix3d axang2rotm(const Eigen::Vector3d& w) {
     return R;
 }
 
-cv::Mat rotm2axang(const cv::Mat& R) {
+cv::Mat rotm2axang(const cv::Mat R) {
     float cos_angle = (cv::trace(R).val[0] - 1)/2;
     float angle;
     cv::Mat axis = cv::Mat::zeros(3, 1, CV_32F);
