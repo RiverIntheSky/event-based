@@ -62,7 +62,7 @@ public:
     void setUp2DMultisample(GLuint& FBO, GLuint& tex);
 
     // map
-    void draw_map();
+    void draw_map_patch();
     void visualize_map();
     void update_map_texture();
     void draw_map_texture();

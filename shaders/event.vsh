@@ -31,23 +31,27 @@ void main()
     int width = textureSize(patchTexture).x;
     int height = textureSize(patchTexture).y;
 
-    vec3 worldPos = vec3(aPos.x, aPos.y, 1.f);
-    vec3 framePos = cameraMatrix * worldPos;
+    vec3 Xc1_ = vec3(aPos.x, aPos.y, 1.f);
+    vec3 xc1_ = cameraMatrix * Xc1_;
     float polarity = aPos.z * 2 - 1;
     float t = aPos.w;
-    vec3 pixel = texture(patchTexture, vec2(framePos.x, height - framePos.y)).xyz;
-    float inverseDepth = pixel.z / nearPlane;
+    vec3 pixel = texture(patchTexture, vec2(xc1_.x, height - xc1_.y)).xyz;
+    float dc1 = pixel.z / nearPlane;
     float nx = pixel.x * 2 - 1;
     float ny = pixel.y * 2 - 1;
     float nz = sqrt(1 - nx * nx - ny * ny);
-    mat3 R = rotationMatrix(-w, t * length(w)); // Rc2c1
-    mat3 H = R * (mat3(1.f) + outerProduct(v * t * inverseDepth, vec3(nx, ny, nz)));
+    mat3 Rc1_c1 = rotationMatrix(-w, t * length(w)); // Rc1_c1
+    vec3 nc1 = vec3(nx, ny, nz);
+    mat3 Hc1_c1 = Rc1_c1 * (mat3(1.f) + outerProduct(v * t * dc1, nc1));
 
-    vec3 newWorldPos = inverse(H) * vec3(aPos.x, -aPos.y, -1.f);
-    vec3 newFramePos = cameraMatrix * vec3(-newWorldPos.x / newWorldPos.z,
-                                            newWorldPos.y / newWorldPos.z,
+    mat3 Rc2c1 = rotationMatrix(-wc1c2, length(wc1c2));
+    vec3 nc2 = Rc2c1 * nc1;
+    float dc2 = 1.f / (1.f/dc1 + dot(tc1c2, nc1));
+    mat3 Hc1c2 = inverse(Rc2c1) * (mat3(1.f) + outerProduct(-tc1c2 * dc2, nc2));
+    vec3 Xc2 = inverse(Hc1c2) * inverse(Hc1_c1) * vec3(aPos.x, -aPos.y, -1.f);
+    vec3 xc2 = cameraMatrix * vec3(-Xc2.x / Xc2.z,
+                                            Xc2.y / Xc2.z,
                                             1.f);
-    gl_Position = vec4((newFramePos.x-width/2)/(width/2), (height/2-newFramePos.y)/(height/2), 0.f, 1.f);
-    vColor = polarity * 0.1;
-
+    gl_Position = vec4((xc2.x-width/2)/(width/2), (height/2-xc2.y)/(height/2), 0.f, 1.f);
+    vColor = 0.1 * polarity;
 }

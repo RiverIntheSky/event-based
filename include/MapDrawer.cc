@@ -19,7 +19,7 @@ void MapDrawer::drawMapPoints() {
                 visualize_map();
             } else {
 
-                draw_map();
+                draw_map_patch();
             }
             glFinish();
 
@@ -398,13 +398,13 @@ float MapDrawer::cost_func(GLuint& fbo) {
     return -sum/(param->width * param->height);
 }
 
-float MapDrawer::tracking_cost_func(cv::Mat& w, cv::Mat& v) {
+void MapDrawer::draw_map_texture() {
+    glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     // current frame: c2
     cv::Mat twc2 = frame->getTranslation();
     cv::Mat Rwc2 = frame->getRotation();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     for (auto kf: map->getAllKeyFrames()) {
         cv::Mat twc1 = kf->getTranslation();
@@ -455,10 +455,10 @@ float MapDrawer::tracking_cost_func(cv::Mat& w, cv::Mat& v) {
         {
             glUseProgram(eventShader);
 
-            glm::vec3 w_ = Converter::toGlmVec3(w);
+            glm::vec3 w_ = Converter::toGlmVec3(kf->getAngularVelocity());
             glUniform3fv(w_location, 1, glm::value_ptr(w_));
 
-            glm::vec3 v_ = Converter::toGlmVec3(v);
+            glm::vec3 v_ = Converter::toGlmVec3(kf->getLinearVelocity());
             glUniform3fv(v_location, 1, glm::value_ptr(v_));
 
             glm::vec3 wc1c2_ = Converter::toGlmVec3(rotm2axang(Rwc1.t() * Rwc2));
@@ -471,7 +471,7 @@ float MapDrawer::tracking_cost_func(cv::Mat& w, cv::Mat& v) {
         // draw
         {
             glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-            glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
+            glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
 
             glEnable(GL_BLEND);
             glDisable(GL_DEPTH_TEST);
@@ -480,7 +480,10 @@ float MapDrawer::tracking_cost_func(cv::Mat& w, cv::Mat& v) {
             glDisable(GL_BLEND);
         }
     }
+}
 
+float MapDrawer::tracking_cost_func(cv::Mat& w, cv::Mat& v) {
+    draw_map_texture();
     // compute cost
     return cost_func(warpFramebuffer);
 }
@@ -536,7 +539,7 @@ float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws,
     return cost;
 }
 
-void MapDrawer::draw_map() {
+void MapDrawer::draw_map_patch() {
 
     cv::Mat t = frame->getTranslation();
     glm::mat4 view = glm::translate(glm::mat4(), -Converter::toGlmVec3(t));
@@ -636,78 +639,96 @@ float MapDrawer::optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, c
 }
 
 void MapDrawer::visualize_map(){
-        draw_map();
+    draw_map_texture();
+    draw_map_patch();
 
-        {
-            glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
 
-            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-            glUseProgram(eventShader);
+        glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+        glUseProgram(eventShader);
 
-            glm::vec3 w_ = Converter::toGlmVec3(frame->getAngularVelocity());
-            glUniform3fv(w_location, 1, glm::value_ptr(w_));
-            glm::vec3 v_ = Converter::toGlmVec3(frame->getLinearVelocity());
-            glUniform3fv(v_location, 1, glm::value_ptr(v_));
+        glm::vec3 w_ = Converter::toGlmVec3(frame->getAngularVelocity());
+        glUniform3fv(w_location, 1, glm::value_ptr(w_));
+        glm::vec3 v_ = Converter::toGlmVec3(frame->getLinearVelocity());
+        glUniform3fv(v_location, 1, glm::value_ptr(v_));
 
-            glEnable(GL_BLEND);
-            glDisable(GL_DEPTH_TEST);
+        glm::vec3 wc1c2_, tc1c2_;
+        glUniform3fv(wc1c2_location, 1, glm::value_ptr(wc1c2_));
+        glUniform3fv(tc1c2_location, 1, glm::value_ptr(tc1c2_));
 
-            glBindVertexArray(frame->vao);
-            glDrawArrays(GL_POINTS, 0, frame->events());
+        glEnable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
 
-            glDisable(GL_BLEND);
+        glBindVertexArray(frame->vao);
+        glDrawArrays(GL_POINTS, 0, frame->events());
+
+        glDisable(GL_BLEND);
+    }
+
+    {
+        gaussianBlur(tmpFramebuffer, tmpImage, blurFramebuffer, blurredImage, glm::vec2(0, 1));
+        std::swap(blurFramebuffer, tmpFramebuffer);
+        std::swap(blurredImage, tmpImage);
+        gaussianBlur(tmpFramebuffer, tmpImage, blurFramebuffer, blurredImage, glm::vec2(1, 0));
+    }
+
+    {
+        cv::Mat t = frame->getTranslation();
+        glm::mat4 view = glm::translate(glm::mat4(), -Converter::toGlmVec3(t));
+        cv::Mat R = frame->getRotation();
+        cv::Mat axang = rotm2axang(R);
+
+        glm::vec3 axang_ = -Converter::toGlmVec3(axang);
+        float angle = glm::length(axang_);
+        if (std::abs(angle) > 1e-6) {
+            glm::vec3 axis = glm::normalize(axang_);
+            view = glm::rotate(view, angle, axis);
         }
 
-        {
-            gaussianBlur(tmpFramebuffer, tmpImage, blurFramebuffer, blurredImage, glm::vec2(0, 1));
-            std::swap(blurFramebuffer, tmpFramebuffer);
-            std::swap(blurredImage, tmpImage);
-            gaussianBlur(tmpFramebuffer, tmpImage, blurFramebuffer, blurredImage, glm::vec2(1, 0));
+        glUseProgram(patchShader);
+        glBindVertexArray(patchVAO);
+
+        glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
+
+        glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
+        for (auto mpPoint: map->mspMapPoints) {
+            // color stores normal and distance information of the plane
+            // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
+
+            cv::Mat nw = mpPoint->getNormal();
+            cv::Mat nc = frame->getRotation().t() * nw;
+            glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, -nc.at<float>(2));
+            glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
+
+            // model matrix of the plane
+            cv::Mat pos = mpPoint->getWorldPos();
+            pos = pos /(-mpPoint->d * pos.dot(nw)); /* n'x + d = 0 */
+            glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
+            glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
+            glm::vec3 n_ = Converter::toGlmVec3(nw);
+            model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
+            glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         }
+        glDisable(GL_DEPTH_TEST);
 
-        {
-            glUseProgram(patchShader);
-            glBindVertexArray(patchVAO);
+        glEnable(GL_BLEND);
+        glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
+        glUseProgram(quadShader);
+        drawQuad();
+        glDisable(GL_BLEND);
+    }
 
-            glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glEnable(GL_DEPTH_TEST);
-            for (auto mpPoint: map->mspMapPoints) {
-                // color stores normal and distance information of the plane
-                // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
-
-                cv::Mat nw = mpPoint->getNormal();
-                cv::Mat nc = frame->getRotation().t() * nw;
-                glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, -nc.at<float>(2));
-                glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
-
-                // model matrix of the plane
-                cv::Mat pos = mpPoint->getWorldPos();
-                pos = pos /(-1.f/mpPoint->d * pos.dot(nw)); /* n'x + d = 0 */
-                glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
-                glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
-                glm::vec3 n_ = Converter::toGlmVec3(nw);
-                model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
-                glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
-                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-            }
-            glDisable(GL_DEPTH_TEST);
-
-            glEnable(GL_BLEND);
-            glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
-            glUseProgram(quadShader);
-            drawQuad();
-            glDisable(GL_BLEND);
-        }
-
-        {
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
-            drawQuad();
-            glfwSwapBuffers(window);
-            glfwPollEvents();
-        }
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
+        drawQuad();
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
 
 }
 //void MapDrawer::framebuffer_size_callback(GLFWwindow* window, int width, int height){

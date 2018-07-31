@@ -124,6 +124,7 @@ void MapDrawer::track() {
     }
 
     // match to map
+//       draw_map_texture();
 //    {
 //        gsl_multimin_fminimizer *s = NULL;
 //        gsl_vector *x;
