@@ -125,6 +125,8 @@ void MapDrawer::track() {
 
     // match to map
     {
+        draw_map_texture(mapFramebuffer);
+
         gsl_multimin_fminimizer *s = NULL;
         gsl_vector *x;
 
@@ -370,6 +372,8 @@ void MapDrawer::optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, v
         {
             printf ("converged to minimum\n");
         }
+
+        LOG(INFO) << "size " << size;
 
     }
     while (status == GSL_CONTINUE && it < iter);

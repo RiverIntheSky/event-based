@@ -44,7 +44,11 @@ public:
 
     // gaussian blur
     void setUpGaussianBlurShader();
-    void gaussianBlur(GLuint& imageFBO, GLuint& imageTex, GLuint& blurredFBO, GLuint& blurredTex, glm::vec2 dir);
+    void gaussianBlur(GLuint& imageTex, glm::vec2 dir);
+
+    // contrast
+    void setUpContrastShader();
+    float contrast(GLuint& fbo);
 
     // events
     void setUpEventShader();
@@ -54,7 +58,6 @@ public:
 
     float tracking_cost_func(cv::Mat& w, cv::Mat& v);
     float cost_func(cv::Mat& w, cv::Mat& v);
-    float cost_func(GLuint& fbo);
 
     // shader
     void setUp2DRect(GLuint& FBO, GLuint& tex);
@@ -97,8 +100,13 @@ public:
     GLint event_apos_location, w_location, v_location, camera_matrix_location, wc1c2_location,
           tc1c2_location, near_plane_location, occlusion_map_location, event_projection_location;
 
+    // separable gaussian blur
     GLuint blurShader, blurFramebuffer, blurredImage;
     GLint blur_apos_location, atex_location, dir_location;
+
+    // contrast computation
+    GLuint contrastShader, contrastFramebuffer, contrastImage;
+    GLint contrast_apos_location, contrast_atex_location;
 
     GLuint squareShader, squareFramebuffer, squaredImage;
     GLint square_tex_location, square_apos_location;
@@ -106,7 +114,11 @@ public:
     GLuint sumShader, sumFramebuffer, sumImage;
     GLint sum_tex_location, sum_apos_location;
 
+    // for temporal image storage
     GLuint tmpFramebuffer, tmpImage;
+
+    // map projected on current frame
+    GLuint mapFramebuffer, mapImage;
 
     std::string shaderFilePath;
     GLFWwindow* window;
