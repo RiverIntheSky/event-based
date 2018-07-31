@@ -505,11 +505,12 @@ float MapDrawer::optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, c
     // current frame: c2
     cv::Mat twc2 = cv::Mat::zeros(3, 1, CV_32F);
     cv::Mat Rwc2 = cv::Mat::eye(3, 3, CV_32F);
+
     int fit = 0;
-    for (auto f: map->mspFrames) {
+    for (auto f = map->mspFrames.begin();fit<map->mspFrames.size()-1;f++) {
         cv::Mat w = ws.col(fit);
         cv::Mat v = vs.col(fit);
-        float dt = f->dt;
+        float dt = (*f)->dt;
         cv::Mat dw = w * dt;
         cv::Mat Rc1c2 = axang2rotm(dw);
         cv::Mat tc1c2 = v * dt;
@@ -604,6 +605,7 @@ float MapDrawer::optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, c
             Rwc1 = Rwc1 * axang2rotm(ws.col(fit) * dt);
             fit++;
         }
+
     }
 
     // compute cost
