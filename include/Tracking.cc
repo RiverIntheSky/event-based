@@ -35,11 +35,11 @@ void Tracking::Track() {
     // should add keyframe
 
 
-//    LOG(INFO) << "current velocity model:";
-//    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
-//    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
-//    LOG(INFO) << "\nT\n" << mCurrentFrame->getLastPose();
-//    LOG(INFO);
+    LOG(INFO) << "current velocity model:";
+    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
+    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
+    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+    LOG(INFO);
     w = mCurrentFrame->w;
     v = mCurrentFrame->v;
     cv::Mat R = mCurrentFrame->getRotation();
