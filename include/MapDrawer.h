@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
+#include <memory>
 
 #include "GLFW/linmath.h"
 #include "parameters.h"
@@ -51,7 +52,9 @@ public:
     void setUpSquareShader();
     void setUpSummationShader();
 
+    float tracking_cost_func(cv::Mat& w, cv::Mat& v);
     float cost_func(cv::Mat& w, cv::Mat& v);
+    float cost_func(GLuint& fbo);
 
     // shader
     void setUp2DRect(GLuint& FBO, GLuint& tex);
@@ -70,6 +73,7 @@ public:
     void initialize_map();
     static double initialize_cost_func(const gsl_vector *vec, void *params);
     static double optimize_cost_func(const gsl_vector *vec, void *params);
+    static double frame_cost_func(const gsl_vector *vec, void *params);
     static double tracking_cost_func(const gsl_vector *vec, void *params);
     float initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v);
     float tracking_draw(cv::Mat& w, cv::Mat& v);
@@ -90,8 +94,8 @@ public:
     GLint quad_tex_location;
 
     GLuint eventVAO, eventVBO, eventShader, warpFramebuffer, warppedImage;
-    GLint event_apos_location, w_location, v_location, camera_matrix_location,
-          near_plane_location, occlusion_map_location, event_projection_location;
+    GLint event_apos_location, w_location, v_location, camera_matrix_location, wc1c2_location,
+          tc1c2_location, near_plane_location, occlusion_map_location, event_projection_location;
 
     GLuint blurShader, blurFramebuffer, blurredImage;
     GLint blur_apos_location, atex_location, dir_location;
@@ -107,7 +111,7 @@ public:
     std::string shaderFilePath;
     GLFWwindow* window;
     Parameters* param;
-    Frame* frame;
+    std::shared_ptr<Frame> frame;
     Map* map;
     Tracking* tracking;
     // assign this member to frame??

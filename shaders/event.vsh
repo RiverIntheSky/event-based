@@ -6,6 +6,8 @@ uniform vec3 w;
 uniform vec3 v;
 uniform sampler2DRect patchTexture;
 uniform mat3 cameraMatrix;
+uniform vec3 wc1c2;
+uniform vec3 tc1c2;
 uniform float nearPlane;
 
 out float vColor;
@@ -19,9 +21,9 @@ mat3 rotationMatrix(vec3 axis, float angle)
     float c = cos(angle);
     float oc = 1.0 - c;
 
-    return mat3(oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,
-                oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,
-                oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c           );
+    return mat3(oc * axis.x * axis.x + c,           oc * axis.x * axis.y + axis.z * s,  oc * axis.z * axis.x - axis.y * s,
+                oc * axis.x * axis.y - axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z + axis.x * s,
+                oc * axis.z * axis.x + axis.y * s,  oc * axis.y * axis.z - axis.x * s,  oc * axis.z * axis.z + c           );
 }
 
 void main()
@@ -38,7 +40,7 @@ void main()
     float nx = pixel.x * 2 - 1;
     float ny = pixel.y * 2 - 1;
     float nz = sqrt(1 - nx * nx - ny * ny);
-    mat3 R = rotationMatrix(w, t * length(w)); // Rc2c1
+    mat3 R = rotationMatrix(-w, t * length(w)); // Rc2c1
     mat3 H = R * (mat3(1.f) + outerProduct(v * t * inverseDepth, vec3(nx, ny, nz)));
 
     vec3 newWorldPos = inverse(H) * vec3(aPos.x, -aPos.y, -1.f);

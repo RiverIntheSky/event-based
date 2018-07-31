@@ -33,6 +33,7 @@ void Tracking::Track() {
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
     LOG(INFO) << "current velocity model:";
+    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
     LOG(INFO) << "\nw\n" << mCurrentFrame->w;
     LOG(INFO) << "\nv\n" << mCurrentFrame->v;
     LOG(INFO);
@@ -88,7 +89,7 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     mpMap->addFrame(mCurrentFrame);
 
     LOG(INFO) << "current velocity model:";
-//    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
+    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
     LOG(INFO) << "\nw\n" << mCurrentFrame->getAngularVelocity();
     LOG(INFO) << "\nv\n" << mCurrentFrame->getLinearVelocity();
     LOG(INFO);
@@ -108,16 +109,14 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
 bool Tracking::init() {
     Optimizer::optimize(mCurrentFrame.get());
 
-
-
-
 //    if (!mpMap->mapPointsInMap()) {
 //        mpMap->addMapPoint(make_shared<MapPoint>());
 //    }
-//    auto pMP = mpMap->getAllMapPoints().front();
-//    auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
-//    pMP->addObservation(pKF);
-//    mpMap->addKeyFrame(pKF);
+    auto pMPs = mpMap->getAllMapPoints();
+    auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
+    mpMap->addKeyFrame(pKF);
+    for (auto pMP: pMPs)
+        pMP->addObservation(pKF);
 
 //    // at initialization phase there is at most one element in mspMapPoints
 //    Optimizer::optimize(pMP.get());

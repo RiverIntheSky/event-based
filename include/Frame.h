@@ -81,6 +81,9 @@ public:
     // whether should be added to keyframe
     bool shouldBeKeyFrame;
 
+    // shader support
+    GLuint vao, vbo;
+
     // MapPoints associated to keypoints, NULL pointer if no association.
     std::set<std::shared_ptr<MapPoint>> mvpMapPoints;
 };

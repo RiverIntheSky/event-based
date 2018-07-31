@@ -66,6 +66,9 @@ public:
     // timespan of the events
     float dt;
 
+    // shader support
+    GLuint vao, vbo;
+
     // mutex
     std::mutex mMutexPose;
 };

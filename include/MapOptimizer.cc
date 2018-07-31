@@ -73,7 +73,7 @@ void MapDrawer::initialize_map() {
    
     float dt = frame->dt;
 
-    cv::Mat dw = -w * dt;
+    cv::Mat dw = w * dt;
     cv::Mat Rc1c2 = axang2rotm(dw);
     cv::Mat tc1c2 = v_normalized * dt;
     cv::Mat Twc1 = frame->getFirstPose();
@@ -93,42 +93,68 @@ void MapDrawer::track() {
 
     double result[nVariables] = {};
 
-    cv::Mat w = tracking->w.clone();
-    cv::Mat v = tracking->v.clone();
+    cv::Mat w = frame->getAngularVelocity();
+    cv::Mat v = frame->getLinearVelocity();
 
-    gsl_multimin_fminimizer *s = NULL;
-    gsl_vector *x;
+    // optimize in frame
+    {
+        gsl_multimin_fminimizer *s = NULL;
+        gsl_vector *x;
 
-    /* Starting point */
-    x = gsl_vector_alloc(nVariables);
+        /* Starting point */
+        x = gsl_vector_alloc(nVariables);
 
-    gsl_vector_set(x, 0, w.at<float>(0));
-    gsl_vector_set(x, 1, w.at<float>(1));
-    gsl_vector_set(x, 2, w.at<float>(2));
+        gsl_vector_set(x, 0, w.at<float>(0));
+        gsl_vector_set(x, 1, w.at<float>(1));
+        gsl_vector_set(x, 2, w.at<float>(2));
 
-    gsl_vector_set(x, 3, v.at<float>(0));
-    gsl_vector_set(x, 4, v.at<float>(1));
-    gsl_vector_set(x, 5, v.at<float>(2));
+        gsl_vector_set(x, 3, v.at<float>(0));
+        gsl_vector_set(x, 4, v.at<float>(1));
+        gsl_vector_set(x, 5, v.at<float>(2));
 
-    optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 500);
+        optimize_gsl(1, nVariables, frame_cost_func, this, s, x, result, 500);
 
-    w.at<float>(0) = float(result[0]);
-    w.at<float>(1) = float(result[1]);
-    w.at<float>(2) = float(result[2]);
+        w.at<float>(0) = float(result[0]);
+        w.at<float>(1) = float(result[1]);
+        w.at<float>(2) = float(result[2]);
 
-    v.at<float>(0) = float(result[3]);
-    v.at<float>(1) = float(result[4]);
-    v.at<float>(2) = float(result[5]);
+        v.at<float>(0) = float(result[3]);
+        v.at<float>(1) = float(result[4]);
+        v.at<float>(2) = float(result[5]);
+    }
 
-    LOG(INFO) << "w\n"<<w;
-    LOG(INFO) << "v\n"<<v;
-    LOG(INFO) << "T\n"<<frame->getFirstPose();
+    // match to map
+//    {
+//        gsl_multimin_fminimizer *s = NULL;
+//        gsl_vector *x;
+
+//        /* Starting point */
+//        x = gsl_vector_alloc(nVariables);
+
+//        gsl_vector_set(x, 0, w.at<float>(0));
+//        gsl_vector_set(x, 1, w.at<float>(1));
+//        gsl_vector_set(x, 2, w.at<float>(2));
+
+//        gsl_vector_set(x, 3, v.at<float>(0));
+//        gsl_vector_set(x, 4, v.at<float>(1));
+//        gsl_vector_set(x, 5, v.at<float>(2));
+
+//        optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 500);
+
+//        w.at<float>(0) = float(result[0]);
+//        w.at<float>(1) = float(result[1]);
+//        w.at<float>(2) = float(result[2]);
+
+//        v.at<float>(0) = float(result[3]);
+//        v.at<float>(1) = float(result[4]);
+//        v.at<float>(2) = float(result[5]);
+//    }
 
     frame->setAngularVelocity(w);
     frame->setLinearVelocity(v);
 
     float dt = frame->dt;
-    cv::Mat dw = -w * dt;
+    cv::Mat dw = w * dt;
     cv::Mat Rc1c2 = axang2rotm(dw);
     cv::Mat tc1c2 = v * dt;
     cv::Mat Twc1 = frame->getFirstPose();
@@ -239,7 +265,7 @@ double MapDrawer::initialize_cost_func(const gsl_vector *vec, void *params) {
     return (double)drawer->initialize_map_draw(nw, depth, w, v);
 }
 
-double MapDrawer::tracking_cost_func(const gsl_vector *vec, void *params) {
+double MapDrawer::frame_cost_func(const gsl_vector *vec, void *params) {
     MapDrawer* drawer = (MapDrawer *)params;
 
     cv::Mat w = cv::Mat::zeros(3, 1, CV_32F),
@@ -254,6 +280,23 @@ double MapDrawer::tracking_cost_func(const gsl_vector *vec, void *params) {
     v.at<float>(2) = gsl_vector_get(vec, 5);
 
     return (double)drawer->cost_func(w, v);
+}
+
+double MapDrawer::tracking_cost_func(const gsl_vector *vec, void *params) {
+    MapDrawer* drawer = (MapDrawer *)params;
+
+    cv::Mat w = cv::Mat::zeros(3, 1, CV_32F),
+            v = cv::Mat::zeros(3, 1, CV_32F);
+
+    w.at<float>(0) = gsl_vector_get(vec, 0);
+    w.at<float>(1) = gsl_vector_get(vec, 1);
+    w.at<float>(2) = gsl_vector_get(vec, 2);
+
+    v.at<float>(0) = gsl_vector_get(vec, 3);
+    v.at<float>(1) = gsl_vector_get(vec, 4);
+    v.at<float>(2) = gsl_vector_get(vec, 5);
+
+    return (double)drawer->tracking_cost_func(w, v);
 }
 
 double MapDrawer::optimize_cost_func(const gsl_vector *vec, void *params) {

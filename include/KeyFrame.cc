@@ -8,7 +8,7 @@ unsigned KeyFrame::nNextId = 0;
 
 KeyFrame::KeyFrame(Frame& F):
     // keyframe has the same motion model from the derived frame
-    mnFrameId(F.mnId), w(F.w), v(F.v), mTimeStamp(F.mTimeStamp), dt(F.dt) {
+    mnFrameId(F.mnId), w(F.w), v(F.v), mTimeStamp(F.mTimeStamp), dt(F.dt), vao(F.vao), vbo(F.vbo) {
     mnId = nNextId++;
     // same pose??
     setFirstPose(F.getFirstPose());
