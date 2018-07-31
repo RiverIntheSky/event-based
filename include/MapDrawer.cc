@@ -398,8 +398,8 @@ float MapDrawer::cost_func(GLuint& fbo) {
     return -sum/(param->width * param->height);
 }
 
-void MapDrawer::draw_map_texture() {
-    glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
+void MapDrawer::draw_map_texture(GLuint& fbo) {
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // current frame: c2
@@ -471,7 +471,7 @@ void MapDrawer::draw_map_texture() {
         // draw
         {
             glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-            glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
             glEnable(GL_BLEND);
             glDisable(GL_DEPTH_TEST);
@@ -483,7 +483,27 @@ void MapDrawer::draw_map_texture() {
 }
 
 float MapDrawer::tracking_cost_func(cv::Mat& w, cv::Mat& v) {
-    draw_map_texture();
+    draw_map_texture(warpFramebuffer);
+
+    glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+
+    glUseProgram(eventShader);
+
+    glm::vec3 w_ = Converter::toGlmVec3(w);
+    glUniform3fv(w_location, 1, glm::value_ptr(w_));
+    glm::vec3 v_ = Converter::toGlmVec3(v);
+    glUniform3fv(v_location, 1, glm::value_ptr(v_));
+    glm::vec3 wc1c2, tc1c2;
+    glUniform3fv(wc1c2_location, 1, glm::value_ptr(wc1c2));
+    glUniform3fv(tc1c2_location, 1, glm::value_ptr(tc1c2));
+
+    glEnable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+
+    glBindVertexArray(frame->vao);
+    glDrawArrays(GL_POINTS, 0, frame->events());
+
+    glDisable(GL_BLEND);
     // compute cost
     return cost_func(warpFramebuffer);
 }
@@ -639,7 +659,7 @@ float MapDrawer::optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, c
 }
 
 void MapDrawer::visualize_map(){
-    draw_map_texture();
+    draw_map_texture(tmpFramebuffer);
     draw_map_patch();
 
     {

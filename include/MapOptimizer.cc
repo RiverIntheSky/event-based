@@ -124,32 +124,31 @@ void MapDrawer::track() {
     }
 
     // match to map
-//       draw_map_texture();
-//    {
-//        gsl_multimin_fminimizer *s = NULL;
-//        gsl_vector *x;
+    {
+        gsl_multimin_fminimizer *s = NULL;
+        gsl_vector *x;
 
-//        /* Starting point */
-//        x = gsl_vector_alloc(nVariables);
+        /* Starting point */
+        x = gsl_vector_alloc(nVariables);
 
-//        gsl_vector_set(x, 0, w.at<float>(0));
-//        gsl_vector_set(x, 1, w.at<float>(1));
-//        gsl_vector_set(x, 2, w.at<float>(2));
+        gsl_vector_set(x, 0, w.at<float>(0));
+        gsl_vector_set(x, 1, w.at<float>(1));
+        gsl_vector_set(x, 2, w.at<float>(2));
 
-//        gsl_vector_set(x, 3, v.at<float>(0));
-//        gsl_vector_set(x, 4, v.at<float>(1));
-//        gsl_vector_set(x, 5, v.at<float>(2));
+        gsl_vector_set(x, 3, v.at<float>(0));
+        gsl_vector_set(x, 4, v.at<float>(1));
+        gsl_vector_set(x, 5, v.at<float>(2));
 
-//        optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 500);
+        optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 500);
 
-//        w.at<float>(0) = float(result[0]);
-//        w.at<float>(1) = float(result[1]);
-//        w.at<float>(2) = float(result[2]);
+        w.at<float>(0) = float(result[0]);
+        w.at<float>(1) = float(result[1]);
+        w.at<float>(2) = float(result[2]);
 
-//        v.at<float>(0) = float(result[3]);
-//        v.at<float>(1) = float(result[4]);
-//        v.at<float>(2) = float(result[5]);
-//    }
+        v.at<float>(0) = float(result[3]);
+        v.at<float>(1) = float(result[4]);
+        v.at<float>(2) = float(result[5]);
+    }
 
     frame->setAngularVelocity(w);
     frame->setLinearVelocity(v);

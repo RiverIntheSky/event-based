@@ -65,7 +65,7 @@ public:
     void draw_map_patch();
     void visualize_map();
     void update_map_texture();
-    void draw_map_texture();
+    void draw_map_texture(GLuint& fbo);
 
     // optimization pipeline
     void optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,
