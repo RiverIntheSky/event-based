@@ -56,6 +56,7 @@ public:
     void setUpSquareShader();
     void setUpSummationShader();
 
+    float tracking_cost_func(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
     float tracking_cost_func(cv::Mat& w, cv::Mat& v);
     float cost_func(cv::Mat& w, cv::Mat& v);
 
@@ -66,9 +67,9 @@ public:
 
     // map
     void draw_map_patch();
-    void visualize_map();
     void update_map_texture();
-    void draw_map_texture(GLuint& fbo);
+    void draw_map_texture(GLuint& fbo); /* at current pose */
+    void draw_map_texture(cv::Mat& Rwc, cv::Mat& twc, GLuint& fbo); /* at given pose */
 
     // optimization pipeline
     void optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,
@@ -78,6 +79,7 @@ public:
     static double optimize_cost_func(const gsl_vector *vec, void *params);
     static double frame_cost_func(const gsl_vector *vec, void *params);
     static double tracking_cost_func(const gsl_vector *vec, void *params);
+    static double global_tracking_cost_func(const gsl_vector *vec, void *params);
     float initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v);
     float tracking_draw(cv::Mat& w, cv::Mat& v);
     void optimize_map();
@@ -87,6 +89,10 @@ public:
     float optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v);
 
     void drawMapPoints();
+
+    // visualization
+    void visualize_map();
+    void drawImage(GLuint& image);
 //    void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
     GLuint patchVAO, patchVBO, patchEBO, patchVS, patchFS, patchShader,

@@ -6,12 +6,7 @@ out vec4 fColor;
 
 void main()
 {
-    float o = 2./3;
-    float w1 = -2.25;
-    float w2 = 9;
-    fColor = texture(tex, gl_FragCoord.xy) * w2;
-    fColor += texture(tex, vec2(gl_FragCoord.x + o, gl_FragCoord.y + o)) * w1;
-    fColor += texture(tex, vec2(gl_FragCoord.x + o, gl_FragCoord.y - o)) * w1;
-    fColor += texture(tex, vec2(gl_FragCoord.x - o, gl_FragCoord.y - o)) * w1;
-    fColor += texture(tex, vec2(gl_FragCoord.x - o, gl_FragCoord.y + o)) * w1;
+    float color = texelFetch(tex, ivec2(gl_FragCoord.xy)).r;
+    color = pow(color, 2);
+    fColor = vec4(vec3(color), 1.f);
 }

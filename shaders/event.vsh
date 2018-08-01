@@ -53,5 +53,5 @@ void main()
                                             Xc2.y / Xc2.z,
                                             1.f);
     gl_Position = vec4((xc2.x-width/2)/(width/2), (height/2-xc2.y)/(height/2), 0.f, 1.f);
-    vColor = 0.1 * polarity;
+    vColor = 0.1;
 }
