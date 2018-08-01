@@ -54,6 +54,7 @@ public:
     float contrast(GLuint& fbo);
     float sum(GLuint& tex);
     inline float mean(GLuint& tex);
+    void set_use_polarity(bool);
 
     float tracking_cost_func(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
     float tracking_cost_func(cv::Mat& w, cv::Mat& v);
@@ -65,7 +66,8 @@ public:
     void setUp2DMultisample(GLuint& FBO, GLuint& tex);
 
     // map
-    void draw_map_patch();
+    void draw_map_patch(); /* at current pose */
+    void draw_map_patch(cv::Mat& Rwc, cv::Mat& twc); /* at given pose */
     void update_map_texture();
     void draw_map_texture(GLuint& fbo); /* at current pose */
     void draw_map_texture(cv::Mat& Rwc, cv::Mat& twc, GLuint& fbo); /* at given pose */
@@ -103,7 +105,8 @@ public:
 
     GLuint eventVAO, eventVBO, eventShader, warpFramebuffer, warppedImage;
     GLint event_apos_location, w_location, v_location, camera_matrix_location, wc1c2_location,
-          tc1c2_location, near_plane_location, occlusion_map_location, event_projection_location;
+          tc1c2_location, near_plane_location, occlusion_map_location, event_projection_location,
+          use_polarity_location;
 
     // separable gaussian blur
     GLuint blurShader, blurFramebuffer, blurredImage;

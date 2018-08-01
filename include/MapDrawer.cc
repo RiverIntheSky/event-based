@@ -1,5 +1,6 @@
 #include "MapDrawer.h"
 #include <chrono>
+
 namespace ev {
 typedef void (*framebuffer_size_callback)(void);
 void MapDrawer::drawMapPoints() {
@@ -18,9 +19,6 @@ void MapDrawer::drawMapPoints() {
 
                 initialize_map();
                 visualize_map();
-            } else {
-
-                draw_map_patch();
             }
             glFinish();
 
@@ -161,6 +159,9 @@ void MapDrawer::setUpEventShader() {
 
         occlusion_map_location = glGetUniformLocation(eventShader, "patchTexture");
         glUniform1i(occlusion_map_location, 0);
+
+        use_polarity_location = glGetUniformLocation(eventShader, "usePolarity");
+        glUniform1i(use_polarity_location, true);
     }
 }
 
@@ -360,6 +361,11 @@ float MapDrawer::mean(GLuint& tex) {
     return sum(tex) / (param->width * param->height);
 }
 
+void MapDrawer::set_use_polarity(bool b){
+    glUseProgram(eventShader);
+    glUniform1i(use_polarity_location, b);
+}
+
 void MapDrawer::updateFrame() {
     frame = tracking->getCurrentFrame();
     std::vector<event> events;
@@ -446,7 +452,6 @@ void MapDrawer::draw_map_texture(cv::Mat& Rwc, cv::Mat& twc, GLuint& fbo) {
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
 
-        int pit = 0;
         // change to observation
         for (auto mpPoint: map->mspMapPoints) {
 
@@ -465,7 +470,6 @@ void MapDrawer::draw_map_texture(cv::Mat& Rwc, cv::Mat& twc, GLuint& fbo) {
             model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
             glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-            pit++;
         }
 
         // set uniform
@@ -507,6 +511,7 @@ void MapDrawer::draw_map_texture(GLuint& fbo) {
 
 float MapDrawer::tracking_cost_func(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
 
+    draw_map_patch(Rwc, twc);
     draw_map_texture(Rwc, twc, warpFramebuffer);
 
     glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
@@ -616,13 +621,9 @@ float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws,
     return cost;
 }
 
-void MapDrawer::draw_map_patch() {
-
-    cv::Mat t = frame->getTranslation();
-    glm::mat4 view = glm::translate(glm::mat4(), -Converter::toGlmVec3(t));
-    cv::Mat R = frame->getRotation();
-    cv::Mat axang = rotm2axang(R);
-
+void MapDrawer::draw_map_patch(cv::Mat& Rwc, cv::Mat& twc) {
+    glm::mat4 view = glm::translate(glm::mat4(), -Converter::toGlmVec3(twc));
+    cv::Mat axang = rotm2axang(Rwc);
     glm::vec3 axang_ = -Converter::toGlmVec3(axang);
     float angle = glm::length(axang_);
     if (std::abs(angle) > 1e-6) {
@@ -646,8 +647,8 @@ void MapDrawer::draw_map_patch() {
         // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 
         cv::Mat nw = mpPoint->getNormal();
-        cv::Mat nc = R.t() * nw;
-        float inv_d_c = 1.f/(1.f/mpPoint->d + t.dot(nw));
+        cv::Mat nc = Rwc.t() * nw;
+        float inv_d_c = 1.f/(1.f/mpPoint->d + twc.dot(nw));
         glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, inv_d_c*param->znear);
         glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
 
@@ -661,6 +662,12 @@ void MapDrawer::draw_map_patch() {
         glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     }
+}
+
+void MapDrawer::draw_map_patch() {
+    cv::Mat t = frame->getTranslation();
+    cv::Mat R = frame->getRotation();
+    draw_map_patch(R, t);
 }
 
 float MapDrawer::optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v) {

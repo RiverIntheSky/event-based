@@ -95,9 +95,10 @@ void MapDrawer::track() {
 
     cv::Mat w = frame->getAngularVelocity();
     cv::Mat v = frame->getLinearVelocity();
-
     // optimize in frame
     {
+        draw_map_patch();
+        set_use_polarity(true);
         gsl_multimin_fminimizer *s = NULL;
         gsl_vector *x;
 
@@ -125,6 +126,7 @@ void MapDrawer::track() {
 
     // match to map
     {
+        set_use_polarity(false);
         draw_map_texture(mapFramebuffer);
 
         gsl_multimin_fminimizer *s = NULL;
@@ -155,8 +157,10 @@ void MapDrawer::track() {
     // under certain condition
     cv::Mat Rwc_w = rotm2axang(frame->getRotation());
     cv::Mat twc = frame->getTranslation();
-    double result_[nVariables*2] = {};
     {
+        double result_[nVariables*2] = {};
+        set_use_polarity(false);
+
         gsl_multimin_fminimizer *s = NULL;
         gsl_vector *x;
 

@@ -9,6 +9,7 @@ uniform mat3 cameraMatrix;
 uniform vec3 wc1c2;
 uniform vec3 tc1c2;
 uniform float nearPlane;
+uniform bool usePolarity;
 
 out float vColor;
 
@@ -33,25 +34,33 @@ void main()
 
     vec3 Xc1_ = vec3(aPos.x, aPos.y, 1.f);
     vec3 xc1_ = cameraMatrix * Xc1_;
-    float polarity = aPos.z * 2 - 1;
-    float t = aPos.w;
+
     vec3 pixel = texture(patchTexture, vec2(xc1_.x, height - xc1_.y)).xyz;
-    float dc1 = pixel.z / nearPlane;
+
     float nx = pixel.x * 2 - 1;
     float ny = pixel.y * 2 - 1;
     float nz = sqrt(1 - nx * nx - ny * ny);
-    mat3 Rc1_c1 = rotationMatrix(-w, t * length(w)); // Rc1_c1
     vec3 nc1 = vec3(nx, ny, nz);
-    mat3 Hc1_c1 = Rc1_c1 * (mat3(1.f) + outerProduct(v * t * dc1, nc1));
-
     mat3 Rc2c1 = rotationMatrix(-wc1c2, length(wc1c2));
     vec3 nc2 = Rc2c1 * nc1;
-    float dc2 = 1.f / (1.f/dc1 + dot(tc1c2, nc1));
-    mat3 Hc1c2 = inverse(Rc2c1) * (mat3(1.f) + outerProduct(-tc1c2 * dc2, nc2));
-    vec3 Xc2 = inverse(Hc1c2) * inverse(Hc1_c1) * vec3(aPos.x, -aPos.y, -1.f);
-    vec3 xc2 = cameraMatrix * vec3(-Xc2.x / Xc2.z,
-                                            Xc2.y / Xc2.z,
-                                            1.f);
-    gl_Position = vec4((xc2.x-width/2)/(width/2), (height/2-xc2.y)/(height/2), 0.f, 1.f);
-    vColor = 0.1;
+    if (nc2.z < 0) {
+        gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
+        vColor = 0.f;
+    } else {
+        float t = aPos.w;
+        mat3 Rc1_c1 = rotationMatrix(-w, t * length(w)); // Rc1_c1
+        float dc1 = pixel.z / nearPlane;
+        mat3 Hc1_c1 = Rc1_c1 * (mat3(1.f) + outerProduct(v * t * dc1, nc1));
+        mat3 Hc2c1 = Rc2c1 + outerProduct(tc1c2 * dc1, nc1); // correspond with path position but doesn't look correct
+        vec3 Xc2 = Hc2c1 * inverse(Hc1_c1) * vec3(aPos.x, -aPos.y, -1.f);
+        vec3 xc2 = cameraMatrix * vec3(-Xc2.x / Xc2.z,
+                                       Xc2.y / Xc2.z,
+                                       1.f);
+        gl_Position = vec4((xc2.x-width/2)/(width/2), (height/2-xc2.y)/(height/2), 0.f, 1.f);
+        if (usePolarity) {
+            vColor = 0.1 * (aPos.z * 2 - 1);
+        } else {
+            vColor = 0.1;
+        }
+    }
 }
