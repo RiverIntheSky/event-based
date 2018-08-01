@@ -71,7 +71,6 @@ void MapDrawer::setUp() {
     setUpQuadShader();
     setUpGaussianBlurShader();
     setUpContrastShader();
-    setUpSquareShader();
     setUpSummationShader();
     setUp2DRect(tmpFramebuffer, tmpImage);
     setUp2DRect(mapFramebuffer, mapImage);
@@ -201,20 +200,6 @@ void MapDrawer::setUpQuadShader() {
     }
 }
 
-void MapDrawer::setUpSquareShader() {
-    setUp2DRect(squareFramebuffer, squaredImage);
-    setUpShader(squareShader, "square");
-
-    // set up uniforms and attributes
-    {
-        atex_location = glGetUniformLocation(squareShader, "tex");
-        glUniform1i(atex_location, 0);
-        square_apos_location = glGetAttribLocation(squareShader, "aPos");
-        glEnableVertexAttribArray(square_apos_location);
-        glVertexAttribPointer(square_apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
-    }
-}
-
 void MapDrawer::setUpSummationShader() {
     setUp2DRect(sumFramebuffer, sumImage);
     setUpShader(sumShader, "summation");
@@ -252,6 +237,8 @@ void MapDrawer::setUpContrastShader() {
     {
         contrast_atex_location = glGetUniformLocation(contrastShader, "tex");
         glUniform1i(contrast_atex_location, 0);
+        mean_location = glGetUniformLocation(contrastShader, "mean");
+        glUniform1f(mean_location, 0.f);
         contrast_apos_location = glGetAttribLocation(contrastShader, "aPos");
         glEnableVertexAttribArray(contrast_apos_location);
         glVertexAttribPointer(contrast_apos_location, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(float), (void*)0);
@@ -327,26 +314,37 @@ float MapDrawer::contrast(GLuint& fbo) {
     std::swap(blurredImage, tmpImage);
     gaussianBlur(tmpImage, glm::vec2(1, 0));
 
+    glUseProgram(contrastShader);
+    glUniform1f(mean_location, mean(blurredImage));
     glBindFramebuffer(GL_FRAMEBUFFER, contrastFramebuffer);
     glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(contrastShader);
     drawQuad();
 
+    return -mean(contrastImage);
+}
+
+float MapDrawer::sum(GLuint& tex) {
+    glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
+    glBindTexture(GL_TEXTURE_RECTANGLE, tex);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glUseProgram(quadShader);
+    drawQuad();
+
     float sum;
     glUseProgram(sumShader);
     float currentW = param->width,
-            currentH = param->height;
-    glBindVertexArray(quadVAO);
+          currentH = param->height;
     while (currentW > 1) {
         glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
-        glBindTexture(GL_TEXTURE_RECTANGLE, contrastImage);
+        glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-        std::swap(contrastFramebuffer, sumFramebuffer);
-        std::swap(contrastImage, sumImage);
+        std::swap(tmpFramebuffer, sumFramebuffer);
+        std::swap(tmpImage, sumImage);
 
         glViewport(0, 0, currentW, currentH);
         currentW = std::ceil(currentW / 2);
@@ -355,8 +353,11 @@ float MapDrawer::contrast(GLuint& fbo) {
 
     glReadPixels(0, 0, 1, 1, GL_RED, GL_FLOAT, &sum);
     glViewport(0, 0, param->width, param->height);
+    return sum;
+}
 
-    return -sum/(param->width * param->height);
+float MapDrawer::mean(GLuint& tex) {
+    return sum(tex) / (param->width * param->height);
 }
 
 void MapDrawer::updateFrame() {

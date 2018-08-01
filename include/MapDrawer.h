@@ -46,15 +46,14 @@ public:
     void setUpGaussianBlurShader();
     void gaussianBlur(GLuint& imageTex, glm::vec2 dir);
 
-    // contrast
-    void setUpContrastShader();
-    float contrast(GLuint& fbo);
-
     // events
     void setUpEventShader();
     void updateFrame();
-    void setUpSquareShader();
     void setUpSummationShader();
+    void setUpContrastShader();
+    float contrast(GLuint& fbo);
+    float sum(GLuint& tex);
+    inline float mean(GLuint& tex);
 
     float tracking_cost_func(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
     float tracking_cost_func(cv::Mat& w, cv::Mat& v);
@@ -112,7 +111,7 @@ public:
 
     // contrast computation
     GLuint contrastShader, contrastFramebuffer, contrastImage;
-    GLint contrast_apos_location, contrast_atex_location;
+    GLint contrast_apos_location, contrast_atex_location, mean_location;
 
     GLuint squareShader, squareFramebuffer, squaredImage;
     GLint square_tex_location, square_apos_location;
