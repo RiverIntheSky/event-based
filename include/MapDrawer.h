@@ -24,6 +24,9 @@ namespace ev {
 class Map;
 class Tracking;
 class Frame;
+class KeyFrame;
+class MapPoint;
+struct idxOrder;
 
 typedef struct {
     float x, y, p, t;
@@ -32,6 +35,12 @@ typedef struct {
 class MapDrawer {
 public:
     MapDrawer(Parameters* param_, Map* map_, Tracking* tracking_): param(param_), map(map_), tracking(tracking_) {}
+
+    struct paramSet{
+        MapDrawer* drawer;
+        std::set<std::shared_ptr<KeyFrame>, idxOrder>* KFs;
+        std::set<std::shared_ptr<MapPoint>>* MPs;
+    };
 
     void setUp();
 
@@ -85,13 +94,15 @@ public:
     static double frame_cost_func(const gsl_vector *vec, void *params);
     static double tracking_cost_func(const gsl_vector *vec, void *params);
     static double global_tracking_cost_func(const gsl_vector *vec, void *params);
+    static double ba(const gsl_vector *vec, void *params);
     float initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v);
     float tracking_draw(cv::Mat& w, cv::Mat& v);
     void optimize_map();
     void optimize_frame();
     void track();
 
-    float optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v);
+    float optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>& depth,
+                            cv::Mat& Rwc_w, cv::Mat& twc, cv::Mat& ws, cv::Mat& vs);
 
     void drawMapPoints();
 
@@ -101,6 +112,7 @@ public:
 
     glm::mat4 toView(cv::Mat& Rwc, cv::Mat& twc);
     glm::mat4 toView(cv::Mat& Twc);
+    bool inFrame(cv::Mat Xw, cv::Mat& Rwc, cv::Mat& twc);
 
     GLuint patchVAO, patchVBO, patchEBO, patchVS, patchFS, patchShader,
            patchFramebuffer, patchOcclusion;

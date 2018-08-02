@@ -23,7 +23,7 @@ public:
     static Eigen::Matrix<double,3,1> toVector3d(const cv::Point3f &cvPoint);
     static Eigen::Matrix<double,3,3> toMatrix3d(const cv::Mat &cvMat3);
 
-    static glm::vec3 toGlmVec3(const cv::Mat &cvMat3);
+    static glm::vec3 toGlmVec3(cv::Mat cvMat3);
 
     static std::vector<double> toQuaternion(const cv::Mat &M);
 };

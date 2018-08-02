@@ -115,8 +115,13 @@ bool Tracking::init() {
     auto pMPs = mpMap->getAllMapPoints();
     auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
     mpMap->addKeyFrame(pKF);
-    for (auto pMP: pMPs)
+    for (auto pMP: pMPs) {
         pMP->addObservation(pKF);
+        cv::Mat pos = pMP->getWorldPos();
+        pos = pos /(-pMP->d * pos.dot(pMP->getNormal())); /* n'x + d_ = 0 */
+        pMP->setWorldPos(pos);
+    }
+
 
 //    // at initialization phase there is at most one element in mspMapPoints
 //    Optimizer::optimize(pMP.get());
