@@ -98,7 +98,9 @@ public:
     // visualization
     void visualize_map();
     void drawImage(GLuint& image);
-//    void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+
+    glm::mat4 toView(cv::Mat& Rwc, cv::Mat& twc);
+    glm::mat4 toView(cv::Mat& Twc);
 
     GLuint patchVAO, patchVBO, patchEBO, patchVS, patchFS, patchShader,
            patchFramebuffer, patchOcclusion;

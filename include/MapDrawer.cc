@@ -27,7 +27,7 @@ void MapDrawer::drawMapPoints() {
             if (tracking->newFrame) {
 
                 track();
-//                visualize_map();
+                visualize_map();
                 glFinish();
                 tracking->newFrame = false;
             }
@@ -401,9 +401,8 @@ bool MapDrawer::matched(){
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_RECTANGLE, mapImage);
     drawQuad();
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-//    drawImage(tmpImage);
+//    glfwSwapBuffers(window);
+//    glfwPollEvents();
     glActiveTexture(GL_TEXTURE0);
     return false;
 }
@@ -520,16 +519,9 @@ void MapDrawer::draw_map_texture(cv::Mat& Rwc, cv::Mat& twc, GLuint& fbo) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     for (auto kf: map->getAllKeyFrames()) {
-        cv::Mat twc1 = kf->getTranslation();
         cv::Mat Rwc1 = kf->getRotation();
-        glm::mat4 view = glm::translate(glm::mat4(), -Converter::toGlmVec3(twc1));
-        cv::Mat axang = rotm2axang(Rwc1);
-        glm::vec3 axang_ = -Converter::toGlmVec3(axang);
-        float angle = glm::length(axang_);
-        if (std::abs(angle) > 1e-6) {
-            glm::vec3 axis = glm::normalize(axang_);
-            view = glm::rotate(view, angle, axis);
-        }
+        cv::Mat twc1 = kf->getTranslation();
+        glm::mat4 view = toView(Rwc1, twc1);
 
         glUseProgram(patchShader);
         glBindVertexArray(patchVAO);
@@ -663,16 +655,9 @@ float MapDrawer::tracking_cost_func(cv::Mat& w, cv::Mat& v) {
 
 float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v) {
     // camera view matrix
-    cv::Mat t = frame->getTranslation();
-    glm::mat4 view = glm::translate(glm::mat4(), -Converter::toGlmVec3(t));
     cv::Mat R = frame->getRotation();
-    cv::Mat axang = rotm2axang(R);
-    glm::vec3 axang_ = -Converter::toGlmVec3(axang);
-    float angle = glm::length(axang_);
-    if (std::abs(angle) > 1e-6) {
-        glm::vec3 axis = glm::normalize(axang_);
-        view = glm::rotate(view, angle, axis);
-    }
+    cv::Mat t = frame->getTranslation();
+    glm::mat4 view = toView(R, t);
 
     glUseProgram(patchShader);
     glBindVertexArray(patchVAO);
@@ -712,14 +697,7 @@ float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws,
 }
 
 void MapDrawer::draw_map_patch(cv::Mat& Rwc, cv::Mat& twc) {
-    glm::mat4 view = glm::translate(glm::mat4(), -Converter::toGlmVec3(twc));
-    cv::Mat axang = rotm2axang(Rwc);
-    glm::vec3 axang_ = -Converter::toGlmVec3(axang);
-    float angle = glm::length(axang_);
-    if (std::abs(angle) > 1e-6) {
-        glm::vec3 axis = glm::normalize(axang_);
-        view = glm::rotate(view, angle, axis);
-    }
+    glm::mat4 view = toView(Rwc, twc);
 
     glUseProgram(patchShader);
     glBindVertexArray(patchVAO);
@@ -762,17 +740,9 @@ void MapDrawer::draw_map_patch() {
 
 float MapDrawer::optimize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v) {
     // camera view matrix
-
-    cv::Mat t = frame->getTranslation();
-    glm::mat4 view = glm::translate(glm::mat4(), -Converter::toGlmVec3(t));
     cv::Mat R = frame->getRotation();
-    cv::Mat axang = rotm2axang(R);
-    glm::vec3 axang_ = -Converter::toGlmVec3(axang);
-    float angle = glm::length(axang_);
-    if (std::abs(angle) > 1e-6) {
-        glm::vec3 axis = glm::normalize(axang_);
-        view = glm::rotate(view, angle, axis);
-    }
+    cv::Mat t = frame->getTranslation();
+    glm::mat4 view = toView(R, t);
 
     glUseProgram(patchShader);
     glBindVertexArray(patchVAO);
@@ -848,17 +818,9 @@ void MapDrawer::visualize_map(){
     }
 
     {
-        cv::Mat t = frame->getTranslation();
-        glm::mat4 view = glm::translate(glm::mat4(), -Converter::toGlmVec3(t));
         cv::Mat R = frame->getRotation();
-        cv::Mat axang = rotm2axang(R);
-
-        glm::vec3 axang_ = -Converter::toGlmVec3(axang);
-        float angle = glm::length(axang_);
-        if (std::abs(angle) > 1e-6) {
-            glm::vec3 axis = glm::normalize(axang_);
-            view = glm::rotate(view, angle, axis);
-        }
+        cv::Mat t = frame->getTranslation();
+        glm::mat4 view = toView(R, t);
 
         glUseProgram(patchShader);
         glBindVertexArray(patchVAO);
@@ -873,7 +835,7 @@ void MapDrawer::visualize_map(){
             // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 
             cv::Mat nw = mpPoint->getNormal();
-            cv::Mat nc = frame->getRotation().t() * nw;
+            cv::Mat nc = R.t() * nw;
             glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, -nc.at<float>(2));
             glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
 
@@ -906,8 +868,24 @@ void MapDrawer::drawImage(GLuint& image) {
     glfwSwapBuffers(window);
     glfwPollEvents();
 }
-//void MapDrawer::framebuffer_size_callback(GLFWwindow* window, int width, int height){
-//    //lock framebuffer size
-//    glViewport(0, 0, param->width, param->height);
-//}
+
+glm::mat4 MapDrawer::toView(cv::Mat& Rwc, cv::Mat& twc) {
+    glm::mat4 view;
+    cv::Mat axang = rotm2axang(Rwc);
+    glm::vec3 axang_ = -Converter::toGlmVec3(axang);
+    float angle = glm::length(axang_);
+    if (std::abs(angle) > 1e-6) {
+        glm::vec3 axis = glm::normalize(axang_);
+        view = glm::rotate(view, angle, axis);
+    }
+    view = glm::translate(view, -Converter::toGlmVec3(twc));
+    return view;
+}
+
+glm::mat4 MapDrawer::toView(cv::Mat& Twc) {
+    cv::Mat Rwc = Twc.rowRange(0,3).colRange(0,3);
+    cv::Mat twc = Twc.rowRange(0,3).col(3);
+    return toView(Rwc, twc);
+}
+
 }
