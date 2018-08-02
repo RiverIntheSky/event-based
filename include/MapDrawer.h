@@ -57,8 +57,8 @@ public:
     float sum(GLuint& tex);
     inline float mean(GLuint& tex);
     void set_use_polarity(bool);
-    bool matched();
-    void warp(cv::Mat Rwc, cv::Mat twc, cv::Mat& w, cv::Mat& v);
+    float overlap(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
+    void warp(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
 
     float tracking_cost_func(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
     float tracking_cost_func(cv::Mat& w, cv::Mat& v);

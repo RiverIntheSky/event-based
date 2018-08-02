@@ -90,11 +90,15 @@ void MapDrawer::initialize_map() {
 void MapDrawer::track() {
     LOG(INFO) << "---------------------";
     int nVariables = 6 /* degrees of freedom */;
+    float th = 0.75 /* threshold */;
 
     double result[nVariables] = {};
 
     cv::Mat w = frame->getAngularVelocity();
     cv::Mat v = frame->getLinearVelocity();
+    cv::Mat Rwc = frame->getRotation();
+    cv::Mat Rwc_w = rotm2axang(Rwc);
+    cv::Mat twc = frame->getTranslation();
     // optimize in frame
     {
         draw_map_patch();
@@ -124,8 +128,11 @@ void MapDrawer::track() {
         v.at<float>(2) = float(result[5]);
     }
 
-    // match to map
-    {
+    float overlap1 = overlap(Rwc, twc, w, v);
+    LOG(INFO) << overlap1;
+
+    if (overlap1 < th) {
+        // match to map
         set_use_polarity(false);
         draw_map_texture(mapFramebuffer);
 
@@ -145,83 +152,67 @@ void MapDrawer::track() {
 
         optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 500);
 
-        w.at<float>(0) = float(result[0]);
-        w.at<float>(1) = float(result[1]);
-        w.at<float>(2) = float(result[2]);
+        cv::Mat w_ = (cv::Mat_<float>(3, 1) << result[0], result[1], result[2]);
+        cv::Mat v_ = (cv::Mat_<float>(3, 1) << result[3], result[4], result[5]);
 
-        v.at<float>(0) = float(result[3]);
-        v.at<float>(1) = float(result[4]);
-        v.at<float>(2) = float(result[5]);
+        float overlap2 = overlap(Rwc, twc, w_, v_);
+        LOG(INFO) << overlap2;
+
+        if (overlap2 > overlap1) {
+            w_.copyTo(w);
+            v_.copyTo(v);
+        }
+
+        if (overlap2 < th) {
+            // correct pose
+            double result_[nVariables*2] = {};
+            set_use_polarity(false);
+
+            gsl_multimin_fminimizer *s = NULL;
+            gsl_vector *x;
+
+            /* Starting point */
+            x = gsl_vector_alloc(nVariables * 2);
+
+            gsl_vector_set(x, 0, w.at<float>(0));
+            gsl_vector_set(x, 1, w.at<float>(1));
+            gsl_vector_set(x, 2, w.at<float>(2));
+
+            gsl_vector_set(x, 3, v.at<float>(0));
+            gsl_vector_set(x, 4, v.at<float>(1));
+            gsl_vector_set(x, 5, v.at<float>(2));
+
+            gsl_vector_set(x, 6, Rwc_w.at<float>(0));
+            gsl_vector_set(x, 7, Rwc_w.at<float>(1));
+            gsl_vector_set(x, 8, Rwc_w.at<float>(2));
+
+            gsl_vector_set(x, 9, twc.at<float>(0));
+            gsl_vector_set(x, 10, twc.at<float>(1));
+            gsl_vector_set(x, 11, twc.at<float>(2));
+
+            optimize_gsl(0.1, nVariables*2, global_tracking_cost_func, this, s, x, result_, 500);
+
+            cv::Mat w_ = (cv::Mat_<float>(3, 1) << result_[0], result_[1], result_[2]);
+            cv::Mat v_ = (cv::Mat_<float>(3, 1) << result_[3], result_[4], result_[5]);
+            cv::Mat Rwc_w_ = (cv::Mat_<float>(3, 1) << result_[6], result_[7], result_[8]);
+            cv::Mat Rwc_ = axang2rotm(Rwc_w_);
+            cv::Mat twc_ = (cv::Mat_<float>(3, 1) << result_[9], result_[10], result_[11]);
+
+            float overlap3 = overlap(Rwc_, twc_, w_, v_);
+            LOG(INFO) << overlap3;
+
+            if (overlap3 > overlap2) {
+                w_.copyTo(w);
+                v_.copyTo(v);
+                Rwc_.copyTo(Rwc);
+                twc_.copyTo(twc);
+            }
+
+            if (overlap3 < th) {
+                LOG(INFO) << "new map needed";
+            }
+        }
     }
-
-    warp(frame->getRotation(), frame->getTranslation(), w, v);
-    gaussianBlur(mapFramebuffer, mapImage);
-    matched();
-
-    // under certain condition
-    cv::Mat Rwc_w = rotm2axang(frame->getRotation());
-    cv::Mat twc = frame->getTranslation();
-    {
-        double result_[nVariables*2] = {};
-        set_use_polarity(false);
-
-        gsl_multimin_fminimizer *s = NULL;
-        gsl_vector *x;
-
-        /* Starting point */
-        x = gsl_vector_alloc(nVariables * 2);
-
-        gsl_vector_set(x, 0, w.at<float>(0));
-        gsl_vector_set(x, 1, w.at<float>(1));
-        gsl_vector_set(x, 2, w.at<float>(2));
-
-        gsl_vector_set(x, 3, v.at<float>(0));
-        gsl_vector_set(x, 4, v.at<float>(1));
-        gsl_vector_set(x, 5, v.at<float>(2));
-
-        gsl_vector_set(x, 6, Rwc_w.at<float>(0));
-        gsl_vector_set(x, 7, Rwc_w.at<float>(1));
-        gsl_vector_set(x, 8, Rwc_w.at<float>(2));
-
-        gsl_vector_set(x, 9, twc.at<float>(0));
-        gsl_vector_set(x, 10, twc.at<float>(1));
-        gsl_vector_set(x, 11, twc.at<float>(2));
-
-        optimize_gsl(0.1, nVariables*2, global_tracking_cost_func, this, s, x, result_, 500);
-
-        w.at<float>(0) = float(result_[0]);
-        w.at<float>(1) = float(result_[1]);
-        w.at<float>(2) = float(result_[2]);
-
-        v.at<float>(0) = float(result_[3]);
-        v.at<float>(1) = float(result_[4]);
-        v.at<float>(2) = float(result_[5]);
-
-        Rwc_w.at<float>(0) = float(result_[6]);
-        Rwc_w.at<float>(1) = float(result_[7]);
-        Rwc_w.at<float>(2) = float(result_[8]);
-
-        twc.at<float>(0) = float(result_[9]);
-        twc.at<float>(1) = float(result_[10]);
-        twc.at<float>(2) = float(result_[11]);
-    }
-
-//    frame->setAngularVelocity(w);
-//    frame->setLinearVelocity(v);
-
-//    float dt = frame->dt;
-//    cv::Mat dw = w * dt;
-//    cv::Mat Rc1c2 = axang2rotm(dw);
-//    cv::Mat tc1c2 = v * dt;
-//    cv::Mat Twc1 = frame->getFirstPose();
-//    cv::Mat Rwc1 = Twc1.rowRange(0,3).colRange(0,3);
-//    cv::Mat twc1 = Twc1.rowRange(0,3).col(3);
-//    cv::Mat Rwc2 = Rwc1 * Rc1c2;
-//    cv::Mat twc2 = Rwc1 * tc1c2 + twc1;
-//    cv::Mat Twc2 = cv::Mat::eye(4,4,CV_32F);
-//    Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
-//    twc2.copyTo(Twc2.rowRange(0,3).col(3));
-//    frame->setLastPose(Twc2);
 
     frame->setAngularVelocity(w);
     frame->setLinearVelocity(v);
@@ -231,7 +222,7 @@ void MapDrawer::track() {
     cv::Mat Rc1c2 = axang2rotm(dw);
     cv::Mat tc1c2 = v * dt;
     cv::Mat Twc1 = cv::Mat::eye(4,4,CV_32F);
-    cv::Mat Rwc = axang2rotm(Rwc_w);
+
     Rwc.copyTo(Twc1.rowRange(0,3).colRange(0,3));
     twc.copyTo(Twc1.rowRange(0,3).col(3));
     frame->setFirstPose(Twc1);

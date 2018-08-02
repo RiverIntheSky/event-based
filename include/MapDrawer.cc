@@ -27,7 +27,7 @@ void MapDrawer::drawMapPoints() {
             if (tracking->newFrame) {
 
                 track();
-                visualize_map();
+//                visualize_map();
                 glFinish();
                 tracking->newFrame = false;
             }
@@ -392,7 +392,12 @@ float MapDrawer::sum(GLuint& tex) {
     return sum;
 }
 
-bool MapDrawer::matched(){
+float MapDrawer::overlap(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v){
+    // warp to tmpFramebuffer
+    warp(Rwc, twc, w, v);
+    draw_map_texture(Rwc, twc, mapFramebuffer);
+    gaussianBlur(mapFramebuffer, mapImage);
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(compareShader);
@@ -401,14 +406,44 @@ bool MapDrawer::matched(){
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_RECTANGLE, mapImage);
     drawQuad();
-//    glfwSwapBuffers(window);
-//    glfwPollEvents();
+    glfwSwapBuffers(window);
+    glfwPollEvents();
     glActiveTexture(GL_TEXTURE0);
-    return false;
+
+
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, tmpFramebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBlitFramebuffer(0, 0, param->width, param->height, 0, 0, param->width, param->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    float* count = (float *)malloc(3 * sizeof(float));
+    glUseProgram(sumShader);
+    float currentW = param->width,
+          currentH = param->height;
+    while (currentW > 1) {
+        glBindFramebuffer(GL_FRAMEBUFFER, sumFramebuffer);
+        glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        std::swap(tmpFramebuffer, sumFramebuffer);
+        std::swap(tmpImage, sumImage);
+
+        glViewport(0, 0, currentW, currentH);
+        currentW = std::ceil(currentW / 2);
+        currentH = std::ceil(currentH / 2);
+    }
+
+    glReadPixels(0, 0, 1, 1, GL_RGB, GL_FLOAT, count);
+    glViewport(0, 0, param->width, param->height);
+
+    return count[1]/count[0];
 }
 
 // store to tmp
-void MapDrawer::warp(cv::Mat Rwc, cv::Mat twc, cv::Mat& w, cv::Mat& v) {
+void MapDrawer::warp(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
     draw_map_patch(Rwc, twc);
 
     glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
