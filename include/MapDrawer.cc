@@ -27,7 +27,7 @@ void MapDrawer::drawMapPoints() {
             if (tracking->newFrame) {
 
                 track();
-                visualize_map();
+//                visualize_map();
                 glFinish();
                 tracking->newFrame = false;
             }
@@ -69,6 +69,7 @@ void MapDrawer::setUp() {
     setUpQuadShader();
     setUpGaussianBlurShader();
     setUpContrastShader();
+    setUpCompareShader();
     setUpSummationShader();
     setUp2DRect(tmpFramebuffer, tmpImage);
     setUp2DRect(mapFramebuffer, mapImage);
@@ -246,6 +247,31 @@ void MapDrawer::setUpContrastShader() {
     }
 }
 
+void MapDrawer::setUpCompareShader() {
+    setUpShader(compareShader, "compare");
+
+    // set up textures
+    {
+        glGenTextures(1, &texFrame);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_RECTANGLE, texFrame);
+        glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB32F, param->width, param->height, 0,
+                     GL_RGB, GL_FLOAT, 0);
+        tex_frame_location = glGetUniformLocation(compareShader, "tex0");
+        glUniform1i(tex_frame_location, 0);
+
+        glGenTextures(1, &texMap);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_RECTANGLE, texMap);
+        glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB32F, param->width, param->height, 0,
+                     GL_RGB, GL_FLOAT, 0);
+        tex_map_location = glGetUniformLocation(compareShader, "tex1");
+        glUniform1i(tex_map_location, 1);
+
+        glActiveTexture(GL_TEXTURE0);
+    }
+}
+
 void MapDrawer::setUp2DRect(GLuint& FBO, GLuint& tex) {
     glGenFramebuffers(1, &FBO);
     glBindFramebuffer(GL_FRAMEBUFFER, FBO);
@@ -304,6 +330,15 @@ void MapDrawer::gaussianBlur(GLuint& imageTex, glm::vec2 dir) {
     drawQuad();
 }
 
+void MapDrawer::gaussianBlur(GLuint& fbo, GLuint& tex) {
+    gaussianBlur(tex, glm::vec2(0, 1));
+    std::swap(blurFramebuffer, fbo);
+    std::swap(blurredImage, tex);
+    gaussianBlur(tex, glm::vec2(1, 0));
+    std::swap(blurFramebuffer, fbo);
+    std::swap(blurredImage, tex);
+}
+
 float MapDrawer::contrast(GLuint& fbo) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, tmpFramebuffer);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
@@ -355,6 +390,61 @@ float MapDrawer::sum(GLuint& tex) {
     glReadPixels(0, 0, 1, 1, GL_RED, GL_FLOAT, &sum);
     glViewport(0, 0, param->width, param->height);
     return sum;
+}
+
+bool MapDrawer::matched(){
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glUseProgram(compareShader);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_RECTANGLE, mapImage);
+    drawQuad();
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+//    drawImage(tmpImage);
+    glActiveTexture(GL_TEXTURE0);
+    return false;
+}
+
+// store to tmp
+void MapDrawer::warp(cv::Mat Rwc, cv::Mat twc, cv::Mat& w, cv::Mat& v) {
+    draw_map_patch(Rwc, twc);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+
+    glUseProgram(eventShader);
+
+    glm::vec3 w_ = Converter::toGlmVec3(w);
+    glUniform3fv(w_location, 1, glm::value_ptr(w_));
+    glm::vec3 v_ = Converter::toGlmVec3(v);
+    glUniform3fv(v_location, 1, glm::value_ptr(v_));
+    glm::vec3 wc1c2, tc1c2;
+    glUniform3fv(wc1c2_location, 1, glm::value_ptr(wc1c2));
+    glUniform3fv(tc1c2_location, 1, glm::value_ptr(tc1c2));
+
+    glEnable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+
+    glBindVertexArray(frame->vao);
+    glDrawArrays(GL_POINTS, 0, frame->events());
+
+    glDisable(GL_BLEND);
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, tmpFramebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, warpFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBlitFramebuffer(0, 0, param->width, param->height, 0, 0, param->width, param->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    gaussianBlur(tmpFramebuffer, tmpImage);
+
+//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, warpFramebuffer);
+//    glBindFramebuffer(GL_READ_FRAMEBUFFER, blurFramebuffer);
+//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//    glBlitFramebuffer(0, 0, param->width, param->height, 0, 0, param->width, param->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }
 
 float MapDrawer::mean(GLuint& tex) {

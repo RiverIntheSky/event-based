@@ -45,16 +45,20 @@ public:
     // gaussian blur
     void setUpGaussianBlurShader();
     void gaussianBlur(GLuint& imageTex, glm::vec2 dir);
+    void gaussianBlur(GLuint& fbo, GLuint& tex);
 
     // events
     void setUpEventShader();
     void updateFrame();
     void setUpSummationShader();
     void setUpContrastShader();
+    void setUpCompareShader();
     float contrast(GLuint& fbo);
     float sum(GLuint& tex);
     inline float mean(GLuint& tex);
     void set_use_polarity(bool);
+    bool matched();
+    void warp(cv::Mat Rwc, cv::Mat twc, cv::Mat& w, cv::Mat& v);
 
     float tracking_cost_func(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
     float tracking_cost_func(cv::Mat& w, cv::Mat& v);
@@ -121,6 +125,9 @@ public:
 
     GLuint sumShader, sumFramebuffer, sumImage;
     GLint sum_tex_location, sum_apos_location;
+
+    GLuint compareShader, compareFramebuffer, texFrame, texMap, compareResult;
+    GLint tex_frame_location, tex_map_location;
 
     // for temporal image storage
     GLuint tmpFramebuffer, tmpImage;

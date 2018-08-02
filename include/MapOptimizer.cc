@@ -154,6 +154,10 @@ void MapDrawer::track() {
         v.at<float>(2) = float(result[5]);
     }
 
+    warp(frame->getRotation(), frame->getTranslation(), w, v);
+    gaussianBlur(mapFramebuffer, mapImage);
+    matched();
+
     // under certain condition
     cv::Mat Rwc_w = rotm2axang(frame->getRotation());
     cv::Mat twc = frame->getTranslation();
