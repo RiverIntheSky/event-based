@@ -222,25 +222,25 @@ void ThreadedEventIMU::eventConsumerLoop() {
 //                LOG(INFO) << "normal " << pMP->getNormal();
 
                 if (parameters_.write_to_file) {
-//                    std::ofstream  myfile_pr(files_path + "groundtruth_pose_rotation.txt", std::ios_base::app);
-//                    if (myfile_pr.is_open()) {
-//                        myfile_pr << begin.toSec() << " "
-//                               << R_w.at<double>(0) << " "
-//                               << R_w.at<double>(1) << " "
-//                               << R_w.at<double>(2) << "\n";
-//                        myfile_pr.close();
-//                    } else
-//                        std::cout << "怎么肥四"<<std::endl;
+                    std::ofstream  myfile_pr(files_path + "groundtruth_pose_rotation.txt", std::ios_base::app);
+                    if (myfile_pr.is_open()) {
+                        myfile_pr << begin.toSec() << " "
+                               << R_w.at<float>(0) << " "
+                               << R_w.at<float>(1) << " "
+                               << R_w.at<float>(2) << "\n";
+                        myfile_pr.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
-//                    std::ofstream  myfile_pt(files_path + "groundtruth_pose_translation.txt", std::ios_base::app);
-//                    if (myfile_pt.is_open()) {
-//                        myfile_pt << begin.toSec() << " "
-//                               << t(0) << " "
-//                               << t(1) << " "
-//                               << t(2) << "\n";
-//                        myfile_pt.close();
-//                    } else
-//                        std::cout << "怎么肥四"<<std::endl;
+                    std::ofstream  myfile_pt(files_path + "groundtruth_pose_translation.txt", std::ios_base::app);
+                    if (myfile_pt.is_open()) {
+                        myfile_pt << begin.toSec() << " "
+                               << t(0) << " "
+                               << t(1) << " "
+                               << t(2) << "\n";
+                        myfile_pt.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
                     std::ofstream  myfile(files_path + "groundtruth_rotation.txt", std::ios_base::app);
                     if (myfile.is_open()) {
@@ -285,26 +285,26 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     } else
                         std::cout << "怎么肥四"<<std::endl;
 
-//                    std::ofstream  myfile_r(files_path + "estimated_pose_rotation.txt", std::ios_base::app);
-//                    if (myfile_r.is_open()) {
-//                        myfile_r << begin.toSec() << " "
-//                                << (mpTracker->r).at<double>(0) << " "
-//                                << (mpTracker->r).at<double>(1) << " "
-//                                << (mpTracker->r).at<double>(2) << "\n";
-//                        myfile_r.close();
-//                    } else
-//                        std::cout << "怎么肥四"<<std::endl;
+                    std::ofstream  myfile_r(files_path + "estimated_pose_rotation.txt", std::ios_base::app);
+                    if (myfile_r.is_open()) {
+                        myfile_r << begin.toSec() << " "
+                                << (mpTracker->r).at<float>(0) << " "
+                                << (mpTracker->r).at<float>(1) << " "
+                                << (mpTracker->r).at<float>(2) << "\n";
+                        myfile_r.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
 
-//                    std::ofstream  myfile_tt(files_path + "estimated_pose_translation.txt", std::ios_base::app);
-//                    if (myfile_tt.is_open()) {
-//                        myfile_tt<< begin.toSec() << " "
-//                                << (mpTracker->t).at<double>(0) << " "
-//                                << (mpTracker->t).at<double>(1) << " "
-//                                << (mpTracker->t).at<double>(2) << " ";
-//                        myfile_tt << '\n';
-//                        myfile_tt.close();
-//                    } else
-//                        std::cout << "怎么肥四"<<std::endl;
+                    std::ofstream  myfile_tt(files_path + "estimated_pose_translation.txt", std::ios_base::app);
+                    if (myfile_tt.is_open()) {
+                        myfile_tt<< begin.toSec() << " "
+                                << (mpTracker->t).at<float>(0) << " "
+                                << (mpTracker->t).at<float>(1) << " "
+                                << (mpTracker->t).at<float>(2) << " ";
+                        myfile_tt << '\n';
+                        myfile_tt.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
                 }
             }
         }
