@@ -128,6 +128,8 @@ void MapDrawer::track() {
         v.at<float>(0) = float(result[i++]);
         v.at<float>(1) = float(result[i++]);
         v.at<float>(2) = float(result[i++]);
+//        LOG(INFO) << w;
+//        LOG(INFO) << v;
     }
 
     float overlap1 = overlap(Rwc, twc, w, v);
@@ -251,27 +253,27 @@ void MapDrawer::track() {
                 }
 
                 for (auto KFit: KFs) {
-                    auto w = KFit->getAngularVelocity();
-                    gsl_vector_set(x, i++, w.at<double>(0));
-                    gsl_vector_set(x, i++, w.at<double>(1));
-                    gsl_vector_set(x, i++, w.at<double>(2));
+                    auto w_ = KFit->getAngularVelocity();
+                    gsl_vector_set(x, i++, w_.at<float>(0));
+                    gsl_vector_set(x, i++, w_.at<float>(1));
+                    gsl_vector_set(x, i++, w_.at<float>(2));
 
-                    auto v = KFit->getLinearVelocity();
-                    gsl_vector_set(x, i++, v.at<double>(0));
-                    gsl_vector_set(x, i++, v.at<double>(1));
-                    gsl_vector_set(x, i++, v.at<double>(2));
+                    auto v_ = KFit->getLinearVelocity();
+                    gsl_vector_set(x, i++, v_.at<float>(0));
+                    gsl_vector_set(x, i++, v_.at<float>(1));
+                    gsl_vector_set(x, i++, v_.at<float>(2));
 
                     if  (KFit->mnId != 0) {
-                        auto Rwc = KFit->getRotation();
-                        auto Rwc_w = rotm2axang(Rwc);
-                        gsl_vector_set(x, i++, Rwc_w.at<double>(0));
-                        gsl_vector_set(x, i++, Rwc_w.at<double>(1));
-                        gsl_vector_set(x, i++, Rwc_w.at<double>(2));
+                        auto Rwc_ = KFit->getRotation();
+                        auto Rwc_w_ = rotm2axang(Rwc_);
+                        gsl_vector_set(x, i++, Rwc_w_.at<float>(0));
+                        gsl_vector_set(x, i++, Rwc_w_.at<float>(1));
+                        gsl_vector_set(x, i++, Rwc_w_.at<float>(2));
 
-                        auto twc = KFit->getTranslation();
-                        gsl_vector_set(x, i++, twc.at<double>(0));
-                        gsl_vector_set(x, i++, twc.at<double>(1));
-                        gsl_vector_set(x, i++, twc.at<double>(2));
+                        auto twc_ = KFit->getTranslation();
+                        gsl_vector_set(x, i++, twc_.at<float>(0));
+                        gsl_vector_set(x, i++, twc_.at<float>(1));
+                        gsl_vector_set(x, i++, twc_.at<float>(2));
                     }
                 }
 

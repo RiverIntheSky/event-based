@@ -18,7 +18,7 @@ struct Parameters
     float fy;
     float cx;
     float cy;
-    cv::Mat distCoeffs;
+    cv::Vec<float, 5> distCoeffs;
     cv::Mat K{cv::Mat::eye(3, 3, CV_32F)};
     Eigen::Matrix3d K_;
 

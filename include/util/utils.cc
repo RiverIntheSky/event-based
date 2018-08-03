@@ -42,8 +42,11 @@ parameterReader::parameterReader(const std::string& filename) {
     std::getline(file, s, ' ');
     float k3 = std::stof(s);
 
-    parameters.distCoeffs = (cv::Mat_<float>(5, 1) << k1, k2, p1, p2, k3);
+    parameters.distCoeffs = cv::Vec<float, 5>(k1, k2, p1, p2, k3);
 
+    LOG(INFO)  << "\n"<<parameters.K;
+
+ LOG(INFO) << "\n" << parameters.distCoeffs;
 }
 
 bool parameterReader::getParameter(ev::Parameters& parameter){

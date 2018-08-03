@@ -8,8 +8,6 @@ ev::Parameters* ev::Optimizer::param = NULL;
 
 int main(int argc, char *argv[])
 {
-
-
     google::InitGoogleLogging(argv[0]);
 #ifndef NDEBUG
     //FLAGS_alsologtostderr = 1;  // output LOG for debugging
@@ -83,6 +81,19 @@ int main(int argc, char *argv[])
             }
         }
     }
+
+//    std::string imPath = parameters.path + "/images/frame_00000422.png";
+//    cv::Mat src = cv::imread(imPath, CV_LOAD_IMAGE_GRAYSCALE);
+//    cv::Mat dst;
+//    cv::imshow("src", src);
+//    cvWaitKey(0);
+//    cv::Mat K = cv::getOptimalNewCameraMatrix(parameters.K, parameters.distCoeffs, cv::Size(240, 180), 1.0, cv::Size(240, 180), 0, false);
+//    cv::undistort(src, dst, parameters.K, parameters.distCoeffs);
+//    cv::imshow("dst", dst);
+//    cvWaitKey(0);
+//    cv::undistort(src, dst, parameters.K, parameters.distCoeffs, K);
+//    cv::imshow("dst_with_k", dst);
+//    cvWaitKey(0);
 
     LOG(INFO) << "window_size: " << parameters.window_size;
 

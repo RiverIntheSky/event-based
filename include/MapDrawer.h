@@ -62,11 +62,12 @@ public:
     void setUpSummationShader();
     void setUpContrastShader();
     void setUpCompareShader();
-    float contrast(GLuint& fbo);
+    float contrast(GLuint fbo);
     float sum(GLuint& tex);
     inline float mean(GLuint& tex);
     void set_use_polarity(bool);
     float overlap(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
+    float overlap(GLuint& fbo1, GLuint& tex1, GLuint& fbo2, GLuint& tex2);
     void warp(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
 
     float tracking_cost_func(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
