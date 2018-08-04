@@ -20,6 +20,7 @@ struct Parameters
     float cy;
     cv::Vec<float, 5> distCoeffs;
     cv::Mat K{cv::Mat::eye(3, 3, CV_32F)};
+    cv::Mat K_n;
     Eigen::Matrix3d K_;
 
 //    unsigned patch_width{60};

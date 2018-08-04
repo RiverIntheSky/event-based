@@ -38,6 +38,9 @@ void ThreadedEventIMU::init() {
 
 bool ThreadedEventIMU::addEventMeasurement(okvis::Time& t, unsigned int x, unsigned int y, bool p) {
 
+    if (x < 30 && y < 30) // distortion is wrong
+        return false;
+
     ev::EventMeasurement event_measurement;
     event_measurement.measurement.x = x;
     event_measurement.measurement.y = y;

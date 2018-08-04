@@ -9,23 +9,17 @@ parameterReader::parameterReader(const std::string& filename) {
     }
     std::string s;
 
-    std::getline(file, s, ' ');
-    parameters.fx = std::stof(s);
-    parameters.K.at<float>(0, 0) = parameters.fx;
+    std::getline(file, s, ' '); // fx
+    parameters.K.at<float>(0, 0) = std::stof(s);
 
-    std::getline(file, s, ' ');
-    parameters.fy = std::stof(s);
-    parameters.K.at<float>(1, 1) = parameters.fy;
+    std::getline(file, s, ' '); // fy
+    parameters.K.at<float>(1, 1) = std::stof(s);
 
-    std::getline(file, s, ' ');
-    parameters.cx = std::stof(s);
-    parameters.K.at<float>(0, 2) = parameters.cx;
+    std::getline(file, s, ' '); // cx
+    parameters.K.at<float>(0, 2) = std::stof(s);
 
-    std::getline(file, s, ' ');
-    parameters.cy = std::stof(s);
-    parameters.K.at<float>(1, 2) = parameters.cy;
-    
-    cv::cv2eigen(parameters.K, parameters.K_);
+    std::getline(file, s, ' '); // cy
+    parameters.K.at<float>(1, 2) = std::stof(s);
 
     std::getline(file, s, ' ');
     float k1 = std::stof(s);
@@ -44,9 +38,21 @@ parameterReader::parameterReader(const std::string& filename) {
 
     parameters.distCoeffs = cv::Vec<float, 5>(k1, k2, p1, p2, k3);
 
+    parameters.K_n = cv::getOptimalNewCameraMatrix(parameters.K, parameters.distCoeffs,
+                                                cv::Size(240, 180), 1.0, cv::Size(240, 180), 0, false);
+
+    cv::cv2eigen(parameters.K_n, parameters.K_);
+
+    parameters.fx = parameters.K_n.at<float>(0, 0);
+    parameters.fy = parameters.K_n.at<float>(1, 1);
+    parameters.cx = parameters.K_n.at<float>(0, 2);
+    parameters.cy = parameters.K_n.at<float>(1, 2);
+
     LOG(INFO)  << "\n"<<parameters.K;
 
  LOG(INFO) << "\n" << parameters.distCoeffs;
+
+ LOG(INFO) <<  parameters.K_n;
 }
 
 bool parameterReader::getParameter(ev::Parameters& parameter){

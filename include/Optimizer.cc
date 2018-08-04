@@ -58,7 +58,7 @@ void Optimizer::optimize(Frame* frame) {
         for (auto point: points) {
             // initial depth = 1
             cv::Mat posOnFrame = (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
-            cv::Mat posInWorld = param->K.inv() * posOnFrame;
+            cv::Mat posInWorld = param->K_n.inv() * posOnFrame;
             auto mp = make_shared<MapPoint>(posInWorld);
             frame->mvpMapPoints.insert(mp);
 //            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));

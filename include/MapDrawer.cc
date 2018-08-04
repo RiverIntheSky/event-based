@@ -1055,7 +1055,7 @@ bool MapDrawer::inFrame(cv::Mat Xw, cv::Mat& Rwc, cv::Mat& twc) {
     cv::Mat Xc = Rwc.t() * (Xw - twc);
     if (Xc.at<float>(2) < param->znear)
         return false;
-    cv::Mat xc = param->K * Xc;
+    cv::Mat xc = param->K_n * Xc;
     float x = xc.at<float>(0) / xc.at<float>(2);
     float y = xc.at<float>(1) / xc.at<float>(2);
     return (x >= 0 && x  < param->width && y >= 0 && y < param->height);
