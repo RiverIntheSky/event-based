@@ -128,8 +128,6 @@ void MapDrawer::track() {
         v.at<float>(0) = float(result[i++]);
         v.at<float>(1) = float(result[i++]);
         v.at<float>(2) = float(result[i++]);
-//        LOG(INFO) << w;
-//        LOG(INFO) << v;
     }
 
     float overlap1 = overlap(Rwc, twc, w, v);
@@ -214,7 +212,7 @@ void MapDrawer::track() {
             }
 
             if (overlap3 < th) {
-                LOG(INFO) << "new map needed";
+
                 std::set<shared_ptr<KeyFrame>, idxOrder> KFs;
                 std::set<shared_ptr<MapPoint>> MPs;
 
@@ -293,9 +291,100 @@ void MapDrawer::track() {
                 gsl_vector_set(x, i++, twc.at<float>(1));
                 gsl_vector_set(x, i++, twc.at<float>(2));
 
-                paramSet params{this, &KFs, &MPs};
+                paramSet params{this, &KFs, &MPs, true};
                 optimize_gsl(0.1, nVariables, ba, &params, s, x, result, 500);
 
+                gsl_vector *vec;
+                vec = gsl_vector_alloc(nVariables);
+                for (int i = 0; i < nVariables; i++)
+                    gsl_vector_set(vec, i, result[i]);
+                params.optimize = false;
+                ba(vec, &params);
+                gsl_vector_free(vec);
+                float overlap4 = overlap(mapFramebuffer, mapImage, tmpFramebuffer, tmpImage);
+                LOG(INFO) << overlap4;
+                if (overlap4 > overlap3 && overlap4 > overlap2 && overlap4 > overlap1) {
+
+                    auto mpit = MPs.begin();
+                    (*mpit)->setNormalDirection(result[0], result[1]);
+                    int i = 2;
+                    for (mpit++; mpit != MPs.end(); mpit++) {
+                        float phi = result[i++];
+                        float psi = result[i++];
+                        (*mpit)->setNormalDirection(phi, psi);
+                        (*mpit)->d = result[i++];
+                    }
+
+                    for (auto KFit: KFs) {
+                        w.at<float>(0) = float(result[i++]);
+                        w.at<float>(1) = float(result[i++]);
+                        w.at<float>(2) = float(result[i++]);
+                        KFit->setAngularVelocity(w);
+
+                        v.at<float>(0) = float(result[i++]);
+                        v.at<float>(1) = float(result[i++]);
+                        v.at<float>(2) = float(result[i++]);
+                        KFit->setAngularVelocity(v);
+
+                        if  (KFit->mnId != 0) {
+                            Rwc_w.at<float>(0) = float(result[i++]);
+                            Rwc_w.at<float>(1) = float(result[i++]);
+                            Rwc_w.at<float>(2) = float(result[i++]);
+                            Rwc = axang2rotm(Rwc_w);
+
+                            twc.at<float>(0) = float(result[i++]);
+                            twc.at<float>(1) = float(result[i++]);
+                            twc.at<float>(2) = float(result[i++]);
+
+                            cv::Mat Twc1 = cv::Mat::eye(4,4,CV_32F);
+                            Rwc.copyTo(Twc1.rowRange(0,3).colRange(0,3));
+                            twc.copyTo(Twc1.rowRange(0,3).col(3));
+                            KFit->setFirstPose(Twc1);
+                        }
+
+                        float dt = KFit->dt;
+                        cv::Mat dw = w * dt;
+                        cv::Mat Rc1c2 = axang2rotm(dw);
+                        cv::Mat tc1c2 = v * dt;
+                        cv::Mat Twc1 = KFit->getFirstPose();
+                        cv::Mat Rwc1 = Twc1.rowRange(0,3).colRange(0,3);
+                        cv::Mat twc1 = Twc1.rowRange(0,3).col(3);
+                        cv::Mat Rwc2 = Rwc1 * Rc1c2;
+                        cv::Mat twc2 = Rwc1 * tc1c2 + twc1;
+                        cv::Mat Twc2 = cv::Mat::eye(4,4,CV_32F);
+                        Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
+                        twc2.copyTo(Twc2.rowRange(0,3).col(3));
+                        KFit->setLastPose(Twc2);
+                    }
+
+                    w.at<float>(0) = float(result[i++]);
+                    w.at<float>(1) = float(result[i++]);
+                    w.at<float>(2) = float(result[i++]);
+
+                    v.at<float>(0) = float(result[i++]);
+                    v.at<float>(1) = float(result[i++]);
+                    v.at<float>(2) = float(result[i++]);
+
+                    Rwc_w.at<float>(0) = float(result[i++]);
+                    Rwc_w.at<float>(1) = float(result[i++]);
+                    Rwc_w.at<float>(2) = float(result[i++]);
+                    Rwc = axang2rotm(Rwc_w);
+
+                    twc.at<float>(0) = float(result[i++]);
+                    twc.at<float>(1) = float(result[i++]);
+                    twc.at<float>(2) = float(result[i++]);
+
+                    auto pKF = make_shared<KeyFrame>(*frame);
+                    map->addKeyFrame(pKF);
+                    LOG(INFO) << "new keyframe added";
+                    // add pMP !!
+                    for (auto pMP: MPs) {
+                        cv::Mat pos = pMP->getWorldPos();
+                        pos = pos /(-pMP->d * pos.dot(pMP->getNormal())); /* n'x + d_ = 0 */
+                        pMP->setWorldPos(pos);
+                        pMP->addObservation(pKF);
+                    }
+                }
             }
         }
     }

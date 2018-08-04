@@ -927,22 +927,26 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         glDisable(GL_BLEND);
     }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if (p->optimize) {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glEnable(GL_BLEND);
+        glEnable(GL_BLEND);
 
-    glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
-    glUseProgram(quadShader);
-    drawQuad();
-    glBindTexture(GL_TEXTURE_RECTANGLE, mapImage);
-    drawQuad();
-    glDisable(GL_BLEND);
+        glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
+        glUseProgram(quadShader);
+        drawQuad();
+        glBindTexture(GL_TEXTURE_RECTANGLE, mapImage);
+        drawQuad();
+        glDisable(GL_BLEND);
 
-    glfwSwapBuffers(window);
-    glfwPollEvents();
+        glfwSwapBuffers(window);
+        glfwPollEvents();
 
-    return contrast(0);
+        return contrast(0);
+    } else {        
+        return 0.f;
+    }
 }
 
 void MapDrawer::visualize_map(){

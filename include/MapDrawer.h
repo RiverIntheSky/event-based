@@ -40,6 +40,7 @@ public:
         MapDrawer* drawer;
         std::set<std::shared_ptr<KeyFrame>, idxOrder>* KFs;
         std::set<std::shared_ptr<MapPoint>>* MPs;
+        bool optimize;
     };
 
     void setUp();
