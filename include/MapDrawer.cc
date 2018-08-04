@@ -28,7 +28,7 @@ void MapDrawer::drawMapPoints() {
             if (tracking->newFrame) {
 
                 track();
-//                visualize_map();
+                visualize_map();
                 glFinish();
                 tracking->newFrame = false;
             }
@@ -397,6 +397,9 @@ float MapDrawer::overlap(GLuint& fbo1, GLuint& tex1, GLuint& fbo2, GLuint& tex2)
     gaussianBlur(fbo1, tex1);
     gaussianBlur(fbo2, tex2);
 
+//    drawImage(tex1);
+//    drawImage(tex2);
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(compareShader);
@@ -412,7 +415,6 @@ float MapDrawer::overlap(GLuint& fbo1, GLuint& tex1, GLuint& fbo2, GLuint& tex2)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBlitFramebuffer(0, 0, param->width, param->height, 0, 0, param->width, param->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-    drawImage(tmpImage);
 
     float* count = (float *)malloc(3 * sizeof(float));
     glUseProgram(sumShader);
@@ -451,6 +453,7 @@ float MapDrawer::overlap(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v){
 // store to tmp
 void MapDrawer::warp(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
     draw_map_patch(Rwc, twc);
+//    drawImage(patchOcclusion);
 
     glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -792,12 +795,17 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
     cv::Mat t = twc.col(nFs - 1);
     glm::mat4 view;
 
+//    LOG(INFO) << R;
+//    LOG(INFO) << t;
+
     for (auto kf: *(p->KFs)) {
         // pose of keyframe
         cv::Mat R_w1 = Rwc_w.col(fi);
         cv::Mat R1 = axang2rotm(R_w1);
         cv::Mat t1 = twc.col(fi);
         view = toView(R1, t1);
+//        LOG(INFO) << R1;
+//        LOG(INFO) << t1;
 
         glUseProgram(patchShader);
         glBindVertexArray(patchVAO);
@@ -847,6 +855,9 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
 
             glm::vec3 tc1c2_ = Converter::toGlmVec3(R1.t() * (t - t1));
             glUniform3fv(tc1c2_location, 1, glm::value_ptr(tc1c2_));
+
+//            LOG(INFO) << wc1c2_[0] << " " << wc1c2_[1] << " " << wc1c2_[2];
+//            LOG(INFO) << tc1c2_[0] << " " << tc1c2_[1] << " " << tc1c2_[2];
 
         }
 
@@ -927,6 +938,8 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         glDisable(GL_BLEND);
     }
 
+//    drawImage(patchOcclusion);
+
     if (p->optimize) {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -936,12 +949,12 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         glBindTexture(GL_TEXTURE_RECTANGLE, tmpImage);
         glUseProgram(quadShader);
         drawQuad();
+//        glfwSwapBuffers(window);
+//        glfwPollEvents();
+
         glBindTexture(GL_TEXTURE_RECTANGLE, mapImage);
         drawQuad();
         glDisable(GL_BLEND);
-
-        glfwSwapBuffers(window);
-        glfwPollEvents();
 
         return contrast(0);
     } else {        

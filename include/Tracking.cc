@@ -60,8 +60,8 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     R_.copyTo(Twc1.rowRange(0,3).colRange(0,3));
     t_.copyTo(Twc1.rowRange(0,3).col(3));
     mCurrentFrame->setFirstPose(Twc1);
-//    mCurrentFrame->setAngularVelocity(w_);
-//    mCurrentFrame->setLinearVelocity(v_);
+    mCurrentFrame->setAngularVelocity(w_);
+    mCurrentFrame->setLinearVelocity(v_);
 
     LOG(INFO) << "groundtruth velocity model:";
     LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
@@ -88,11 +88,6 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
 
-    LOG(INFO) << "current velocity model:";
-    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
-    LOG(INFO) << "\nw\n" << mCurrentFrame->getAngularVelocity();
-    LOG(INFO) << "\nv\n" << mCurrentFrame->getLinearVelocity();
-    LOG(INFO);
     w = mCurrentFrame->w;
     v = mCurrentFrame->v;
     R = mCurrentFrame->getRotation();

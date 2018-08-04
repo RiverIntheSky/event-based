@@ -717,7 +717,7 @@ void Optimizer::optimize(MapPoint* pMP) {
         cv::Mat Rc1c2 = axang2rotm(dw);
         cv::Mat tc1c2 = v * dt; // up to a global scale
         (*KFit)->setFirstPose(Twc_last);
-        cv::Mat  Twc1 = Twc_last.clone();
+        cv::Mat Twc1 = Twc_last.clone();
         cv::Mat Rwc1 = Twc1.rowRange(0,3).colRange(0,3);
         cv::Mat twc1 = Twc1.rowRange(0,3).col(3);
         cv::Mat Rwc2 = Rwc1 * Rc1c2;

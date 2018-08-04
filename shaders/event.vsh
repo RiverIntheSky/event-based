@@ -49,13 +49,13 @@ void main()
     } else {
         float nz = sqrt(1 - nx * nx - ny * ny);
         vec3 nc1 = vec3(nx, ny, nz);
-        mat3 Rc2c1 = rotationMatrix(wc1c2, length(wc1c2));
+        mat3 Rc2c1 = rotationMatrix(-wc1c2, length(wc1c2));
         vec3 nc2 = Rc2c1 * nc1;
         if (nc2.z < 0) {
             discard_();
         } else {
             float t = aPos.w;
-            mat3 Rc1_c1 = rotationMatrix(w, t * length(w)); // Rc1_c1
+            mat3 Rc1_c1 = rotationMatrix(-w, t * length(w)); // Rc1_c1
             float dc1 = pixel.z / nearPlane;
             float dc2 = 1.f / (1.f/dc1 + dot(tc1c2, nc1));
             if (dc2 < nearPlane) {
@@ -69,9 +69,9 @@ void main()
                                                1.f);
                 gl_Position = vec4((xc2.x-width/2)/(width/2), (height/2-xc2.y)/(height/2), 0.f, 1.f);
                 if (usePolarity) {
-                    vColor = 0.1 * (aPos.z * 2 - 1);
+                    vColor = 0.02 * (aPos.z * 2 - 1);
                 } else {
-                    vColor = 0.1;
+                    vColor = 0.02;
                 }
             }
         }

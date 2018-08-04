@@ -38,7 +38,7 @@ void ThreadedEventIMU::init() {
 
 bool ThreadedEventIMU::addEventMeasurement(okvis::Time& t, unsigned int x, unsigned int y, bool p) {
 
-    if (x < 30 && y < 30) // distortion is wrong
+    if (x < 30 || y < 30 || x > 210 || y > 150) // distortion is wrong
         return false;
 
     ev::EventMeasurement event_measurement;
@@ -211,8 +211,8 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
 
-//                mpTracker->Track(R, Converter::toCvMat(t), Converter::toCvMat(angularVelocity), Converter::toCvMat(linear_velocity));
-                mpTracker->Track();
+                mpTracker->Track(R, Converter::toCvMat(t), Converter::toCvMat(angularVelocity), Converter::toCvMat(linear_velocity));
+//                mpTracker->Track();
 
 //                auto pMP = mpMap->getAllMapPoints().front();
 //                imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
