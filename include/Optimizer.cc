@@ -17,7 +17,7 @@ void Optimizer::optimize(Frame* frame) {
         cv::Mat img, dst;
         int ddepth = -1,
                 // might be too small??
-        kernel_size = 90;
+        kernel_size = 31;
         img = cv::Mat::zeros(180, 240, CV_64F);
 
         for (const auto EVit: frame->vEvents) {
@@ -53,18 +53,16 @@ void Optimizer::optimize(Frame* frame) {
                 points.insert(*it);
             }
             it++;
-        } while (points.size() < 1 && it != pixels.end() && it->p > 100);
+        } while (points.size() < 2 && it != pixels.end() && it->p > 100);
 
         for (auto point: points) {
             // initial depth = 1
             cv::Mat posOnFrame = (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
-            cv::Mat posInWorld = param->K_n.inv() * posOnFrame;
+            cv::Mat posInWorld = param->K_n.inv() * posOnFrame; // first frame
             auto mp = make_shared<MapPoint>(posInWorld);
             frame->mvpMapPoints.insert(mp);
-//            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));
+            cv::circle(img, cv::Point(point.x, point.y), 15, cvScalar(200, 200, 250));
         }
-//        cv::imshow("img", img);
-//        cv::waitKey(1);
     }
 
     frame->mpMap->isDirty = true;

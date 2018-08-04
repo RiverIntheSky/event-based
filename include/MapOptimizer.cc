@@ -46,6 +46,8 @@ void MapDrawer::initialize_map() {
             frame->mvpMapPoints.erase(current);
         }
     }
+
+    LOG(INFO) << map->mspMapPoints.size();
 }
 
 void MapDrawer::track() {

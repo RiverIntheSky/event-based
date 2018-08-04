@@ -38,7 +38,7 @@ void ThreadedEventIMU::init() {
 
 bool ThreadedEventIMU::addEventMeasurement(okvis::Time& t, unsigned int x, unsigned int y, bool p) {
 
-    if (x < 30 || y < 30 || x > 210 || y > 150) // distortion is wrong
+    if (x < 30 && y < 30) // distortion is wrong
         return false;
 
     ev::EventMeasurement event_measurement;
@@ -165,6 +165,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
     Eigen::Quaterniond R0 = maconMeasurements_.front().measurement.q.inverse();
     Eigen::Vector3d t0 = maconMeasurements_.front().measurement.p;
+    LOG(INFO) << maconMeasurements_.front().timeStamp;
 
     for (;;) {
 
@@ -188,6 +189,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 // feed in groundtruth
                 okvis::Time begin =(*(mCurrentFrame->vEvents.begin()))->timeStamp;
+                LOG(INFO) << begin;
                 okvis::Time end = (*(mCurrentFrame->vEvents.rbegin()))->timeStamp;
 
                 ev::Pose p1, p2;
