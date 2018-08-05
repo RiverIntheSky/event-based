@@ -10,7 +10,7 @@ void MapDrawer::initialize_map() {
     double result[nVariables] = {};
 
     cv::Mat w = cv::Mat::zeros(3, 1, CV_32F);
-    cv::Mat v_phi = (cv::Mat_<float>(2, 1) << 0, M_PI/2); /* normalized velocity direction */
+    cv::Mat v_phi = (cv::Mat_<float>(2, 1) << tracking->phi, tracking->psi); /* normalized velocity direction */
                               /* could not represent zero velocity */
 
     gsl_multimin_fminimizer *s = NULL;
@@ -23,7 +23,7 @@ void MapDrawer::initialize_map() {
     for (; i < 3 * numMapPoints; i += 3) {
         gsl_vector_set(x, i, 0);
         gsl_vector_set(x, i+1, M_PI);
-        gsl_vector_set(x, i+2, 0.01);
+        gsl_vector_set(x, i+2, 0.1);
     }
 
     gsl_vector_set(x, i++, w.at<float>(0));
@@ -33,7 +33,7 @@ void MapDrawer::initialize_map() {
     gsl_vector_set(x, i++, v_phi.at<float>(0));
     gsl_vector_set(x, i, v_phi.at<float>(1));
 
-    optimize_gsl(1, nVariables, initialize_cost_func, this, s, x, result, 500);
+    optimize_gsl(0.2, nVariables, initialize_cost_func, this, s, x, result, 500);
     
     float depth_norm = 0.;
 
@@ -50,8 +50,9 @@ void MapDrawer::initialize_map() {
         auto current = it++;
         if (d > 0) {
             (*current)->setNormalDirection(float(result[i]), float(result[i+1]));
+            LOG(INFO) << (*current)->getNormal();
             (*current)->d = float(result[i+2]) * depth_norm;
-            map->mspMapPoints.insert(*current);
+            //map->mspMapPoints.insert(*current);
         } else {
             frame->mvpMapPoints.erase(current);
         }
@@ -70,6 +71,8 @@ void MapDrawer::initialize_map() {
 
     frame->setAngularVelocity(w);
     frame->setLinearVelocity(v_normalized);
+    tracking->phi = phi;
+    tracking->psi = psi;
    
     float dt = frame->dt;
 
@@ -84,7 +87,8 @@ void MapDrawer::initialize_map() {
     cv::Mat Twc2 = cv::Mat::eye(4,4,CV_32F);
     Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
     twc2.copyTo(Twc2.rowRange(0,3).col(3));
-    frame->setLastPose(Twc2);
+    //frame->setLastPose(Twc2);
+    frame->setLastPose(Twc1);
 }
 
 void MapDrawer::track() {
@@ -301,9 +305,10 @@ void MapDrawer::track() {
                 params.optimize = false;
                 ba(vec, &params);
                 gsl_vector_free(vec);
-                float overlap4 = overlap(mapFramebuffer, mapImage, tmpFramebuffer, tmpImage);
+                float overlap4 = overlap(tmpFramebuffer, tmpImage, mapFramebuffer, mapImage);
                 LOG(INFO) << overlap4;
-                if (overlap4 > overlap3 && overlap4 > overlap2 && overlap4 > overlap1) {
+                if (overlap4 > 0.5) {
+             //   if (overlap4 > overlap3 && overlap4 > overlap2 && overlap4 > overlap1) {
 
                     auto mpit = MPs.begin();
                     (*mpit)->setNormalDirection(result[0], result[1]);
@@ -483,8 +488,8 @@ double MapDrawer::initialize_cost_func(const gsl_vector *vec, void *params) {
 
     int i = 0;
     for (; i < numMapPoints; i++) {
-        double phi = gsl_vector_get(vec, 3*i);
-        double psi = gsl_vector_get(vec, 3*i+1);
+        float phi = gsl_vector_get(vec, 3*i);
+        float psi = gsl_vector_get(vec, 3*i+1);
         nw.at<float>(0, i) = std::cos(phi) * std::sin(psi);
         nw.at<float>(1, i) = std::sin(phi) * std::sin(psi);
         nw.at<float>(2, i) = std::cos(psi);
@@ -498,8 +503,8 @@ double MapDrawer::initialize_cost_func(const gsl_vector *vec, void *params) {
     w.at<float>(1) = gsl_vector_get(vec, i++);
     w.at<float>(2) = gsl_vector_get(vec, i++);
 
-    double phi = gsl_vector_get(vec, i++);
-    double psi = gsl_vector_get(vec, i);
+    float phi = gsl_vector_get(vec, i++);
+    float psi = gsl_vector_get(vec, i);
     v.at<float>(0) = std::cos(phi) * std::sin(psi);
     v.at<float>(1) = std::sin(phi) * std::sin(psi);
     v.at<float>(2) = std::cos(psi);

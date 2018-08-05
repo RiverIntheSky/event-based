@@ -46,16 +46,16 @@ void main()
     float ny = pixel.y * 2 - 1;
     if (nx*nx+ny*ny > 1) {
         discard_();
-    } else {
+    } else  {
         float nz = sqrt(1 - nx * nx - ny * ny);
         vec3 nc1 = vec3(nx, ny, nz);
-        mat3 Rc2c1 = rotationMatrix(wc1c2, length(wc1c2));
+        mat3 Rc2c1 = rotationMatrix(wc1c2, -length(wc1c2));
         vec3 nc2 = Rc2c1 * nc1;
         if (nc2.z < 0) {
             discard_();
         } else {
             float t = aPos.w;
-            mat3 Rc1_c1 = rotationMatrix(w, t * length(w)); // Rc1_c1
+            mat3 Rc1_c1 = rotationMatrix(w, -t * length(w)); // Rc1_c1
             float dc1 = pixel.z / nearPlane;
             float dc2 = 1.f / (1.f/dc1 + dot(tc1c2, nc1));
             if (dc2 < nearPlane) {
