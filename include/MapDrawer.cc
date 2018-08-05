@@ -367,7 +367,7 @@ float MapDrawer::contrast(GLuint fbo) {
     drawQuad();
 
     float c =  -mean(contrastImage);
-    LOG(INFO) << c;
+//    LOG(INFO) << c;
     return c;
 }
 
@@ -621,6 +621,16 @@ void MapDrawer::draw_map_texture(cv::Mat& Rwc, cv::Mat& twc, GLuint& fbo) {
 
             glm::vec3 tc1c2_ = Converter::toGlmVec3(Rwc1.t() * (twc - twc1));
             glUniform3fv(tc1c2_location, 1, glm::value_ptr(tc1c2_));
+
+//            LOG(INFO) << kf->getAngularVelocity();
+//            LOG(INFO) << kf->getLinearVelocity();
+//            LOG(INFO) << Rwc;
+//            LOG(INFO) << twc;
+//            LOG(INFO) << Rwc1;
+//            LOG(INFO) << Rwc1.t();
+//            LOG(INFO) << twc1;
+//            LOG(INFO) << rotm2axang(Rwc1.t() * Rwc);
+//            LOG(INFO) << Rwc1.t() * (twc - twc1);
         }
 
         // draw
@@ -801,9 +811,6 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
     cv::Mat R = axang2rotm(R_w);
     cv::Mat t = twc.col(nFs - 1);
     glm::mat4 view;
-//    LOG(INFO) << R;
-//    LOG(INFO) << t;
-
 
     for (auto kf: *(p->KFs)) {
         // pose of keyframe
@@ -811,8 +818,6 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         cv::Mat R1 = axang2rotm(R_w1);
         cv::Mat t1 = twc.col(fi);
         view = toView(R1, t1);
-//        LOG(INFO) << R1;
-//        LOG(INFO) << t1;
         glUseProgram(patchShader);
         glBindVertexArray(patchVAO);
         glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
@@ -834,7 +839,7 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
                 glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
 
                 cv::Mat pos = pMP->getWorldPos();
-                pos = pos / (-d * pos.dot(nw));
+                pos = pos /(-depths[mi] * pos.dot(nw));
                 glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
                 glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
                 glm::vec3 n_ = Converter::toGlmVec3(nw);
@@ -862,6 +867,15 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
             glm::vec3 tc1c2_ = Converter::toGlmVec3(R1.t() * (t - t1));
             glUniform3fv(tc1c2_location, 1, glm::value_ptr(tc1c2_));
 
+//            LOG(INFO) << ws.col(fi);
+//            LOG(INFO) << vs.col(fi);
+//            LOG(INFO) << R;
+//            LOG(INFO) << t;
+//            LOG(INFO) << R1;
+//            LOG(INFO) << R1.t();
+//            LOG(INFO) << t1;
+//            LOG(INFO) <<rotm2axang(R1.t() * R);
+//            LOG(INFO) << R1.t() * (t - t1);
         }
 
         // draw
@@ -902,7 +916,7 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
 
         cv::Mat pos = pMP->getWorldPos();
-        pos = pos / (-d * pos.dot(nw));
+        pos = pos /(-depths[mi] * pos.dot(nw));
         glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
         glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
         glm::vec3 n_ = Converter::toGlmVec3(nw);
@@ -925,6 +939,7 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         glm::vec3 wc1c2_, tc1c2_;
         glUniform3fv(wc1c2_location, 1, glm::value_ptr(wc1c2_));
         glUniform3fv(tc1c2_location, 1, glm::value_ptr(tc1c2_));
+
     }
 
     // draw
@@ -954,7 +969,7 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         drawQuad();
         glDisable(GL_BLEND);
 
-        drawImage(warppedImage);
+//        drawImage(warppedImage);
 
         return contrast(warpFramebuffer);
     } else {        
@@ -966,8 +981,6 @@ void MapDrawer::visualize_map(){
     draw_map_texture(tmpFramebuffer);
     draw_map_patch();
     set_use_polarity(false);
-
-//    drawImage(tmpImage);
 
     {
         glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
@@ -999,9 +1012,6 @@ void MapDrawer::visualize_map(){
         std::swap(blurredImage, tmpImage);
         gaussianBlur(tmpImage, glm::vec2(1, 0));
     }
-
-
-    drawImage(blurredImage);
 
     {
         cv::Mat R = frame->getRotation();
@@ -1043,7 +1053,7 @@ void MapDrawer::visualize_map(){
         drawQuad();
         glDisable(GL_BLEND);
     }
-//    drawImage(tmpImage);
+    drawImage(tmpImage);
 }
 
 void MapDrawer::drawImage(GLuint& image) {

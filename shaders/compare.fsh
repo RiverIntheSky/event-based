@@ -9,7 +9,7 @@ void main()
 {
     fColor = vec4(0.);
     // white: match; red: mismatch
-    if (abs(texture(tex0, gl_FragCoord.xy).r) > .5) {
+    if (abs(texture(tex0, gl_FragCoord.xy).r) > .2) {
         fColor.r = 1.;
         if (abs(texture(tex1, gl_FragCoord.xy).r) > .1) {
             fColor.g = 1.;

@@ -50,7 +50,6 @@ void MapDrawer::initialize_map() {
         auto current = it++;
         if (d > 0) {
             (*current)->setNormalDirection(float(result[i]), float(result[i+1]));
-            LOG(INFO) << (*current)->getNormal();
             (*current)->d = float(result[i+2]) * depth_norm;
             map->mspMapPoints.insert(*current);
         } else {
@@ -306,7 +305,7 @@ void MapDrawer::track() {
                 gsl_vector_free(vec);
                 float overlap4 = overlap(tmpFramebuffer, tmpImage, mapFramebuffer, mapImage);
                 LOG(INFO) << overlap4;
-                if (overlap4 > 0.5) {
+                if (overlap4 > overlap3 && overlap4 > overlap2 && overlap4 > overlap1) {
              //   if (overlap4 > overlap3 && overlap4 > overlap2 && overlap4 > overlap1) {
 
                     auto mpit = MPs.begin();
@@ -328,7 +327,7 @@ void MapDrawer::track() {
                         v.at<float>(0) = float(result[i++]);
                         v.at<float>(1) = float(result[i++]);
                         v.at<float>(2) = float(result[i++]);
-                        KFit->setAngularVelocity(v);
+                        KFit->setLinearVelocity(v);
 
                         if  (KFit->mnId != 0) {
                             Rwc_w.at<float>(0) = float(result[i++]);

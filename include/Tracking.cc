@@ -34,6 +34,7 @@ void Tracking::Track() {
 
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
+    LOG(INFO) << "keyframes: " << mpMap->keyFramesInMap();
     LOG(INFO) << "current velocity model:";
     LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
     LOG(INFO) << "\nw\n" << mCurrentFrame->w;
@@ -45,6 +46,8 @@ void Tracking::Track() {
     r = rotm2axang(R);
     mCurrentFrame->getTranslation().copyTo(t);
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
+
+
 
     // under certain conditions, Create KeyFrame
 
