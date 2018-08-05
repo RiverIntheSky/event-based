@@ -93,7 +93,7 @@ void MapDrawer::initialize_map() {
 void MapDrawer::track() {
     LOG(INFO) << "---------------------";
     int nVariables = 6 /* degrees of freedom */;
-    float th = 0.75 /* threshold */;
+    float th = 0.9 /* threshold */;
 
     double result[nVariables] = {};
 
@@ -136,7 +136,7 @@ void MapDrawer::track() {
     float overlap1 = overlap(Rwc, twc, w, v);
     LOG(INFO) << overlap1;
 
-    if (overlap1 < th) {
+    if (overlap1 < 1) {
         // match to map
         set_use_polarity(false);
         draw_map_texture(mapFramebuffer);

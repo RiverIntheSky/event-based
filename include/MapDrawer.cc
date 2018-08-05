@@ -358,14 +358,17 @@ float MapDrawer::contrast(GLuint fbo) {
     gaussianBlur(tmpImage, glm::vec2(1, 0));
 
     glUseProgram(contrastShader);
-    glUniform1f(mean_location, mean(blurredImage));
+    glUniform1f(mean_location, mean(blurredImage));         
     glBindFramebuffer(GL_FRAMEBUFFER, contrastFramebuffer);
     glBindTexture(GL_TEXTURE_RECTANGLE, blurredImage);
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(contrastShader);
     drawQuad();
 
-    return -mean(contrastImage);
+    float c =  -mean(contrastImage);
+    LOG(INFO) << c;
+    return c;
 }
 
 float MapDrawer::sum(GLuint& tex) {
@@ -418,7 +421,7 @@ float MapDrawer::overlap(GLuint& fbo1, GLuint& tex1, GLuint& fbo2, GLuint& tex2)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBlitFramebuffer(0, 0, param->width, param->height, 0, 0, param->width, param->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-    drawImage(tmpImage);
+//    drawImage(tmpImage);
 
     float* count = (float *)malloc(3 * sizeof(float));
     glUseProgram(sumShader);
@@ -447,6 +450,7 @@ float MapDrawer::overlap(GLuint& fbo1, GLuint& tex1, GLuint& fbo2, GLuint& tex2)
 
 float MapDrawer::overlap(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v){
     // warp to tmpFramebuffer
+    set_use_polarity(false);
     warp(Rwc, twc, w, v);
     draw_map_texture(Rwc, twc, mapFramebuffer);
 
@@ -797,6 +801,9 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
     cv::Mat R = axang2rotm(R_w);
     cv::Mat t = twc.col(nFs - 1);
     glm::mat4 view;
+//    LOG(INFO) << R;
+//    LOG(INFO) << t;
+
 
     for (auto kf: *(p->KFs)) {
         // pose of keyframe
@@ -804,7 +811,8 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         cv::Mat R1 = axang2rotm(R_w1);
         cv::Mat t1 = twc.col(fi);
         view = toView(R1, t1);
-
+//        LOG(INFO) << R1;
+//        LOG(INFO) << t1;
         glUseProgram(patchShader);
         glBindVertexArray(patchVAO);
         glBindFramebuffer(GL_FRAMEBUFFER, patchFramebuffer);
@@ -934,7 +942,7 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
     }
 
     if (p->optimize) {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glEnable(GL_BLEND);
@@ -946,10 +954,9 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         drawQuad();
         glDisable(GL_BLEND);
 
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+        drawImage(warppedImage);
 
-        return contrast(0);
+        return contrast(warpFramebuffer);
     } else {        
         return 0.f;
     }
@@ -958,8 +965,9 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
 void MapDrawer::visualize_map(){
     draw_map_texture(tmpFramebuffer);
     draw_map_patch();
+    set_use_polarity(false);
 
-//    drawImage(patchOcclusion);
+//    drawImage(tmpImage);
 
     {
         glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
@@ -991,6 +999,9 @@ void MapDrawer::visualize_map(){
         std::swap(blurredImage, tmpImage);
         gaussianBlur(tmpImage, glm::vec2(1, 0));
     }
+
+
+    drawImage(blurredImage);
 
     {
         cv::Mat R = frame->getRotation();
@@ -1032,7 +1043,7 @@ void MapDrawer::visualize_map(){
         drawQuad();
         glDisable(GL_BLEND);
     }
-    drawImage(tmpImage);
+//    drawImage(tmpImage);
 }
 
 void MapDrawer::drawImage(GLuint& image) {
