@@ -1,4 +1,4 @@
-#version 430 core
+#version 330 core
 
 uniform sampler2DRect tex;
 uniform vec2 dir;

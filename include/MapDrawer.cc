@@ -136,7 +136,7 @@ void MapDrawer::setUpPatchShader() {
 void MapDrawer::setUpEventShader() {
 
     setUpShader(eventShader, "event");
-    setUp2DMultisample(warpFramebuffer, warppedImage);
+    setUp2DRect(warpFramebuffer, warppedImage);
 
     // set up uniforms and attributes
     {
@@ -296,23 +296,29 @@ void MapDrawer::setUp2DMultisample(GLuint& FBO, GLuint& tex) {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, tex, 0);
 }
 
-void MapDrawer::setUpShader(GLuint& shader, const char* filename) {
+void MapDrawer::setUpShader(GLuint& shader, const char* filename) {    
+    shader = glCreateProgram();
+
     std::string f(filename);
     std::string vsh_path = shaderFilePath + f + ".vsh",
+                gsh_path = shaderFilePath + f + ".gsh",
                 fsh_path = shaderFilePath + f + ".fsh";
     const char* vsh_file = vsh_path.c_str();
+    const char* gsh_file = gsh_path.c_str();
     const char* fsh_file = fsh_path.c_str();
-    GLuint vsh, fsh;
-    vsh = createShader(GL_VERTEX_SHADER, vsh_file);
-    fsh = createShader(GL_FRAGMENT_SHADER, fsh_file);
+    GLuint vsh, gsh, fsh;
 
-    shader = glCreateProgram();
-    glAttachShader(shader, vsh);
-    glAttachShader(shader, fsh);
+    if (createShader(GL_VERTEX_SHADER, vsh_file, vsh))
+        glAttachShader(shader, vsh);
+    if (createShader(GL_GEOMETRY_SHADER, gsh_file, gsh))
+        glAttachShader(shader, gsh);
+    if (createShader(GL_FRAGMENT_SHADER, fsh_file, fsh))
+        glAttachShader(shader, fsh);
 
     glLinkProgram(shader);
     glUseProgram(shader);
     glDeleteShader(vsh);
+    glDeleteShader(gsh);
     glDeleteShader(fsh);
 }
 
@@ -751,45 +757,25 @@ void MapDrawer::draw_map_patch(cv::Mat& Rwc, cv::Mat& twc) {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-        for (auto mpPoint:frame->mvpMapPoints) {
-            // color stores normal and distance information of the plane
-            // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
+    for (auto mpPoint: map->mspMapPoints) {
+        // color stores normal and distance information of the plane
+        // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 
-            cv::Mat nw = mpPoint->getNormal();
-            cv::Mat nc = Rwc.t() * nw;
-            float inv_d_c = 1.f/(1.f/mpPoint->d + twc.dot(nw));
-            glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, inv_d_c*param->znear);
-            glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
+        cv::Mat nw = mpPoint->getNormal();
+        cv::Mat nc = Rwc.t() * nw;
+        float inv_d_c = 1.f/(1.f/mpPoint->d + twc.dot(nw));
+        glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, inv_d_c*param->znear);
+        glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
 
-            // model matrix of the plane
-            cv::Mat pos = mpPoint->getWorldPos();
-            glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
-            glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
-            glm::vec3 n_ = Converter::toGlmVec3(nw);
-            model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
-            glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        }
-
-//    for (auto mpPoint: map->mspMapPoints) {
-//        // color stores normal and distance information of the plane
-//        // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
-
-//        cv::Mat nw = mpPoint->getNormal();
-//        cv::Mat nc = Rwc.t() * nw;
-//        float inv_d_c = 1.f/(1.f/mpPoint->d + twc.dot(nw));
-//        glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, inv_d_c*param->znear);
-//        glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
-
-//        // model matrix of the plane
-//        cv::Mat pos = mpPoint->getWorldPos();
-//        glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
-//        glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
-//        glm::vec3 n_ = Converter::toGlmVec3(nw);
-//        model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
-//        glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
-//        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-//    }
+        // model matrix of the plane
+        cv::Mat pos = mpPoint->getWorldPos();
+        glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
+        glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
+        glm::vec3 n_ = Converter::toGlmVec3(nw);
+        model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
+        glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    }
 }
 
 void MapDrawer::draw_map_patch() {
@@ -1019,7 +1005,8 @@ void MapDrawer::visualize_map(){
         glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
-        for (auto mpPoint: frame->mvpMapPoints) {
+
+        for (auto mpPoint: map->mspMapPoints) {
             // color stores normal and distance information of the plane
             // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 
@@ -1037,24 +1024,6 @@ void MapDrawer::visualize_map(){
             glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         }
-//        for (auto mpPoint: map->mspMapPoints) {
-//            // color stores normal and distance information of the plane
-//            // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
-
-//            cv::Mat nw = mpPoint->getNormal();
-//            cv::Mat nc = R.t() * nw;
-//            glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, -nc.at<float>(2));
-//            glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
-
-//            // model matrix of the plane
-//            cv::Mat pos = mpPoint->getWorldPos();
-//            glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
-//            glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
-//            glm::vec3 n_ = Converter::toGlmVec3(nw);
-//            model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
-//            glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
-//            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-//        }
         glDisable(GL_DEPTH_TEST);
 
         glEnable(GL_BLEND);

@@ -5,6 +5,6 @@
 #include <stdio.h>
 
 namespace ev {
-std::string ReadShaderFile(const char* pFileName);
-GLuint createShader(GLenum type, const char* pFileName);
+bool ReadShaderFile(const char* pFileName, std::string& outFile);
+bool createShader(GLenum type, const char* pFileName, GLuint &shader);
 }

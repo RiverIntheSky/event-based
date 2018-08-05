@@ -52,7 +52,7 @@ void MapDrawer::initialize_map() {
             (*current)->setNormalDirection(float(result[i]), float(result[i+1]));
             LOG(INFO) << (*current)->getNormal();
             (*current)->d = float(result[i+2]) * depth_norm;
-            //map->mspMapPoints.insert(*current);
+            map->mspMapPoints.insert(*current);
         } else {
             frame->mvpMapPoints.erase(current);
         }
@@ -87,8 +87,7 @@ void MapDrawer::initialize_map() {
     cv::Mat Twc2 = cv::Mat::eye(4,4,CV_32F);
     Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
     twc2.copyTo(Twc2.rowRange(0,3).col(3));
-    //frame->setLastPose(Twc2);
-    frame->setLastPose(Twc1);
+    frame->setLastPose(Twc2);
 }
 
 void MapDrawer::track() {

@@ -1,10 +1,10 @@
-#version 430 core
+#version 330 core
 
-in float vColor;
+in float gColor;
 
 out vec4 fColor;
 
 void main()
 {
-    fColor = vec4(vec3(vColor), 1.f);
+    fColor = vec4(vec3(gColor), 1.f);
 }

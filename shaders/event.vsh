@@ -1,4 +1,4 @@
-#version 430 core
+#version 330 core
 
 in vec4 aPos;
 
@@ -11,7 +11,11 @@ uniform vec3 tc1c2;
 uniform float nearPlane;
 uniform bool usePolarity;
 
-out float vColor;
+out VS_OUT {
+    float vColor;
+    int width;
+    int height;
+} vs_out;
 
 mat3 rotationMatrix(vec3 axis, float angle)
 {
@@ -28,19 +32,19 @@ mat3 rotationMatrix(vec3 axis, float angle)
 }
 
 void discard_() {
-    gl_Position = vec4(2.f, 2.f, 2.f, 0.f);
-    vColor = 0.f;
+    gl_Position = vec4(-1.f, -1.f, 0.f, 0.f);
+    vs_out.vColor = 0.f;
 }
 
 void main()
 {
-    int width = textureSize(patchTexture).x;
-    int height = textureSize(patchTexture).y;
+    vs_out.width = textureSize(patchTexture).x;
+    vs_out.height = textureSize(patchTexture).y;
 
     vec3 Xc1_ = vec3(aPos.x, aPos.y, 1.f);
     vec3 xc1_ = cameraMatrix * Xc1_;
 
-    vec3 pixel = texture(patchTexture, vec2(xc1_.x, height - xc1_.y)).xyz;
+    vec3 pixel = texture(patchTexture, vec2(xc1_.x, vs_out.height - xc1_.y)).xyz;
 
     float nx = pixel.x * 2 - 1;
     float ny = pixel.y * 2 - 1;
@@ -67,11 +71,11 @@ void main()
                 vec3 xc2 = cameraMatrix * vec3(-Xc2.x / Xc2.z,
                                                Xc2.y / Xc2.z,
                                                1.f);
-                gl_Position = vec4((xc2.x-width/2)/(width/2), (height/2-xc2.y)/(height/2), 0.f, 1.f);
+                gl_Position = vec4(xc2.x, xc2.y, 0.f, 1.f);
                 if (usePolarity) {
-                    vColor = 0.1 * (aPos.z * 2 - 1);
+                    vs_out.vColor = 0.1 * (aPos.z * 2 - 1);
                 } else {
-                    vColor = 0.1;
+                    vs_out.vColor = 0.1;
                 }
             }
         }
