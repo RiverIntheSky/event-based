@@ -4,11 +4,13 @@ namespace ev {
 
 int Tracking::nInitializer = 1;
 int Tracking::nMapper = 3;
-cv::Mat Tracking::w = cv::Mat::zeros(3, 1, CV_64F);
-cv::Mat Tracking::v = cv::Mat::zeros(3, 1, CV_64F);
-cv::Mat Tracking::R = cv::Mat::eye(3, 3, CV_64F);
-cv::Mat Tracking::r = cv::Mat::zeros(3, 1, CV_64F);
-cv::Mat Tracking::t = cv::Mat::zeros(3, 1, CV_64F);
+cv::Mat Tracking::w = cv::Mat::zeros(3, 1, CV_32F);
+cv::Mat Tracking::v = cv::Mat::zeros(3, 1, CV_32F);
+cv::Mat Tracking::R = cv::Mat::eye(3, 3, CV_32F);
+cv::Mat Tracking::r = cv::Mat::zeros(3, 1, CV_32F);
+cv::Mat Tracking::t = cv::Mat::zeros(3, 1, CV_32F);
+float Tracking::phi = 0;
+float Tracking::psi = M_PI/2;
 
 shared_ptr<Frame> Tracking::getCurrentFrame() {
     if (!mCurrentFrame)
@@ -27,7 +29,7 @@ void Tracking::Track() {
         // assume success??
         init();
     } else if(mState==OK) {
-        estimate();
+        init();//estimate();
     }
 
     // add frame to map
@@ -37,12 +39,11 @@ void Tracking::Track() {
     LOG(INFO) << "\nw\n" << mCurrentFrame->w;
     LOG(INFO) << "\nv\n" << mCurrentFrame->v;
     LOG(INFO);
-    w = mCurrentFrame->w;
-    v = mCurrentFrame->v;
-    cv::Mat R = mCurrentFrame->getRotation();
+    mCurrentFrame->w.copyTo(w);
+    mCurrentFrame->v.copyTo(v);
+    mCurrentFrame->getRotation().copyTo(R);
     r = rotm2axang(R);
-    t = mCurrentFrame->getTranslation();
-//    LOG(INFO) << mCurrentFrame->mScale;
+    mCurrentFrame->getTranslation().copyTo(t);
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
 
     // under certain conditions, Create KeyFrame
@@ -93,11 +94,11 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     LOG(INFO) << "\nw\n" << mCurrentFrame->getAngularVelocity();
     LOG(INFO) << "\nv\n" << mCurrentFrame->getLinearVelocity();
     LOG(INFO);
-    w = mCurrentFrame->w;
-    v = mCurrentFrame->v;
-    R = mCurrentFrame->getRotation();
+    mCurrentFrame->w.copyTo(w);
+    mCurrentFrame->v.copyTo(v);
+    mCurrentFrame->getRotation().copyTo(R);
     r = rotm2axang(R);
-    t = mCurrentFrame->getTranslation();
+    mCurrentFrame->getTranslation().copyTo(t);
     LOG(INFO)<<"------------------";
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
     LOG(INFO)<<"------------------";
