@@ -33,7 +33,7 @@ void MapDrawer::initialize_map() {
     gsl_vector_set(x, i++, v_phi.at<float>(0));
     gsl_vector_set(x, i, v_phi.at<float>(1));
 
-    optimize_gsl(0.2, nVariables, initialize_cost_func, this, s, x, result, 500);
+    optimize_gsl(1, nVariables, initialize_cost_func, this, s, x, result, 500);
     
     float depth_norm = 0.;
 
@@ -92,7 +92,7 @@ void MapDrawer::initialize_map() {
 void MapDrawer::track() {
     LOG(INFO) << "---------------------";
     int nVariables = 6 /* degrees of freedom */;
-    float th = 0.9 /* threshold */;
+    float th = 0.8 /* threshold */;
 
     double result[nVariables] = {};
 
@@ -120,7 +120,7 @@ void MapDrawer::track() {
         gsl_vector_set(x, i++, v.at<float>(1));
         gsl_vector_set(x, i++, v.at<float>(2));
 
-        optimize_gsl(1, nVariables, frame_cost_func, this, s, x, result, 500);
+        optimize_gsl(0.1, nVariables, frame_cost_func, this, s, x, result, 500);
 
         i = 0;
         w.at<float>(0) = float(result[i++]);
@@ -154,7 +154,7 @@ void MapDrawer::track() {
         gsl_vector_set(x, 4, v.at<float>(1));
         gsl_vector_set(x, 5, v.at<float>(2));
 
-        optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 500);
+        optimize_gsl(0.1, nVariables, tracking_cost_func, this, s, x, result, 500);
 
         cv::Mat w_ = (cv::Mat_<float>(3, 1) << result[0], result[1], result[2]);
         cv::Mat v_ = (cv::Mat_<float>(3, 1) << result[3], result[4], result[5]);
@@ -303,11 +303,9 @@ void MapDrawer::track() {
                 params.optimize = false;
                 ba(vec, &params);
                 gsl_vector_free(vec);
-                float overlap4 = overlap(tmpFramebuffer, tmpImage, mapFramebuffer, mapImage);
+                float overlap4 = overlap(warpFramebuffer, warppedImage, mapFramebuffer, mapImage);
                 LOG(INFO) << overlap4;
                 if (overlap4 > overlap3 && overlap4 > overlap2 && overlap4 > overlap1) {
-             //   if (overlap4 > overlap3 && overlap4 > overlap2 && overlap4 > overlap1) {
-
                     auto mpit = MPs.begin();
                     (*mpit)->setNormalDirection(result[0], result[1]);
                     int i = 2;
@@ -412,70 +410,6 @@ void MapDrawer::track() {
     twc2.copyTo(Twc2.rowRange(0,3).col(3));
     frame->setLastPose(Twc2);
 }
-
-//void MapDrawer::optimize_frame() {
-
-//    int numMapPoints = map->mspMapPoints.size();
-
-//    int nVariables = numMapPoints * 3 /* depth and normal */
-//                                  + 5 /* degrees of freedom */;
-//    double result[nVariables] = {};
-
-//    cv::Mat w = tracking->w.clone();
-//    cv::Mat v = tracking->v.clone();
-
-//    gsl_multimin_fminimizer *s = NULL;
-//    gsl_vector *x;
-
-//    /* Starting point */
-//    x = gsl_vector_alloc(nVariables);
-
-//    auto mpit = map->mspMapPoints.begin();    int i = 0;
-//    std::array<float, 2> mpN = (*mpit)->getNormalDirection();
-//    gsl_vector_set(x, i, mpN[i]); i++;
-//    gsl_vector_set(x, i, mpN[i]); i++;
-//    for (mpit++; mpit != map->mspMapPoints.end(); mpit++) {
-//        mpN = (*mpit)->getNormalDirection();
-//        gsl_vector_set(x, i, mpN[0]);
-//        gsl_vector_set(x, i+1, mpN[1]);
-//        gsl_vector_set(x, i+2, (*mpit)->d);
-//        i+=3;
-//    }
-
-//    gsl_vector_set(x, i++, w.at<float>(0));
-//    gsl_vector_set(x, i++, w.at<float>(1));
-//    gsl_vector_set(x, i++, w.at<float>(2));
-
-//    gsl_vector_set(x, i++, v.at<float>(0));
-//    gsl_vector_set(x, i++, v.at<float>(1));
-//    gsl_vector_set(x, i, v.at<float>(2));
-
-//    optimize_gsl(1, nVariables, optimize_cost_func, this, s, x, result, 500);
-
-//    auto it = map->mspMapPoints.begin();
-//    (*it)->setNormalDirection(float(result[0]), float(result[1]));
-//    for (i = 2, it++; it != map->mspMapPoints.end();i+=3) {
-//        float d = float(result[i+2]);
-//        auto current = it++;
-//        if (d > 0) {
-//            (*current)->setNormalDirection(float(result[i]), float(result[i+1]));
-//            (*current)->d = d;
-//        } else {
-//            map->mspMapPoints.erase(current);
-//        }
-//    }
-
-//    w.at<float>(0) = float(result[i++]);
-//    w.at<float>(1) = float(result[i++]);
-//    w.at<float>(2) = float(result[i++]);
-
-//    v.at<float>(0) = float(result[i++]);
-//    v.at<float>(1) = float(result[i++]);
-//    v.at<float>(2) = float(result[i]);
-
-//    frame->setAngularVelocity(w);
-//    frame->setLinearVelocity(v);
-//}
 
 double MapDrawer::initialize_cost_func(const gsl_vector *vec, void *params) {
     MapDrawer* drawer = (MapDrawer *)params;

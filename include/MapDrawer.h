@@ -63,7 +63,7 @@ public:
     void setUpSummationShader();
     void setUpContrastShader();
     void setUpCompareShader();
-    float contrast(GLuint fbo);
+    float contrast(GLuint& tex);
     float sum(GLuint& tex);
     inline float mean(GLuint& tex);
     void set_use_polarity(bool);
