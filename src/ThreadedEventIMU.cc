@@ -38,7 +38,7 @@ void ThreadedEventIMU::init() {
 
 bool ThreadedEventIMU::addEventMeasurement(okvis::Time& t, unsigned int x, unsigned int y, bool p) {
 
-    if (x < 30 || y < 30) // distortion is wrong
+    if (x < 30 && y < 30) // distortion is wrong
         return false;
 
     ev::EventMeasurement event_measurement;
@@ -306,6 +306,16 @@ void ThreadedEventIMU::eventConsumerLoop() {
                                 << (mpTracker->t).at<float>(2) << " ";
                         myfile_tt << '\n';
                         myfile_tt.close();
+                    } else
+                        std::cout << "怎么肥四"<<std::endl;
+
+                    std::ofstream  myfile_nw(files_path + "estimated_nw.txt", std::ios_base::app);
+                    if (myfile_nw.is_open()) {
+                        myfile_nw << begin.toSec() << " "
+                                << (mpTracker->nw).at<float>(0) << " "
+                                << (mpTracker->nw).at<float>(1) << " "
+                                << (mpTracker->nw).at<float>(2) << "\n";
+                        myfile_nw.close();
                     } else
                         std::cout << "怎么肥四"<<std::endl;
                 }

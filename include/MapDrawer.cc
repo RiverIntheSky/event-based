@@ -699,7 +699,7 @@ float MapDrawer::tracking_cost_func(cv::Mat& w, cv::Mat& v) {
 
 float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws, cv::Mat& w, cv::Mat& v) {
     // camera view matrix
-    cv::Mat R = frame->getRotation();
+    cv::Mat R = cv::Mat::eye(3, 3, CV_32F);
     cv::Mat t = frame->getTranslation();
     glm::mat4 view = toView(R, t);
 
@@ -719,7 +719,7 @@ float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws,
         // color stores normal and distance information of the plane
         // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
         cv::Mat nw = nws.col(i);
-        cv::Mat nc = R.t() * nw;
+        cv::Mat nc = frame->getRotation().t() * nw;
         float inv_d_c = 1.f/(1.f/inv_d_ws[i] + t.dot(nw));
         glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, inv_d_c*param->znear);
         glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));

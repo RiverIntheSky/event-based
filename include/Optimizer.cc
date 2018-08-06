@@ -53,12 +53,13 @@ void Optimizer::optimize(Frame* frame) {
                 points.insert(*it);
             }
             it++;
-        } while (points.size() < 12 && it != pixels.end() && it->p > 100);
+        } while (points.size() < 1 && it != pixels.end() && it->p > 100);
 
         for (auto point: points) {
             // initial depth = 1
             cv::Mat posOnFrame = (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
-            cv::Mat posInWorld = param->K_n.inv() * posOnFrame;
+//            cv::Mat posInWorld = param->K_n.inv() * posOnFrame;
+            cv::Mat posInWorld = (cv::Mat_<float>(3, 1) << 0, 0, 1);
             auto mp = make_shared<MapPoint>(posInWorld);
             frame->mvpMapPoints.insert(mp);
 //            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));

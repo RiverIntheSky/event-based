@@ -9,8 +9,11 @@ cv::Mat Tracking::v = cv::Mat::zeros(3, 1, CV_32F);
 cv::Mat Tracking::R = cv::Mat::eye(3, 3, CV_32F);
 cv::Mat Tracking::r = cv::Mat::zeros(3, 1, CV_32F);
 cv::Mat Tracking::t = cv::Mat::zeros(3, 1, CV_32F);
+cv::Mat Tracking::nw = cv::Mat::zeros(3, 1, CV_32F);
 float Tracking::phi = 0;
 float Tracking::psi = M_PI/2;
+float Tracking::phi_w = 0;
+float Tracking::psi_w = M_PI;
 
 shared_ptr<Frame> Tracking::getCurrentFrame() {
     if (!mCurrentFrame)
@@ -40,13 +43,13 @@ void Tracking::Track() {
     LOG(INFO) << "\nw\n" << mCurrentFrame->w;
     LOG(INFO) << "\nv\n" << mCurrentFrame->v;
     LOG(INFO);
+    (*(mCurrentFrame->mvpMapPoints.begin()))->getNormal().copyTo(nw);
     mCurrentFrame->w.copyTo(w);
     mCurrentFrame->v.copyTo(v);
     mCurrentFrame->getRotation().copyTo(R);
     r = rotm2axang(R);
     mCurrentFrame->getTranslation().copyTo(t);
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
-
 
 
     // under certain conditions, Create KeyFrame

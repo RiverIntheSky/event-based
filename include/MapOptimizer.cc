@@ -21,8 +21,8 @@ void MapDrawer::initialize_map() {
 
     int i = 0;
     for (; i < 3 * numMapPoints; i += 3) {
-        gsl_vector_set(x, i, 0);
-        gsl_vector_set(x, i+1, M_PI);
+        gsl_vector_set(x, i, tracking->phi_w);
+        gsl_vector_set(x, i+1, tracking->psi_w);
         gsl_vector_set(x, i+2, 0.1);
     }
 
@@ -33,6 +33,7 @@ void MapDrawer::initialize_map() {
     gsl_vector_set(x, i++, v_phi.at<float>(0));
     gsl_vector_set(x, i, v_phi.at<float>(1));
 
+    set_use_polarity(true);
     optimize_gsl(1, nVariables, initialize_cost_func, this, s, x, result, 500);
     
     float depth_norm = 0.;
@@ -72,6 +73,8 @@ void MapDrawer::initialize_map() {
     frame->setLinearVelocity(v_normalized);
     tracking->phi = phi;
     tracking->psi = psi;
+    tracking->phi_w = result[0];
+    tracking->psi_w = result[1];
    
     float dt = frame->dt;
 
@@ -85,9 +88,9 @@ void MapDrawer::initialize_map() {
     cv::Mat twc2 = Rwc1 * tc1c2 + twc1;
     cv::Mat Twc2 = cv::Mat::eye(4,4,CV_32F);
     Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
-    twc2.copyTo(Twc2.rowRange(0,3).col(3));
-//    frame->setLastPose(Twc2);
-    frame->setLastPose(Twc1);
+//    twc2.copyTo(Twc2.rowRange(0,3).col(3));
+    frame->setLastPose(Twc2);
+//    frame->setLastPose(Twc1);
 }
 
 void MapDrawer::track() {
