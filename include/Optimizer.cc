@@ -17,7 +17,7 @@ void Optimizer::optimize(Frame* frame) {
         cv::Mat img, dst;
         int ddepth = -1,
                 // might be too small??
-        kernel_size = 90;
+        kernel_size = 51;
         img = cv::Mat::zeros(180, 240, CV_64F);
 
         for (const auto EVit: frame->vEvents) {
@@ -53,7 +53,7 @@ void Optimizer::optimize(Frame* frame) {
                 points.insert(*it);
             }
             it++;
-        } while (points.size() < 1 && it != pixels.end() && it->p > 100);
+        } while (points.size() < 12 && it != pixels.end() && it->p > 100);
 
         for (auto point: points) {
             // initial depth = 1

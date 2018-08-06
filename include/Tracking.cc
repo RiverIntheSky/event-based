@@ -29,7 +29,7 @@ void Tracking::Track() {
         // assume success??
         init();
     } else if(mState==OK) {
-        estimate();
+        init();//estimate();
     }
 
     // add frame to map

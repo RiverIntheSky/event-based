@@ -29,7 +29,7 @@ void MapDrawer::drawMapPoints() {
 
                 track();
                 visualize_map();
-                glFinish();
+                glFinish();              
                 tracking->newFrame = false;
             }
         }
@@ -754,7 +754,8 @@ void MapDrawer::draw_map_patch(cv::Mat& Rwc, cv::Mat& twc) {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    for (auto mpPoint: map->mspMapPoints) {
+    for (auto mpPoint: frame->mvpMapPoints) {
+//    for (auto mpPoint: map->mspMapPoints) {
         // color stores normal and distance information of the plane
         // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 
@@ -997,7 +998,8 @@ void MapDrawer::visualize_map(){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
-        for (auto mpPoint: map->mspMapPoints) {
+//        for (auto mpPoint: map->mspMapPoints) {
+        for (auto mpPoint: frame->mvpMapPoints) {
             // color stores normal and distance information of the plane
             // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 

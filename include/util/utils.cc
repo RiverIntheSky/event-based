@@ -38,8 +38,9 @@ parameterReader::parameterReader(const std::string& filename) {
 
     parameters.distCoeffs = cv::Vec<float, 5>(k1, k2, p1, p2, k3);
 
-    parameters.K_n = cv::getOptimalNewCameraMatrix(parameters.K, parameters.distCoeffs,
-                                                cv::Size(240, 180), 1.0, cv::Size(240, 180), 0, false);
+    /*parameters.K_n = cv::getOptimalNewCameraMatrix(parameters.K, parameters.distCoeffs,
+                                                cv::Size(240, 180), 1.0, cv::Size(240, 180), 0, false);*/
+    parameters.K.copyTo(parameters.K_n);
 
     cv::cv2eigen(parameters.K_n, parameters.K_);
 

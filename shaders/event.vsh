@@ -73,10 +73,10 @@ void main()
                                                1.f);
                 gl_Position = vec4(xc2.x, xc2.y, 0.f, 1.f);
                 if (usePolarity) {
-                    vs_out.vColor = 0.2 * (aPos.z * 2 - 1);
+                    vs_out.vColor = 0.1 * (aPos.z * 2 - 1);
 //                    vs_out.vColor = 0.5;
                 } else {
-                    vs_out.vColor = 0.2;
+                    vs_out.vColor = 0.1;
                 }
             }
         }
