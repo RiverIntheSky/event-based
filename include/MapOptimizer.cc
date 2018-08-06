@@ -9,8 +9,8 @@ void MapDrawer::initialize_map() {
                                   + 6 /* degrees of freedom */;
     double result[nVariables] = {};
 
-    cv::Mat w = cv::Mat::zeros(3, 1, CV_32F);
-    cv::Mat v = cv::Mat::zeros(3, 1, CV_32F);
+    cv::Mat w = frame->getAngularVelocity();
+    cv::Mat v = frame->getLinearVelocity();
 
     gsl_multimin_fminimizer *s = NULL;
     gsl_vector *x;
@@ -20,12 +20,14 @@ void MapDrawer::initialize_map() {
 
     int i = 0;
 
-    gsl_vector_set(x, i++, 0);
-    gsl_vector_set(x, i++, M_PI);
+    float phi = 0;
+    float psi = M_PI;
+    gsl_vector_set(x, i++, phi);
+    gsl_vector_set(x, i++, psi);
 
     for (; i < 3 * numMapPoints-1;) {
-        gsl_vector_set(x, i++, 0);
-        gsl_vector_set(x, i++, M_PI);
+        gsl_vector_set(x, i++, phi);
+        gsl_vector_set(x, i++, psi);
         gsl_vector_set(x, i++, 1);
     }
 
