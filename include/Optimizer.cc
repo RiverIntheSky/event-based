@@ -13,32 +13,33 @@ int Optimizer::count_frame = 0;
 int Optimizer::count_map = 0;
 
 void Optimizer::optimize(Frame* frame) {
+    cv::Mat img, dst;
+    int ddepth = -1,
+            // might be too small??
+    kernel_size = 51;
+    img = cv::Mat::zeros(180, 240, CV_64F);
+
+    for (const auto EVit: frame->vEvents) {
+        Eigen::Vector3d p, point_warped;
+        p << EVit->measurement.x ,EVit->measurement.y, 1;
+        point_warped = param->K_ * p;
+        fuse(img, point_warped, true);
+    }
+
+    cv::boxFilter(img, dst, ddepth, cv::Size_<int>(kernel_size, kernel_size), cvPoint(-1, -1), false);
+
+    std::set<pixel, pixel_value> pixels;
+    for (int y = 0; y < img.size[0]; y++) {
+        for (int x = 0; x < img.size[1]; x++) {
+            pixels.emplace(x, y, dst.at<double>(y, x));
+        }
+    }
+
+    std::set<pixel, pixel_value> points;
+    auto it = pixels.begin();
+
     if (frame->mpMap->mspMapPoints.empty()) {
-        cv::Mat img, dst;
-        int ddepth = -1,
-                // might be too small??
-        kernel_size = 51;
-        img = cv::Mat::zeros(180, 240, CV_64F);
-
-        for (const auto EVit: frame->vEvents) {
-            Eigen::Vector3d p, point_warped;
-            p << EVit->measurement.x ,EVit->measurement.y, 1;
-            point_warped = param->K_ * p;
-            fuse(img, point_warped, true);
-        }
-
-        cv::boxFilter(img, dst, ddepth, cv::Size_<int>(kernel_size, kernel_size), cvPoint(-1, -1), false);
-
-        std::set<pixel, pixel_value> pixels;
-        for (int y = 0; y < img.size[0]; y++) {
-            for (int x = 0; x < img.size[1]; x++) {
-                pixels.emplace(x, y, dst.at<double>(y, x));
-            }
-        }
-
-        std::set<pixel, pixel_value> points;
-        auto it = pixels.begin();
-
+        frame->shouldBeKeyFrame = true;
         do {
             auto pit = points.begin();
 
@@ -65,6 +66,47 @@ void Optimizer::optimize(Frame* frame) {
         }
 //        cv::imshow("img", img);
 //        cv::waitKey(1);
+    } else {
+        cv::Mat Rwc = frame->getRotation();
+        cv::Mat twc = frame->getTranslation();
+        do {
+            auto pit = points.begin();
+
+            for (; pit != points.end(); pit++) {
+                if (std::abs(pit->x - it->x) < kernel_size) {
+                    if (std::abs(pit->y - it->y) < kernel_size) {
+                        break;
+                    }
+                }
+            }
+            if (pit == points.end()) {
+                bool valid = true;
+                for (auto pMP: frame->mpMap->mspMapPoints) {
+                    float x, y;
+                    cv::Mat Xw = pMP->getWorldPos();
+
+                    if (inFrame_(Xw, Rwc, twc, x, y)) {
+                        if (std::abs(x - it->x) < kernel_size) {
+                            if (std::abs(y - it->y) < kernel_size) {
+                                valid = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (valid)
+                    points.insert(*it);
+            }
+            it++;
+        } while (points.size() < 12 && it != pixels.end() && it->p > 100);
+
+        for (auto point: points) {
+            // initial depth = 1
+            cv::Mat posOnFrame = (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
+            cv::Mat posInWorld = Rwc * param->K_n.inv() * posOnFrame + twc;
+            auto mp = make_shared<MapPoint>(posInWorld);
+            frame->mpMap->mspMapPoints.insert(mp);
+        }
     }
 
     frame->mpMap->isDirty = true;
@@ -1084,6 +1126,15 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
     return false;
 }
 
+bool Optimizer::inFrame_(cv::Mat Xw, cv::Mat& Rwc, cv::Mat& twc, float& x, float& y) {
+    cv::Mat Xc = Rwc.t() * (Xw - twc);
+    if (Xc.at<float>(2) < param->znear)
+        return false;
+    cv::Mat xc = param->K_n * Xc;
+    x = xc.at<float>(0) / xc.at<float>(2);
+    y = xc.at<float>(1) / xc.at<float>(2);
+    return (x >= 0 && x  < param->width && y >= 0 && y < param->height);
+}
 void Optimizer::optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, void*), void *params,
                              gsl_multimin_fminimizer* s, gsl_vector* x, double* res, size_t iter) {
     const gsl_multimin_fminimizer_type *T = gsl_multimin_fminimizer_nmsimplex2;

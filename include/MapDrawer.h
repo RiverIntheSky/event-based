@@ -115,7 +115,7 @@ public:
 
     glm::mat4 toView(cv::Mat& Rwc, cv::Mat& twc);
     glm::mat4 toView(cv::Mat& Twc);
-    bool inFrame(cv::Mat Xw, cv::Mat& Rwc, cv::Mat& twc);
+    bool inFrame(cv::Mat Xw, cv::Mat& Rwc, cv::Mat& twc, float &x, float &y);
 
     GLuint patchVAO, patchVBO, patchEBO, patchVS, patchFS, patchShader,
            patchFramebuffer, patchOcclusion;

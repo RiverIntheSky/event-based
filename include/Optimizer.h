@@ -71,6 +71,8 @@ public:
     void static intensity_relocalization(cv::Mat& image, const double *vec, mapPointAndFrame* mf);
     void static intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndKeyFrames* mkf);
     void static intensity(cv::Mat& image, const double *vec, KeyFrame* kF);
+
+    bool static inFrame_(cv::Mat Xw, cv::Mat& Rwc, cv::Mat& twc, float &x, float &y);
 public:
     static Parameters* param;
     static Eigen::Matrix3d mPatchProjectionMat;

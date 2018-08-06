@@ -32,26 +32,44 @@ void Tracking::Track() {
         estimate();
     }
 
+    if (mState == LOST) {
+        newFrame = true;
+        Optimizer::optimize(mCurrentFrame.get());
+        while (newFrame) {std::this_thread::yield();}
+        mState = OK; // ??
+    }
+
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
-    LOG(INFO) << "keyframes: " << mpMap->keyFramesInMap();
     LOG(INFO) << "current velocity model:";
     LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
     LOG(INFO) << "\nw\n" << mCurrentFrame->w;
     LOG(INFO) << "\nv\n" << mCurrentFrame->v;
-    LOG(INFO);
 
     mCurrentFrame->w.copyTo(w);
     mCurrentFrame->v.copyTo(v);
     mCurrentFrame->getRotation().copyTo(R);
     r = rotm2axang(R);
     mCurrentFrame->getTranslation().copyTo(t);
+
+    if (mCurrentFrame->shouldBeKeyFrame) {
+        auto pMPs = mpMap->getAllMapPoints();
+        auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
+        mpMap->addKeyFrame(pKF);
+        float x, y;
+        for (auto pMP: pMPs) {
+            cv::Mat pos = pMP->getWorldPos();
+            pos = pos /(-pMP->d * pos.dot(pMP->getNormal())); /* n'x + d_ = 0 */
+            pMP->setWorldPos(pos);
+            if (Optimizer::inFrame_(pos, R, t, x, y)) {
+                pMP->addObservation(pKF);
+            }
+        }
+    }
+    LOG(INFO) << "keyframes: " << mpMap->keyFramesInMap();
+    LOG(INFO) << "points: " << mpMap->mapPointsInMap();
+    LOG(INFO);
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
-
-
-    // under certain conditions, Create KeyFrame
-
-    // delete currentFrame
 }
 
 void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
@@ -102,6 +120,7 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     mCurrentFrame->getRotation().copyTo(R);
     r = rotm2axang(R);
     mCurrentFrame->getTranslation().copyTo(t);
+
     LOG(INFO)<<"------------------";
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
     LOG(INFO)<<"------------------";
@@ -116,15 +135,6 @@ bool Tracking::init() {
 //    if (!mpMap->mapPointsInMap()) {
 //        mpMap->addMapPoint(make_shared<MapPoint>());
 //    }
-    auto pMPs = mpMap->getAllMapPoints();
-    auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
-    mpMap->addKeyFrame(pKF);
-    for (auto pMP: pMPs) {
-        pMP->addObservation(pKF);
-        cv::Mat pos = pMP->getWorldPos();
-        pos = pos /(-pMP->d * pos.dot(pMP->getNormal())); /* n'x + d_ = 0 */
-        pMP->setWorldPos(pos);
-    }
 
 
 //    // at initialization phase there is at most one element in mspMapPoints

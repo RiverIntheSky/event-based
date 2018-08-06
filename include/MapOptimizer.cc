@@ -216,7 +216,8 @@ void MapDrawer::track() {
             std::set<shared_ptr<MapPoint>> MPs;
 
             for (auto pMP: map->getAllMapPoints()) {
-                if (inFrame(pMP->getWorldPos(), Rwc, twc)) { /* test on planar scene */
+                float x, y;
+                if (inFrame(pMP->getWorldPos(), Rwc, twc, x, y)) { /* test on planar scene */
                     MPs.insert(pMP);
                     for (auto kf: pMP->mObservations) {
                         KFs.insert(kf);
@@ -300,23 +301,31 @@ void MapDrawer::track() {
             params.optimize = false;
             ba(vec, &params);
             gsl_vector_free(vec);
-            float overlap4 = overlap(warpFramebuffer, warppedImage, mapFramebuffer, mapImage);
-            LOG(INFO) << overlap4;
-//            if (overlap4 > overlap3 && overlap4 > overlap2 && overlap4 > overlap1) {
-            if (overlap4 > overlap2 && overlap4 > overlap1) {
-                auto mpit = MPs.begin();
-                (*mpit)->setNormalDirection(result[0], result[1]);
-                cv::Mat pos = (*mpit)->getWorldPos();
-                pos = pos /(-(*mpit)->d * pos.dot((*mpit)->getNormal())); /* n'x + d_ = 0 */
-                (*mpit)->setWorldPos(pos);
-                int i = 2;
-                for (mpit++; mpit != MPs.end(); mpit++) {
+
+            i = 0;
+            for (auto mpit = MPs.begin();mpit != MPs.end();) {
+                auto current = mpit++;
+                if (!((*current)->dirty)) {
                     float phi = result[i++];
                     float psi = result[i++];
-                    (*mpit)->setNormalDirection(phi, psi);
-                    (*mpit)->d = result[i++];
+                    (*current)->setNormalDirection(phi, psi);
+                    if (i != 2) {
+                        (*current)->d = result[i++];
+                    }
+                    if (map->mspMapPoints.count(*current) == 0) {
+                        map->mspMapPoints.insert(*current);
+                        LOG(INFO) << map->mspMapPoints.size();
+                    }
+                } else {
+                    MPs.erase(*current);
+                    map->mspMapPoints.erase(*current);
                 }
+            }
 
+            if (MPs.size() < 5) {
+                tracking->mState = tracking->LOST;
+                frame->shouldBeKeyFrame = true;
+            } else {
                 for (auto KFit: KFs) {
                     w.at<float>(0) = float(result[i++]);
                     w.at<float>(1) = float(result[i++]);
@@ -379,7 +388,7 @@ void MapDrawer::track() {
                 auto pKF = make_shared<KeyFrame>(*frame);
                 map->addKeyFrame(pKF);
                 LOG(INFO) << "new keyframe added";
-                // add pMP !!
+
                 for (auto pMP: MPs) {
                     cv::Mat pos = pMP->getWorldPos();
                     pos = pos /(-pMP->d * pos.dot(pMP->getNormal())); /* n'x + d_ = 0 */

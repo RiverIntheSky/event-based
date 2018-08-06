@@ -6,7 +6,7 @@ float Frame::gScale = 1.;
 unsigned int Frame::nNextId = 0;
 
 // first pose of a frame is always set at construction
-Frame::Frame(Map *pMap): mpMap(pMap), shouldBeKeyFrame(false){
+Frame::Frame(Map *pMap): mpMap(pMap), shouldBeKeyFrame(false), updated(false){
     mnId = nNextId++;
     cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
     setFirstPose(Twc);
@@ -16,7 +16,7 @@ Frame::Frame(Map *pMap): mpMap(pMap), shouldBeKeyFrame(false){
     depthMap = cv::Mat(240, 180, CV_32F, std::numeric_limits<float>::max());
 }
 
-Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
+Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false), updated(false){
     mnId = nNextId++;
     setFirstPose(other.getLastPose());
 //    cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();

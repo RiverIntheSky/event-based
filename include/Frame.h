@@ -83,6 +83,7 @@ public:
 
     // shader support
     GLuint vao, vbo;
+    bool updated;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
     std::set<std::shared_ptr<MapPoint>> mvpMapPoints;
