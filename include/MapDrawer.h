@@ -102,6 +102,7 @@ public:
     void optimize_map();
     void optimize_frame();
     void track();
+    void markMapPoints();
 
     float optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>& depth,
                             cv::Mat& Rwc_w, cv::Mat& twc, cv::Mat& ws, cv::Mat& vs);

@@ -360,6 +360,8 @@ float MapDrawer::contrast(GLuint& tex) {
     std::swap(blurredImage, tmpImage);
     gaussianBlur(tmpImage, glm::vec2(1, 0));
 
+    drawImage(blurredImage);
+
     glUseProgram(contrastShader);
     glUniform1f(mean_location, mean(blurredImage));         
     glBindFramebuffer(GL_FRAMEBUFFER, contrastFramebuffer);
@@ -545,6 +547,8 @@ float MapDrawer::cost_func(cv::Mat& w, cv::Mat& v) {
 
     glDisable(GL_BLEND);
 
+   drawImage(patchOcclusion);
+
     return contrast(tmpImage);
 }
 
@@ -693,6 +697,9 @@ float MapDrawer::tracking_cost_func(cv::Mat& w, cv::Mat& v) {
     glDrawArrays(GL_POINTS, 0, frame->events());
 
     glDisable(GL_BLEND);
+
+    drawImage(patchOcclusion);
+
     // compute cost
     return contrast(tmpImage);
 }
@@ -754,8 +761,7 @@ void MapDrawer::draw_map_patch(cv::Mat& Rwc, cv::Mat& twc) {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    for (auto mpPoint: frame->mvpMapPoints) {
-//    for (auto mpPoint: map->mspMapPoints) {
+    for (auto mpPoint: map->mspMapPoints) {
         // color stores normal and distance information of the plane
         // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 
@@ -814,6 +820,7 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         glCullFace(GL_BACK);
 
         int mi = 0;
+
         for (auto pMP: (*p->MPs)) {
             if (pMP->getObservations().count(kf) != 0) {
                 cv::Mat nw = nws.col(mi);
@@ -899,6 +906,8 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         mi++;
     }
 
+    drawImage(patchOcclusion);
+
     // set uniform
     {
         glUseProgram(eventShader);
@@ -947,6 +956,10 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
         return 0.f;
     }
 }
+
+//void MapDrawer::markMapPoints() {
+//    for ()
+//}
 
 void MapDrawer::visualize_map(){
     draw_map_texture(tmpFramebuffer);
@@ -998,8 +1011,7 @@ void MapDrawer::visualize_map(){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
-//        for (auto mpPoint: map->mspMapPoints) {
-        for (auto mpPoint: frame->mvpMapPoints) {
+        for (auto mpPoint: map->mspMapPoints) {
             // color stores normal and distance information of the plane
             // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 

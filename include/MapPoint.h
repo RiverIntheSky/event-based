@@ -63,6 +63,9 @@ public:
     // inverse depth to the origin
     float d;
 
+    // need update
+    bool dirty;
+
     mutex mMutexPos;
 
 };
