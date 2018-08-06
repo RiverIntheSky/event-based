@@ -309,15 +309,15 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     } else
                         std::cout << "怎么肥四"<<std::endl;
 
-                    std::ofstream  myfile_nw(files_path + "estimated_nw.txt", std::ios_base::app);
-                    if (myfile_nw.is_open()) {
-                        myfile_nw << begin.toSec() << " "
-                                << (mpTracker->nw).at<float>(0) << " "
-                                << (mpTracker->nw).at<float>(1) << " "
-                                << (mpTracker->nw).at<float>(2) << "\n";
-                        myfile_nw.close();
-                    } else
-                        std::cout << "怎么肥四"<<std::endl;
+//                    std::ofstream  myfile_nw(files_path + "estimated_nw.txt", std::ios_base::app);
+//                    if (myfile_nw.is_open()) {
+//                        myfile_nw << begin.toSec() << " "
+//                                << (mpTracker->nw).at<float>(0) << " "
+//                                << (mpTracker->nw).at<float>(1) << " "
+//                                << (mpTracker->nw).at<float>(2) << "\n";
+//                        myfile_nw.close();
+//                    } else
+//                        std::cout << "怎么肥四"<<std::endl;
                 }
             }
         }

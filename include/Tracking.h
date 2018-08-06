@@ -47,9 +47,6 @@ public:
     static cv::Mat t;
     static float phi;
     static float psi;
-    static float phi_w;
-    static float psi_w;
-    static cv::Mat nw;
     Map* mpMap;
     std::shared_ptr<Frame> mCurrentFrame;
     std::atomic<bool> newFrame;
