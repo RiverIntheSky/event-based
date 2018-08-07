@@ -15,8 +15,10 @@ MapPoint::MapPoint() {
 }
 
 MapPoint::MapPoint(const cv::Mat &Pos) {
-    setWorldPos(Pos);
+    Pos.copyTo(mFramePos);
+    setWorldPos(mFramePos);
     d = 1.;
+    dirty = false;
     setNormalDirection(0, M_PI);
 }
 
@@ -50,6 +52,11 @@ void MapPoint::setWorldPos(const cv::Mat &Pos) {
 //    unique_lock<mutex> lock2(mGlobalMutex);
     lock_guard<mutex> lock(mMutexPos);
     Pos.copyTo(mWorldPos);
+}
+
+cv::Mat MapPoint::getFramePos(){
+    lock_guard<mutex> lock(mMutexPos);
+    return mFramePos.clone();
 }
 
 cv::Mat MapPoint::getWorldPos(){

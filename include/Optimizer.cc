@@ -26,7 +26,8 @@ void Optimizer::optimize(Frame* frame) {
         fuse(img, point_warped, true);
     }
 
-    cv::boxFilter(img, dst, ddepth, cv::Size_<int>(kernel_size, kernel_size), cvPoint(-1, -1), false);
+    cv::boxFilter(img, dst, ddepth, cv::Size_<int>(kernel_size, kernel_size),
+                  cvPoint(-1, -1), false, cv::BORDER_CONSTANT);
 
     std::set<pixel, pixel_value> pixels;
     for (int y = 0; y < img.size[0]; y++) {
@@ -58,15 +59,16 @@ void Optimizer::optimize(Frame* frame) {
 
         for (auto point: points) {
             // initial depth = 1
-            cv::Mat posOnFrame = (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
-            cv::Mat posInWorld = param->K_n.inv() * posOnFrame;
-            auto mp = make_shared<MapPoint>(posInWorld);
+            cv::Mat posInFrame = param->K_n.inv() * (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
+            auto mp = make_shared<MapPoint>(posInFrame);
             frame->mvpMapPoints.insert(mp);
 //            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));
         }
 //        cv::imshow("img", img);
 //        cv::waitKey(1);
     } else {
+        frame->mvpMapPoints.clear();
+
         cv::Mat Rwc = frame->getRotation();
         cv::Mat twc = frame->getTranslation();
         do {
@@ -102,10 +104,13 @@ void Optimizer::optimize(Frame* frame) {
 
         for (auto point: points) {
             // initial depth = 1
-            cv::Mat posOnFrame = (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
-            cv::Mat posInWorld = Rwc * param->K_n.inv() * posOnFrame + twc;
-            auto mp = make_shared<MapPoint>(posInWorld);
-            frame->mpMap->mspMapPoints.insert(mp);
+            cv::Mat posInFrame = param->K_n.inv() * (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
+            auto mp = make_shared<MapPoint>(posInFrame);
+            cv::Mat pos = Rwc * posInFrame + twc;
+            mp->setWorldPos(pos);
+            frame->mvpMapPoints.insert(mp);
+//            frame->mpMap->mspMapPoints.insert(mp);
+            LOG(INFO) << posInFrame;
         }
     }
 

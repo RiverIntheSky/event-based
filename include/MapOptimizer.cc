@@ -80,13 +80,12 @@ void MapDrawer::initialize_map() {
     Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
     twc2.copyTo(Twc2.rowRange(0,3).col(3));
     frame->setLastPose(Twc2);
-//    frame->setLastPose(Twc1);
 }
 
 void MapDrawer::track() {
     LOG(INFO) << "---------------------";
     int nVariables = 6 /* degrees of freedom */;
-    float th = 0.8 /* threshold */;
+    float th = 0.9 /* threshold */;
 
     double result[nVariables] = {};
 
@@ -210,20 +209,19 @@ void MapDrawer::track() {
 
         if (overlap2 < th) {
 
-//            markMapPoints();
-
             std::set<shared_ptr<KeyFrame>, idxOrder> KFs;
-            std::set<shared_ptr<MapPoint>> MPs;
 
             for (auto pMP: map->getAllMapPoints()) {
                 float x, y;
-                if (inFrame(pMP->getWorldPos(), Rwc, twc, x, y)) { /* test on planar scene */
-                    MPs.insert(pMP);
+                if (inFrame(pMP->getWorldPos(), Rwc, twc, x, y)) {
+                    frame->mvpMapPoints.insert(pMP);
                     for (auto kf: pMP->mObservations) {
                         KFs.insert(kf);
                     }
                 }
             }
+
+            std::set<shared_ptr<MapPoint>> MPs(frame->mvpMapPoints);
 
             int nMPs = MPs.size() /* all the in current frame observable points */;
             int nKFs = KFs.size();
@@ -261,7 +259,7 @@ void MapDrawer::track() {
                 gsl_vector_set(x, i++, v_.at<float>(1));
                 gsl_vector_set(x, i++, v_.at<float>(2));
 
-                if  (KFit->mnId != 0) {
+                if  (KFit->mnId != (*KFs.begin())->mnId) {
                     auto Rwc_ = KFit->getRotation();
                     auto Rwc_w_ = rotm2axang(Rwc_);
                     gsl_vector_set(x, i++, Rwc_w_.at<float>(0));
@@ -303,6 +301,7 @@ void MapDrawer::track() {
             gsl_vector_free(vec);
 
             i = 0;
+            LOG(INFO) << "currently tracked points " << MPs.size();
             for (auto mpit = MPs.begin();mpit != MPs.end();) {
                 auto current = mpit++;
                 if (!((*current)->dirty)) {
@@ -312,20 +311,24 @@ void MapDrawer::track() {
                     if (i != 2) {
                         (*current)->d = result[i++];
                     }
-                    if (map->mspMapPoints.count(*current) == 0) {
-                        map->mspMapPoints.insert(*current);
-                        LOG(INFO) << map->mspMapPoints.size();
-                    }
                 } else {
+                    if (i == 0) {
+                        i+=2;
+                    } else {
+                        i+=3;
+                    }
                     MPs.erase(*current);
-                    map->mspMapPoints.erase(*current);
+                    frame->mvpMapPoints.erase(*current);
                 }
             }
 
+            LOG(INFO) << "after overlap checking " << MPs.size();
+
             if (MPs.size() < 5) {
                 tracking->mState = tracking->LOST;
-                frame->shouldBeKeyFrame = true;
             } else {
+                frame->shouldBeKeyFrame = true;
+
                 for (auto KFit: KFs) {
                     w.at<float>(0) = float(result[i++]);
                     w.at<float>(1) = float(result[i++]);
@@ -337,7 +340,7 @@ void MapDrawer::track() {
                     v.at<float>(2) = float(result[i++]);
                     KFit->setLinearVelocity(v);
 
-                    if  (KFit->mnId != 0) {
+                    if  (KFit->mnId != (*KFs.begin())->mnId) {
                         Rwc_w.at<float>(0) = float(result[i++]);
                         Rwc_w.at<float>(1) = float(result[i++]);
                         Rwc_w.at<float>(2) = float(result[i++]);
@@ -385,15 +388,8 @@ void MapDrawer::track() {
                 twc.at<float>(1) = float(result[i++]);
                 twc.at<float>(2) = float(result[i++]);
 
-                auto pKF = make_shared<KeyFrame>(*frame);
-                map->addKeyFrame(pKF);
-                LOG(INFO) << "new keyframe added";
-
-                for (auto pMP: MPs) {
-                    cv::Mat pos = pMP->getWorldPos();
-                    pos = pos /(-pMP->d * pos.dot(pMP->getNormal())); /* n'x + d_ = 0 */
-                    pMP->setWorldPos(pos);
-                    pMP->addObservation(pKF);
+                for (auto mpit = MPs.begin();mpit != MPs.end(); mpit++) {
+                    map->mspMapPoints.insert(*mpit);
                 }
             }
         }
@@ -544,7 +540,7 @@ double MapDrawer::ba(const gsl_vector *vec, void *params) {
         v.at<float>(1, i) = gsl_vector_get(vec, j++);
         v.at<float>(2, i) = gsl_vector_get(vec, j++);
 
-        if  (KFit->mnId != 0) {
+        if  (KFit->mnId != (*KFs.begin())->mnId) {
             Rwc_w.at<float>(0, i) = gsl_vector_get(vec, j++);
             Rwc_w.at<float>(1, i) = gsl_vector_get(vec, j++);
             Rwc_w.at<float>(2, i) = gsl_vector_get(vec, j++);

@@ -25,10 +25,10 @@ void Tracking::Track() {
     mCurrentFrame->mTimeStamp = (*(mCurrentFrame->vEvents.cbegin()))->timeStamp;
     mCurrentFrame->dt = ((*(mCurrentFrame->vEvents.crbegin()))->timeStamp - mCurrentFrame->mTimeStamp).toSec();
 
-    if(mState==NOT_INITIALIZED) {
+    if(mState == NOT_INITIALIZED) {
         // assume success??
         init();
-    } else if(mState==OK) {
+    } else if(mState == OK) {
         estimate();
     }
 
@@ -36,7 +36,6 @@ void Tracking::Track() {
         newFrame = true;
         Optimizer::optimize(mCurrentFrame.get());
         while (newFrame) {std::this_thread::yield();}
-        mState = OK; // ??
     }
 
     // add frame to map
@@ -56,16 +55,43 @@ void Tracking::Track() {
         auto pMPs = mpMap->getAllMapPoints();
         auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
         mpMap->addKeyFrame(pKF);
+        LOG(INFO) << "new keyframe added";
         float x, y;
+        int i = 0;
         for (auto pMP: pMPs) {
-            cv::Mat pos = pMP->getWorldPos();
-            pos = pos /(-pMP->d * pos.dot(pMP->getNormal())); /* n'x + d_ = 0 */
-            pMP->setWorldPos(pos);
-            if (Optimizer::inFrame_(pos, R, t, x, y)) {
+            cv::Mat nw = pMP->getNormal();
+            cv::Mat fPos = pMP->getFramePos();
+            if (mState == NOT_INITIALIZED) {
+                cv::Mat pos = fPos / pMP->d;
+                pMP->setWorldPos(pos);
                 pMP->addObservation(pKF);
+            } else {
+
+                auto kf = *pMP->getObservations().begin();
+                if (kf != *pMP->getObservations().end()) {
+                    cv::Mat Rwc = kf->getRotation();
+                    cv::Mat twc = kf->getTranslation();
+                    cv::Mat pos = Rwc * fPos * (1.f/pMP->d + twc.dot(nw)) + twc;
+//                    LOG(INFO) << "mi " << i << " pos " << pos << "d " << pMP->d;
+                    pMP->setWorldPos(pos);
+                    if (Optimizer::inFrame_(pos, R, t, x, y)) {
+                        pMP->addObservation(pKF);
+                    }
+                }
+                else {
+                    pMP->addObservation(pKF);
+                    cv::Mat pos = R * fPos * (1.f/pMP->d + t.dot(nw)) + t;
+//                    LOG(INFO) << "mi " << i << " pos " << pos << "d " << pMP->d;
+
+                    pMP->setWorldPos(pos);
+                }
             }
+            i++;
         }
     }
+    mState = OK; // ??
+    visualization = true;
+    while (visualization) {std::this_thread::yield();}
     LOG(INFO) << "keyframes: " << mpMap->keyFramesInMap();
     LOG(INFO) << "points: " << mpMap->mapPointsInMap();
     LOG(INFO);
@@ -131,26 +157,6 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
 
 bool Tracking::init() {
     Optimizer::optimize(mCurrentFrame.get());
-
-//    if (!mpMap->mapPointsInMap()) {
-//        mpMap->addMapPoint(make_shared<MapPoint>());
-//    }
-
-
-//    // at initialization phase there is at most one element in mspMapPoints
-//    Optimizer::optimize(pMP.get());
-
-//    // set pose of current frame to be the same as current keyframe??
-//    mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
-//    mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
-//    mCurrentFrame->setFirstPose(pKF->getFirstPose());
-//    mCurrentFrame->setLastPose(pKF->getLastPose());
-//    mCurrentFrame->setScale(pKF->getScale());
-
-//    if (pMP->observations() >= nInitializer) {
-        mState = OK;
-//        pMP->swap(true);
-//    }
     return true;
 }
 

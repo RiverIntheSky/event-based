@@ -13,7 +13,7 @@ class Frame;
 struct idxOrder {
    template <class F>
    bool operator()(const std::shared_ptr<F>& lhs, const std::shared_ptr<F>& rhs) const {
-       return lhs->mnId > rhs->mnId;
+       return lhs->mnId < rhs->mnId;
    }
 };
 
@@ -23,6 +23,7 @@ public:
     MapPoint(const cv::Mat &Pos);
     void setWorldPos(const cv::Mat &Pos);
     cv::Mat getWorldPos();
+    cv::Mat getFramePos();
 
     cv::Mat getNormal();
     // not implemented
@@ -59,6 +60,7 @@ public:
 
     // a point on the plane, could be center of the patch
     cv::Mat mWorldPos;
+    cv::Mat mFramePos;
 
     // inverse depth to the origin
     float d;
