@@ -43,9 +43,13 @@ void MapDrawer::initialize_map() {
     optimize_gsl(1, nVariables, initialize_cost_func, this, s, x, result, 500);
 
     auto it = (frame->mvpMapPoints).begin();
-    for (i = 2; i < 3 * numMapPoints-1; i += 3) {
+    (*it)->setNormalDirection(float(result[0]), float(result[1]));
+    map->mspMapPoints.insert(*it);
+
+    for (i = 2, it++; i < 3 * numMapPoints-1; i += 3) {
         float d = float(result[i+2]);
         auto current = it++;
+
         if (d > 0) {
             (*current)->setNormalDirection(float(result[i]), float(result[i+1]));
             (*current)->d = float(result[i+2]);
@@ -85,7 +89,7 @@ void MapDrawer::initialize_map() {
 void MapDrawer::track() {
     LOG(INFO) << "---------------------";
     int nVariables = 6 /* degrees of freedom */;
-    float th = 0.9 /* threshold */;
+    float th = 0.8 /* threshold */;
 
     double result[nVariables] = {};
 
@@ -148,7 +152,7 @@ void MapDrawer::track() {
         gsl_vector_set(x, 4, v.at<float>(1));
         gsl_vector_set(x, 5, v.at<float>(2));
 
-        optimize_gsl(0.1, nVariables, tracking_cost_func, this, s, x, result, 500);
+        optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 500);
 
         cv::Mat w_ = (cv::Mat_<float>(3, 1) << result[0], result[1], result[2]);
         cv::Mat v_ = (cv::Mat_<float>(3, 1) << result[3], result[4], result[5]);
@@ -621,7 +625,7 @@ void MapDrawer::optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, v
             break;
 
         size = gsl_multimin_fminimizer_size(s);
-        status = gsl_multimin_test_size(size, 1e-2);
+        status = gsl_multimin_test_size(size, 5e-2);
 
         if (status == GSL_SUCCESS)
         {

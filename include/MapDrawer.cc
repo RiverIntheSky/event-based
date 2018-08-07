@@ -375,7 +375,6 @@ float MapDrawer::contrast(GLuint& tex) {
     drawQuad();
 
     float c =  -mean(contrastImage);
-//    LOG(INFO) << c;
     return c;
 }
 
@@ -426,24 +425,24 @@ float MapDrawer::overlap(GLuint& fbo1, GLuint& tex1, GLuint& fbo2, GLuint& tex2)
 
 //    drawImage(tmpImage);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_BLEND);
-    glUseProgram(quadShader);
-    glBindTexture(GL_TEXTURE_RECTANGLE, tex1);
-    drawQuad();
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-    system("sleep 0.1");
-    glBindTexture(GL_TEXTURE_RECTANGLE, tex2);
-    drawQuad();
-    glDisable(GL_BLEND);
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-    system("sleep 0.1");
+//    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//    glEnable(GL_BLEND);
+//    glUseProgram(quadShader);
+//    glBindTexture(GL_TEXTURE_RECTANGLE, tex1);
+//    drawQuad();
+//    glfwSwapBuffers(window);
+//    glfwPollEvents();
+//    system("sleep 0.1");
+//    glBindTexture(GL_TEXTURE_RECTANGLE, tex2);
+//    drawQuad();
+//    glDisable(GL_BLEND);
+//    glfwSwapBuffers(window);
+//    glfwPollEvents();
+//    system("sleep 0.1");
 
-    drawImage(tmpImage);
-    system("sleep 0.1");
+//    drawImage(tmpImage);
+//    system("sleep 0.1");
 
     float* count = (float *)malloc(3 * sizeof(float));
     glUseProgram(sumShader);
@@ -601,6 +600,10 @@ void MapDrawer::draw_map_texture(cv::Mat& Rwc, cv::Mat& twc, GLuint& fbo) {
         cv::Mat Rwc1 = kf->getRotation();
         cv::Mat twc1 = kf->getTranslation();
         glm::mat4 view = toView(Rwc1, twc1);
+
+        LOG(INFO) << "\n"
+                  << kf->mnFrameId << "\n"
+                  << Rwc1  << "\n"  << twc1;
 
         glUseProgram(patchShader);
         glBindVertexArray(patchVAO);
@@ -926,17 +929,17 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
             }
             fi++;
 
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glEnable(GL_BLEND);
-            glUseProgram(quadShader);
-            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
-            drawQuad();
-            glBindTexture(GL_TEXTURE_RECTANGLE, mapImage);
-            drawQuad();
-            glDisable(GL_BLEND);
-            glfwSwapBuffers(window);
-            glfwPollEvents();
+//            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//            glEnable(GL_BLEND);
+//            glUseProgram(quadShader);
+//            glBindTexture(GL_TEXTURE_RECTANGLE, patchOcclusion);
+//            drawQuad();
+//            glBindTexture(GL_TEXTURE_RECTANGLE, mapImage);
+//            drawQuad();
+//            glDisable(GL_BLEND);
+//            glfwSwapBuffers(window);
+//            glfwPollEvents();
         }
 
         view = toView(R, t);
@@ -1086,10 +1089,16 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
             for (auto kf: *(p->KFs)) {
                 if (pMP->getObservations().count(kf) != 0) {
 
+
+
                     // kf pose
                     cv::Mat R_w1 = Rwc_w.col(fi);
                     cv::Mat R1 = axang2rotm(R_w1);
                     cv::Mat t1 = twc.col(fi);
+
+                    LOG(INFO) << "\n"
+                              << kf->mnFrameId << "\n"
+                              << R1  << "\n"  << t1;
 
                     // draw map patch
                     {
@@ -1149,6 +1158,10 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
             // draw patch on currenth frame
             {
                 view = toView(R, t);
+
+                LOG(INFO) << "\n"
+                          << frame->mnId << "\n"
+                          << R  << "\n"  << t;
 
                 glUseProgram(patchShader);
                 glBindVertexArray(patchVAO);
@@ -1254,6 +1267,10 @@ void MapDrawer::visualize_map(){
         cv::Mat t = frame->getTranslation();
         glm::mat4 view = toView(R, t);
 
+        LOG(INFO) << "\n"
+                  << frame->mnId << "\n"
+                  << R  << "\n"  << t;
+
         glUseProgram(patchShader);
         glBindVertexArray(patchVAO);
 
@@ -1263,6 +1280,7 @@ void MapDrawer::visualize_map(){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
+        int mi = 0;
         for (auto mpPoint: map->mspMapPoints) {
             // color stores normal and distance information of the plane
             // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
@@ -1274,12 +1292,14 @@ void MapDrawer::visualize_map(){
 
             // model matrix of the plane
             cv::Mat pos = mpPoint->getWorldPos();
+            LOG(INFO) << "mi " << mi << " pos " << pos << "d " << mpPoint->d;
             glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
             glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
             glm::vec3 n_ = Converter::toGlmVec3(nw);
             model = glm::rotate(model, glm::acos(glm::dot(n, n_)), glm::cross(n, n_));
             glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            mi++;
         }
         glDisable(GL_DEPTH_TEST);
 

@@ -55,7 +55,7 @@ void Optimizer::optimize(Frame* frame) {
                 points.insert(*it);
             }
             it++;
-        } while (points.size() < 12 && it != pixels.end() && it->p > 100);
+        } while (points.size() < 12 && it != pixels.end() && it->p > 200);
 
         for (auto point: points) {
             // initial depth = 1
@@ -100,7 +100,7 @@ void Optimizer::optimize(Frame* frame) {
                     points.insert(*it);
             }
             it++;
-        } while (points.size() < 12 && it != pixels.end() && it->p > 100);
+        } while (points.size() < 12 && it != pixels.end() && it->p > 200);
 
         for (auto point: points) {
             // initial depth = 1
@@ -110,8 +110,11 @@ void Optimizer::optimize(Frame* frame) {
             mp->setWorldPos(pos);
             frame->mvpMapPoints.insert(mp);
 //            frame->mpMap->mspMapPoints.insert(mp);
+//            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));
             LOG(INFO) << posInFrame;
         }
+//        cv::imshow("img", img);
+//                cv::waitKey(0);
     }
 
     frame->mpMap->isDirty = true;
