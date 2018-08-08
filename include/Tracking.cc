@@ -93,6 +93,10 @@ void Tracking::Track() {
     visualization = true;
     while (visualization) {std::this_thread::yield();}
     LOG(INFO) << "keyframes: " << mpMap->keyFramesInMap();
+    if (mpMap->keyFramesInMap() > 5) {
+        auto kb = mpMap->getAllKeyFrames().front();
+        mpMap->mspKeyFrames.erase(kb);
+    }
     LOG(INFO) << "points: " << mpMap->mapPointsInMap();
     LOG(INFO);
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);

@@ -565,6 +565,7 @@ float MapDrawer::cost_func(cv::Mat& w, cv::Mat& v) {
     glUniform3fv(tc1c2_location, 1, glm::value_ptr(tc1c2));
 
     glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
@@ -601,9 +602,9 @@ void MapDrawer::draw_map_texture(cv::Mat& Rwc, cv::Mat& twc, GLuint& fbo) {
         cv::Mat twc1 = kf->getTranslation();
         glm::mat4 view = toView(Rwc1, twc1);
 
-        LOG(INFO) << "\n"
-                  << kf->mnFrameId << "\n"
-                  << Rwc1  << "\n"  << twc1;
+//        LOG(INFO) << "\n"
+//                  << kf->mnFrameId << "\n"
+//                  << Rwc1  << "\n"  << twc1;
 
         glUseProgram(patchShader);
         glBindVertexArray(patchVAO);

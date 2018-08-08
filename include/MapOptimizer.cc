@@ -11,6 +11,8 @@ void MapDrawer::initialize_map() {
 
     cv::Mat w = frame->getAngularVelocity();
     cv::Mat v = frame->getLinearVelocity();
+    LOG(INFO) << w;
+    LOG(INFO) << v;
 
     gsl_multimin_fminimizer *s = NULL;
     gsl_vector *x;
@@ -93,6 +95,7 @@ void MapDrawer::track() {
 
     double result[nVariables] = {};
 
+
     cv::Mat w = frame->getAngularVelocity();
     cv::Mat v = frame->getLinearVelocity();
     cv::Mat Rwc = frame->getRotation();
@@ -117,7 +120,7 @@ void MapDrawer::track() {
         gsl_vector_set(x, i++, v.at<float>(1));
         gsl_vector_set(x, i++, v.at<float>(2));
 
-        optimize_gsl(0.1, nVariables, frame_cost_func, this, s, x, result, 500);
+        optimize_gsl(0.1, nVariables, frame_cost_func, this, s, x, result, 200);
 
         i = 0;
         w.at<float>(0) = float(result[i++]);
@@ -127,6 +130,10 @@ void MapDrawer::track() {
         v.at<float>(0) = float(result[i++]);
         v.at<float>(1) = float(result[i++]);
         v.at<float>(2) = float(result[i++]);
+
+        LOG(INFO) << "1-------------------------";
+        LOG(INFO) << "w " << w;
+        LOG(INFO) << "v " << v;
     }
 
     float overlap1 = overlap(Rwc, twc, w, v);
@@ -152,10 +159,14 @@ void MapDrawer::track() {
         gsl_vector_set(x, 4, v.at<float>(1));
         gsl_vector_set(x, 5, v.at<float>(2));
 
-        optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 500);
+        optimize_gsl(1, nVariables, tracking_cost_func, this, s, x, result, 200);
 
         cv::Mat w_ = (cv::Mat_<float>(3, 1) << result[0], result[1], result[2]);
         cv::Mat v_ = (cv::Mat_<float>(3, 1) << result[3], result[4], result[5]);
+
+        LOG(INFO) << "2-------------------------";
+        LOG(INFO) << "w " << w_;
+        LOG(INFO) << "v " << v_;
 
         float overlap2 = overlap(Rwc, twc, w_, v_);
         LOG(INFO) << overlap2;
@@ -217,12 +228,12 @@ void MapDrawer::track() {
 
             for (auto pMP: map->getAllMapPoints()) {
                 float x, y;
-                if (inFrame(pMP->getWorldPos(), Rwc, twc, x, y)) {
+//                if (inFrame(pMP->getWorldPos(), Rwc, twc, x, y)) {
                     frame->mvpMapPoints.insert(pMP);
                     for (auto kf: pMP->mObservations) {
                         KFs.insert(kf);
                     }
-                }
+//                }
             }
 
             std::set<shared_ptr<MapPoint>> MPs(frame->mvpMapPoints);
@@ -294,7 +305,7 @@ void MapDrawer::track() {
             gsl_vector_set(x, i++, twc.at<float>(2));
 
             paramSet params{this, &KFs, &MPs, true};
-            optimize_gsl(0.1, nVariables, ba, &params, s, x, result, 500);
+            optimize_gsl(0.1, nVariables, ba, &params, s, x, result, 200);
 
             gsl_vector *vec;
             vec = gsl_vector_alloc(nVariables);
@@ -382,6 +393,10 @@ void MapDrawer::track() {
                 v.at<float>(0) = float(result[i++]);
                 v.at<float>(1) = float(result[i++]);
                 v.at<float>(2) = float(result[i++]);
+
+                LOG(INFO) << "3-------------------------";
+                LOG(INFO) << "w " << w;
+                LOG(INFO) << "v " << v;
 
                 Rwc_w.at<float>(0) = float(result[i++]);
                 Rwc_w.at<float>(1) = float(result[i++]);

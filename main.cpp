@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     okvis::Time t_imu = start;
     okvis::Time t_ev = start;
 
-    okvis::Duration deltaT(0.1);
+    okvis::Duration deltaT(1);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
@@ -140,9 +140,9 @@ int main(int argc, char *argv[])
         // q = -q not strictly recognized
         Eigen::Quaterniond orientation(w, x, y, z);
 
-//        if (t_gt - start > deltaT) {
+        if (t_gt - start > deltaT) {
             ev_estimator.addGroundtruth(t_gt, position, orientation);
-//        }
+        }
     }
 
 ev_estimator.allGroundtruthAdded_ = true;
