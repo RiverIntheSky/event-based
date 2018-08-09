@@ -25,6 +25,7 @@ void Tracking::Track() {
     if(mState==NOT_INITIALIZED) {
         // assume success??
         init();
+        Frames.push_back(mCurrentFrame);
     } else if(mState==OK) {
         estimate();
     }
@@ -42,6 +43,10 @@ void Tracking::Track() {
     t = mCurrentFrame->getTranslation();
 //    LOG(INFO) << mCurrentFrame->mScale;
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
+    Frames.push_back(mCurrentFrame);
+
+    if (Frames.size() > 1)
+        Frames.pop_front();
 
     // under certain conditions, Create KeyFrame
 
@@ -153,7 +158,7 @@ bool Tracking::estimate() {
 bool Tracking::relocalize(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
     auto pMP = mpMap->getAllMapPoints().front();
     if(Optimizer::optimize(pMP.get(), mCurrentFrame.get(), Rwc, twc, w, v)) {
-        mState == OK;
+        mState = OK;
         return true;
     }
     return false;
@@ -165,7 +170,7 @@ bool Tracking::insertKeyFrame(shared_ptr<KeyFrame>& pKF) {
     if (Optimizer::optimize(pMP.get(), pKF)) {
         return true;
     } else {
-        mState == LOST;
+        mState = LOST;
         LOG(ERROR) << "LOST";
         KeyFrame::nNextId--;
         return false;

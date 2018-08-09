@@ -18,6 +18,10 @@ public:
         MapPoint* mP;
         Frame* frame;
     };
+    struct mapPointAndFrames {
+        MapPoint* mP;
+        std::deque<shared_ptr<Frame>>* fs;
+    };
     struct mapPointAndKeyFrames {
         MapPoint* mP;
         std::set<shared_ptr<KeyFrame>, idxOrder>* kfs;
@@ -43,7 +47,9 @@ public:
     void static fuse(cv::Mat& image, Eigen::Vector3d& p_, bool polarity);
     void static intensity(cv::Mat& image, const gsl_vector *vec, Frame* pF);
     void static intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP);
+    void static intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFrames* mf);
     void static intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf);
+    void static intensity(cv::Mat& image, const double *vec, mapPointAndFrames* mf);
     void static intensity(cv::Mat& image, const double *vec, mapPointAndFrame* mf);
     void static intensity_relocalization(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf);
     void static intensity_relocalization(cv::Mat& image, const double *vec, mapPointAndFrame* mf);
@@ -55,6 +61,7 @@ public:
     static Eigen::Matrix3d mCameraProjectionMat;
     static bool inFrame;
     static bool toMap;
+    static bool slidingWindow;
     static int sigma;
     static int count_frame;
     static int count_map;

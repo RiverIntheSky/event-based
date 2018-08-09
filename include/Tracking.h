@@ -41,6 +41,7 @@ public:
     static cv::Mat r;
     static cv::Mat t;
 protected:
+    std::deque<shared_ptr<Frame>> Frames;
     shared_ptr<Frame> mCurrentFrame;
     cv::Mat mK;
     cv::Vec<double, 5> mDistCoeffs;

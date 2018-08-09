@@ -37,6 +37,8 @@ void ThreadedEventIMU::init() {
 
 bool ThreadedEventIMU::addEventMeasurement(okvis::Time& t, unsigned int x, unsigned int y, bool p) {
 
+    if (x < 40 && y < 40)
+        return false;
     ev::EventMeasurement event_measurement;
     event_measurement.measurement.x = x;
     event_measurement.measurement.y = y;
@@ -159,8 +161,11 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
     std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
-    Eigen::Quaterniond R0 = maconMeasurements_.front().measurement.q.inverse();
-    Eigen::Vector3d t0 = maconMeasurements_.front().measurement.p;
+    okvis::Time start(1);
+    ev::Pose p0;
+    interpolateGroundtruth(p0, start);
+    Eigen::Quaterniond R0 = p0.q.inverse();
+    Eigen::Vector3d t0 = p0.p;
 
     for (;;) {
 
@@ -208,12 +213,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
 
 //                mpTracker->Track(R, Converter::toCvMat(t), Converter::toCvMat(angularVelocity), Converter::toCvMat(linear_velocity));
-mpTracker->Track();
+                mpTracker->Track();
 
                 auto pMP = mpMap->getAllMapPoints().front();
+                Optimizer::count_frame++;
                 imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
                 cv::Mat blurred_map;
                 cv::GaussianBlur(pMP->mFront, blurred_map, cv::Size(0, 0), 1, 0);
+                imwriteRescaled(blurred_map, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
                 imshowRescaled(blurred_map, 1, "map");
 
                 LOG(INFO) << "keyframes " << mpMap->getAllKeyFrames().size();
