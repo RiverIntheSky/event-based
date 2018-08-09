@@ -42,7 +42,7 @@ double Optimizer::variance_frame(const gsl_vector *vec, void *params) {
     intensity(src, vec, f);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
     imshowRescaled(src, 1);
-//    imwriteRescaled(src, "/home/weizhen/Documents/dataset/poster_6dof/test/30000/frame_" + std::to_string(count_frame) + ".jpg", NULL);
+    imwriteRescaled(src, "/home/weizhen/Documents/dataset/poster_6dof/test/30000/frame_" + std::to_string(count_frame) + ".jpg", NULL);
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
     double cost = -stddev[0];
@@ -1138,7 +1138,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
 bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
     int nVariables = 12;
     double result[nVariables] = {};
-
+        LOG(INFO) << "overlap " ;
     cv::Mat Rwc_w = rotm2axang(Rwc);
     twc /= Frame::gScale;
     v /= frame->mScale;
@@ -1167,7 +1167,7 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
     gsl_vector_set(x, 11, twc.at<double>(2));
 
     optimize_gsl(0.1, nVariables, variance_relocalization, &params, s, x, result, 100);
-
+        LOG(INFO) << "overlap " ;
     w.at<double>(0) = result[0];
     w.at<double>(1) = result[1];
     w.at<double>(2) = result[2];
@@ -1189,7 +1189,7 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
             image_frame, occupancy_overlap;
 
     intensity_relocalization(image_frame, result, &params);
-
+        LOG(INFO) << "overlap " ;
     int threshold_value = -1;
     int const max_BINARY_value = 1;
     cv::GaussianBlur(image_frame, image_frame, cv::Size(0, 0), sigma, 0);

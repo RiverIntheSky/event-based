@@ -30,6 +30,16 @@ void Tracking::Track() {
         estimate();
     }
 
+    if (mState == LOST) {
+        cv::Mat R_ = mCurrentFrame->getRotation();
+        cv::Mat t_ = mCurrentFrame->getTranslation();
+        if (!relocalize(R_, t_, mCurrentFrame->w, mCurrentFrame->v)) {
+            relocalize(R, t, w, v);
+            // need better solution;
+            mState = OK;
+        }
+    }
+
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
     LOG(INFO) << "current velocity model:";
@@ -77,6 +87,7 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     } else if(mState==OK) {
         estimate();
     }
+
     if (mState == LOST) {
         cv::Mat R_ = mCurrentFrame->getRotation();
         cv::Mat t_ = mCurrentFrame->getTranslation();
@@ -156,6 +167,7 @@ bool Tracking::estimate() {
 }
 
 bool Tracking::relocalize(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
+        LOG(INFO) << "overlap " ;
     auto pMP = mpMap->getAllMapPoints().front();
     if(Optimizer::optimize(pMP.get(), mCurrentFrame.get(), Rwc, twc, w, v)) {
         mState = OK;
