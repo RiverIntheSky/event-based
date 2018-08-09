@@ -161,7 +161,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
     std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
-    okvis::Time start(1);
+    okvis::Time start(30);
     ev::Pose p0;
     interpolateGroundtruth(p0, start);
     Eigen::Quaterniond R0 = p0.q.inverse();

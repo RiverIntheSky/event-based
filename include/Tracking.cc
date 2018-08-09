@@ -34,10 +34,16 @@ void Tracking::Track() {
         cv::Mat R_ = mCurrentFrame->getRotation();
         cv::Mat t_ = mCurrentFrame->getTranslation();
         if (!relocalize(R_, t_, mCurrentFrame->w, mCurrentFrame->v)) {
-            relocalize(R, t, w, v);
-            // need better solution;
-            mState = OK;
+            if (!relocalize(R, t, w, v)) {
+                cv::Mat Rwc = cv::Mat::eye(3, 3, CV_32F);
+                cv::Mat twc = cv::Mat::zeros(3, 1, CV_32F);
+                cv::Mat w = cv::Mat::zeros(3, 1, CV_32F);
+                cv::Mat v = cv::Mat::zeros(3, 1, CV_32F);
+                relocalize(Rwc, twc, w, v);
+            }
         }
+        // need better solution;
+        mState = OK;
     }
 
     // add frame to map
