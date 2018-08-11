@@ -159,14 +159,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
     std::default_random_engine gen;
     std::uniform_real_distribution<double> dis(-0.02, 0.02);
     double w[] = {0, 0, 0};
-    double v[] = {0, M_PI/2};
+    double v[] = {0, 0, 0};
 //    double p[] = {0, M_PI}; // normal (0, 0, -1)
     double p[3*parameters_.patch_num] = {};
     for (int i = 0; i < 3*parameters_.patch_num; i+=3) {
                         p[i] = 0;
     }
     for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
-                        p[i] = M_PI/2;
+                        p[i] = M_PI;
     }
     for (int i = 2; i < 3*parameters_.patch_num; i+=3) {
                         p[i] = 1.;
@@ -177,7 +177,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
     }
 
     for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
-                        p_[i] = M_PI/2;
+                        p_[i] = M_PI;
     }
     for (int i = 2; i < 3*parameters_.patch_num; i+=3) {
                         p_[i] = 1.;
@@ -324,10 +324,13 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 for (int i = 0; i < 3; i ++)
                     gsl_vector_set(x, i, w[i]);
 
-                for (int i = 0; i < 2; i ++)
+                for (int i = 0; i < 3; i ++)
                     gsl_vector_set(x, i+3, v[i]);
 
-                for (int i = 0; i < 36; i ++)
+                for (int i = 0; i < 2; i ++)
+                    gsl_vector_set(x, i+6, p[i]);
+
+                for (int i = 3; i < 36; i ++)
                     gsl_vector_set(x, i+5, p[i]);
 
                 /* Set initial step sizes to 1 */
@@ -367,20 +370,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     w[i] = gsl_vector_get(s->x, i);
 
                 }
-                for (int i = 0; i < 2; i++) {
+                for (int i = 0; i < 3; i++) {
                     v[i] = gsl_vector_get(s->x, i+3);
                 }
-                for (int i = 0; i < 3*parameters_.patch_num; i+=3) {
+                p[0] = gsl_vector_get(s->x, 6);
+                p[1] = gsl_vector_get(s->x, 7);
+                for (int i = 3; i < 3*parameters_.patch_num-1; i++) {
                     p[i] = gsl_vector_get(s->x, i+5);
                 }
-                for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
-                    p[i] = gsl_vector_get(s->x, i+5);
-                }
-                for (int i = 2; i < 3*parameters_.patch_num; i+=3) {
-                    p[i] = gsl_vector_get(s->x, i+5);
-                    LOG(INFO) << p[i];
-                }
-
 
                 gsl_vector_free(x);
                 gsl_vector_free(step_size);
@@ -404,9 +401,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
                 ss.str(std::string());
                 ss << '\n' << std::left << std::setw(15) << "angular :" << std::setw(15) << "linear :" << '\n'
-                   << std::setw(15) << w[0] << std::setw(15) << std::cos(v[0]) * std::sin(v[1]) << '\n'
-                   << std::setw(15) << w[1] << std::setw(15) << std::sin(v[0]) * std::sin(v[1]) << '\n'
-                   << std::setw(15) << w[2] << std::setw(15) << std::cos(v[1]) << '\n';
+                   << std::setw(15) << w[0] << std::setw(15) << v[0] << '\n'
+                   << std::setw(15) << w[1] << std::setw(15) << v[1] << '\n'
+                   << std::setw(15) << w[2] << std::setw(15) << v[2] << '\n';
 
                 LOG(INFO) << ss.str();
 //                LOG(INFO) << "normal " << std::cos(p[0]) * std::sin(p[1]) << ' ' << std::sin(p[0]) * std::sin(p[1]) << ' ' << std::cos(p[1]);
@@ -462,9 +459,9 @@ void ThreadedEventIMU::eventConsumerLoop() {
                     std::ofstream  myfile_t(files_path + "estimated_translation.txt", std::ios_base::app);
                     if (myfile_t.is_open()) {
                         myfile_t<< begin.toSec() << " "
-                                << std::cos(v[0]) * std::sin(v[1]) << " "
-                                << std::sin(v[0]) * std::sin(v[1]) << " "
-                                << std::cos(v[1]) << " ";
+                                << v[0] << " "
+                                << v[1] << " "
+                                << v[2] << " ";
                         myfile_t << '\n';
                         myfile_t.close();
                     } else

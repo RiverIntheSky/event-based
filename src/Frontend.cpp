@@ -31,13 +31,13 @@ static double simpleaddtime = 0;
 double variance(const gsl_vector *vec, void *params){
 
     Eigen::Vector3d w, v, n;
-    double v1, v2;
     double p[36] = {};
     w << gsl_vector_get(vec, 0), gsl_vector_get(vec, 1), gsl_vector_get(vec, 2);
-    v1 = gsl_vector_get(vec, 3);
-    v2 = gsl_vector_get(vec, 4);
-    v << std::cos(v1) * std::sin(v2), std::sin(v1) * std::sin(v2), std::cos(v2);
-    for (int i = 0; i != 36; i++) {
+    v << gsl_vector_get(vec, 3), gsl_vector_get(vec, 4), gsl_vector_get(vec, 5);
+    p[0] = gsl_vector_get(vec, 6);
+    p[1] = gsl_vector_get(vec, 7);
+    p[2] = 1.;
+    for (int i = 3; i != 36; i++) {
         p[i] = gsl_vector_get(vec, 5+i);
     }
 
