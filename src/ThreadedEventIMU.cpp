@@ -376,6 +376,10 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 for (int i = 1; i < 3*parameters_.patch_num; i+=3) {
                     p[i] = gsl_vector_get(s->x, i+5);
                 }
+                for (int i = 2; i < 3*parameters_.patch_num; i+=3) {
+                    p[i] = gsl_vector_get(s->x, i+5);
+                    LOG(INFO) << p[i];
+                }
 
 
                 gsl_vector_free(x);

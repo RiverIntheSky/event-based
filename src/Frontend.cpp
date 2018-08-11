@@ -66,7 +66,7 @@ inline void ComputeVarianceFunction::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& 
                                    okvis::Duration& t, Eigen::Vector3d& w, Eigen::Vector3d& v, Eigen::Vector3d& n, double z) const {
     double t_ = t.toSec();
     Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + ev::skew(-t_ * w);
-    Eigen::Matrix3d H = R * (Eigen::Matrix3d::Identity() + v * t_ * n.transpose());
+    Eigen::Matrix3d H = R * (Eigen::Matrix3d::Identity() + v * z * t_ * n.transpose());
     x_v = H.inverse() * x;
     x_v /= x_v(2);
 
@@ -145,7 +145,7 @@ void ComputeVarianceFunction::Intensity(Eigen::MatrixXd& image, Eigen::MatrixXd*
         double i1, i2, z;
         i1 = normal[3 * patch(p)];
         i2 = normal[3 * patch(p) + 1];
-        z = normal[3 * patch(p) + 2];
+        z = std::abs(normal[3 * patch(p) + 2]);
         Eigen::Vector3d n;
         n << std::cos(i1) * std::sin(i2), std::sin(i1) * std::sin(i2), std::cos(i2);
         if (n(2) > 0)
