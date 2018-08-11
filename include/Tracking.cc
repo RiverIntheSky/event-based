@@ -28,6 +28,22 @@ void Tracking::Track() {
     } else if(mState==OK) {
         estimate();
     }
+//    mState = LOST;
+    if (mState == LOST) {
+        cv::Mat R_ = mCurrentFrame->getRotation();
+        cv::Mat t_ = mCurrentFrame->getTranslation();
+        if (!relocalize(R_, t_, mCurrentFrame->w, mCurrentFrame->v)) {
+            if(!relocalize(R, t, w, v)) {
+                cv::Mat R = cv::Mat::eye(3, 3, CV_64F);
+                cv::Mat t = cv::Mat::zeros(3, 1, CV_64F);
+                cv::Mat w = cv::Mat::zeros(3, 1, CV_64F);
+                cv::Mat v = cv::Mat::zeros(3, 1, CV_64F);
+                relocalize(R, t, w, v);
+            }
+            // need better solution;
+        }
+    }
+    mState = OK;
 
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
@@ -72,6 +88,7 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     } else if(mState==OK) {
         estimate();
     }
+//    mState = LOST;
     if (mState == LOST) {
         cv::Mat R_ = mCurrentFrame->getRotation();
         cv::Mat t_ = mCurrentFrame->getTranslation();

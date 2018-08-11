@@ -830,7 +830,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
 
     mapPointAndKeyFrames mkf{pMP, &KFs};
 
-    optimize_gsl(0.1, nVariables, variance_ba, &mkf, s, x, result, 100);
+    optimize_gsl(0.1, nVariables, variance_ba, &mkf, s, x, result, 200);
 
     // check if the optimization is successful
     cv::Mat current_frame, current_frame_blurred, other_frames, other_frames_blurred,
@@ -867,7 +867,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
     cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
     double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
     LOG(INFO) << "key frame overlap " << overlap_rate;
-    if (overlap_rate < 0.7 || cv::countNonZero(occupancy_frame) < 10) {
+    if (overlap_rate < 0.5 || cv::countNonZero(occupancy_frame) < 10) {
         return false;
     }
 
@@ -928,6 +928,41 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
 }
 
 bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
+
+    if (inFrame)
+    {
+        int nVariables = 6;
+        double result[nVariables] = {};
+
+        gsl_multimin_fminimizer *s = NULL;
+        gsl_vector *x;
+
+        /* Starting point */
+        x = gsl_vector_alloc(nVariables);
+
+        v /= frame->mScale;
+
+        gsl_vector_set(x, 0, w.at<double>(0));
+        gsl_vector_set(x, 1, w.at<double>(1));
+        gsl_vector_set(x, 2, w.at<double>(2));
+
+        gsl_vector_set(x, 3, v.at<double>(0));
+        gsl_vector_set(x, 4, v.at<double>(1));
+        gsl_vector_set(x, 5, v.at<double>(2));
+
+        optimize_gsl(1, nVariables, variance_frame, frame, s, x, result, 100);
+
+        w.at<double>(0) = result[0];
+        w.at<double>(1) = result[1];
+        w.at<double>(2) = result[2];
+
+        v.at<double>(0) = result[3];
+        v.at<double>(1) = result[4];
+        v.at<double>(2) = result[5];
+
+        v *= frame->mScale;
+    }
+
     int nVariables = 12;
     double result[nVariables] = {};
 
@@ -958,7 +993,7 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
     gsl_vector_set(x, 10, twc.at<double>(1));
     gsl_vector_set(x, 11, twc.at<double>(2));
 
-    optimize_gsl(0.5, nVariables, variance_relocalization, &params, s, x, result, 100);
+    optimize_gsl(0.05, nVariables, variance_relocalization, &params, s, x, result, 100);
 
     w.at<double>(0) = result[0];
     w.at<double>(1) = result[1];

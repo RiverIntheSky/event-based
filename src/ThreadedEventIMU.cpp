@@ -37,6 +37,11 @@ void ThreadedEventIMU::init() {
 
 bool ThreadedEventIMU::addEventMeasurement(okvis::Time& t, unsigned int x, unsigned int y, bool p) {
 
+//    if (x < 40 && y < 40)
+//        return false;
+//    if (x < 30)
+//        return false;
+
     ev::EventMeasurement event_measurement;
     event_measurement.measurement.x = x;
     event_measurement.measurement.y = y;
@@ -159,8 +164,11 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
     std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
-    Eigen::Quaterniond R0 = maconMeasurements_.front().measurement.q.inverse();
-    Eigen::Vector3d t0 = maconMeasurements_.front().measurement.p;
+    okvis::Time start(0.2);
+    ev::Pose p;
+    interpolateGroundtruth(p, start);
+    Eigen::Quaterniond R0 = p.q.inverse();
+    Eigen::Vector3d t0 = p.p;
 
     for (;;) {
 
@@ -208,7 +216,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 Eigen::Vector3d t = R0.toRotationMatrix() * (p1.p - t0);
 
 //                mpTracker->Track(R, Converter::toCvMat(t), Converter::toCvMat(angularVelocity), Converter::toCvMat(linear_velocity));
-mpTracker->Track();
+                mpTracker->Track();
 
                 auto pMP = mpMap->getAllMapPoints().front();
                 imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
