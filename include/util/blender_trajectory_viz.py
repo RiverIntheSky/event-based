@@ -22,11 +22,12 @@ import sys
 sys.path.append('/usr/lib/python3/dist-packages') # Add python3 packages to the environment
 import mathutils
 import bpy
+import math
 
 
 scene = bpy.data.scenes['Scene']
 
-def draw_path(camera, trajectory_path):
+def draw_path(camera, rotation, translation):
     # Blender coordinate system is different than ours (z-axis is reversed)
     R_blender_cam = mathutils.Matrix(((1, 0, 0),
                                       (0, -1, 0),
@@ -35,19 +36,29 @@ def draw_path(camera, trajectory_path):
     R_cam_blender = R_blender_cam
 
     # Parse trajectory file
-    lines = [line.rstrip('\n') for line in open(trajectory_path)]
+    rotation_lines = [line.rstrip('\n') for line in open(rotation)]
+    translation_lines = [line.rstrip('\n') for line in open(translation)]
     trajectory = {}
-    for line in lines:
-        splitted = line.split(' ')
+    for i in range(len(rotation_lines)):
+        splitted = translation_lines[i].split(' ')
         # 60 fps
         frame_id = int(float(splitted[0])*60)
 
-        t_world_cam = [float(i) for i in splitted[1:4]]
-        q = [float(i) for i in splitted[4:]]
+        t_world_cam = [float(i) * 1.1674 for i in splitted[1:4]] 
+
+        splitted = rotation_lines[i].split(' ')
+
+        w = [float(i) for i in splitted[1:4]]
+
+        angle = math.sqrt(w[0]**2 + w[1]**2 + w[2]**2)
+
+        if abs(angle)<1e-6:
+            q = [1, 0, 0, 0]
+        else:
+            q = [w[0] * math.sin(angle/2) / angle, w[1] * math.sin(angle/2) / angle, w[2] * math.sin(angle/2) / angle, math.cos(angle/2)]
 
         T = (mathutils.Quaternion([q[3], q[0], q[1], q[2]]).to_matrix()*R_cam_blender).to_4x4()
-        # T.translation = mathutils.Vector([t_world_cam[0], t_world_cam[1], t_world_cam[2]])
-        T.translation = mathutils.Vector([0, 0, 0])
+        T.translation = mathutils.Vector([t_world_cam[0], t_world_cam[1], t_world_cam[2]])
 
         trajectory[frame_id] = T
 
@@ -83,10 +94,12 @@ def main():
     cam2.data = cam.data.copy()
     scene.objects.link(cam2)
 
-    groundtruth_path = '/home/weizhen/Documents/dataset/poster_6dof/groundtruth.txt'
-    draw_path(cam, groundtruth_path)
-    estimated_path = '/home/weizhen/Documents/dataset/poster_6dof/planar/50001/estimated.txt'
-    draw_path(cam2, estimated_path)
+    groundtruth_translation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/groundtruth_pose_translation.txt'
+    groundtruth_rotation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/groundtruth_pose_rotation.txt'
+    draw_path(cam, groundtruth_rotation_path, groundtruth_translation_path)
+    estimated_translation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/estimated_pose_translation.txt'
+    estimated_rotation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/estimated_pose_rotation.txt'
+    draw_path(cam2, estimated_rotation_path, estimated_translation_path)
 
 
 if __name__ == "__main__":

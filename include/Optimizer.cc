@@ -24,8 +24,8 @@ double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     // image = pMP->mBack;
     intensity(src, vec, pMP);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
-    imwriteRescaled(src, "back_buffer.jpg", NULL);
-    imshowRescaled(src, 1, "back_buffer");
+//    imwriteRescaled(src, "back_buffer.jpg", NULL);
+//    imshowRescaled(src, 1, "back_buffer");
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
     double cost = -stddev[0];
@@ -696,7 +696,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         gsl_vector_set(x, 4, v.at<double>(1));
         gsl_vector_set(x, 5, v.at<double>(2));
 
-        optimize_gsl(0.1, nVariables, variance_frame, frame, s, x, result, 100);
+        optimize_gsl(0.05, nVariables, variance_frame, frame, s, x, result, 100);
 
         w.at<double>(0) = result[0];
         w.at<double>(1) = result[1];
@@ -830,7 +830,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
 
     mapPointAndKeyFrames mkf{pMP, &KFs};
 
-    optimize_gsl(0.2, nVariables, variance_ba, &mkf, s, x, result, 100);
+    optimize_gsl(0.1, nVariables, variance_ba, &mkf, s, x, result, 100);
 
     // check if the optimization is successful
     cv::Mat current_frame, current_frame_blurred, other_frames, other_frames_blurred,
@@ -958,7 +958,7 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
     gsl_vector_set(x, 10, twc.at<double>(1));
     gsl_vector_set(x, 11, twc.at<double>(2));
 
-    optimize_gsl(0.1, nVariables, variance_relocalization, &params, s, x, result, 100);
+    optimize_gsl(0.5, nVariables, variance_relocalization, &params, s, x, result, 100);
 
     w.at<double>(0) = result[0];
     w.at<double>(1) = result[1];
