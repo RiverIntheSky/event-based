@@ -11,8 +11,6 @@ void MapDrawer::initialize_map() {
 
     cv::Mat w = frame->getAngularVelocity();
     cv::Mat v = frame->getLinearVelocity();
-    LOG(INFO) << w;
-    LOG(INFO) << v;
 
     gsl_multimin_fminimizer *s = NULL;
     gsl_vector *x;
@@ -22,15 +20,16 @@ void MapDrawer::initialize_map() {
 
     int i = 0;
 
-    float phi = 0;
-    float psi = M_PI;
-    gsl_vector_set(x, i++, phi);
-    gsl_vector_set(x, i++, psi);
-
-    for (; i < 3 * numMapPoints-1;) {
+    for (auto p: frame->mvpMapPoints) {
+        cv::Mat pos = p->mFramePos;
+        int r = int((pos.at<float>(0)-30)/60);
+        int c = int((pos.at<float>(1)-30)/60);
+        float phi = normals.at<float>(r, c, 0);
+        float psi = normals.at<float>(r, c, 1);
         gsl_vector_set(x, i++, phi);
         gsl_vector_set(x, i++, psi);
-        gsl_vector_set(x, i++, 1);
+        if (i != 2)
+            gsl_vector_set(x, i++, normals.at<float>(r, c, 2));
     }
 
     gsl_vector_set(x, i++, w.at<float>(0));
@@ -42,22 +41,23 @@ void MapDrawer::initialize_map() {
     gsl_vector_set(x, i++, v.at<float>(2));
 
     set_use_polarity(true);
-    optimize_gsl(1, nVariables, initialize_cost_func, this, s, x, result, 500);
+    optimize_gsl(1, nVariables, initialize_cost_func, this, s, x, result, 200);
 
-    auto it = (frame->mvpMapPoints).begin();
-    (*it)->setNormalDirection(float(result[0]), float(result[1]));
-    map->mspMapPoints.insert(*it);
+    i = 0;
+    for (auto p: frame->mvpMapPoints) {
+        cv::Mat pos = p->mFramePos;
+        int x = int((pos.at<float>(0)-30)/60);
+        int y = int((pos.at<float>(1)-30)/60);
+        normals.at<float>(x, y, 0) = result[i];
+        normals.at<float>(x, y, 1) = result[i+1];
 
-    for (i = 2, it++; i < 3 * numMapPoints-1; i += 3) {
-        float d = float(result[i+2]);
-        auto current = it++;
-
-        if (d > 0) {
-            (*current)->setNormalDirection(float(result[i]), float(result[i+1]));
-            (*current)->d = float(result[i+2]);
-            map->mspMapPoints.insert(*current);
+        p->setNormalDirection(result[i], result[i+1]);
+        if (i == 0) {
+            i+=2;
         } else {
-            frame->mvpMapPoints.erase(current);
+            normals.at<float>(x, y, 2) = result[i+2];
+            p->d = result[i+2];
+            i+=3;
         }
     }
 
@@ -85,7 +85,8 @@ void MapDrawer::initialize_map() {
     cv::Mat Twc2 = cv::Mat::eye(4,4,CV_32F);
     Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
     twc2.copyTo(Twc2.rowRange(0,3).col(3));
-    frame->setLastPose(Twc2);
+//    frame->setLastPose(Twc2);
+    frame->setLastPose(Twc1);
 }
 
 void MapDrawer::track() {

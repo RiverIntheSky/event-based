@@ -16,7 +16,7 @@ void Optimizer::optimize(Frame* frame) {
     cv::Mat img, dst;
     int ddepth = -1,
             // might be too small??
-    kernel_size = 51;
+    kernel_size = 30;
     img = cv::Mat::zeros(180, 240, CV_64F);
 
     for (const auto EVit: frame->vEvents) {
@@ -30,37 +30,38 @@ void Optimizer::optimize(Frame* frame) {
                   cvPoint(-1, -1), false, cv::BORDER_CONSTANT);
 
     std::set<pixel, pixel_value> pixels;
-    for (int y = 0; y < img.size[0]; y++) {
-        for (int x = 0; x < img.size[1]; x++) {
-            pixels.emplace(x, y, dst.at<double>(y, x));
+
+    for (int x = 0; x < 4; x++) {
+        for (int y = 0; y < 3; y++) {
+            pixels.emplace(x*60+30, y*60+30, dst.at<double>(y*60+30, x*60+30));
         }
     }
+//    for (int y = 0; y < img.size[0]; y++) {
+//        for (int x = 0; x < img.size[1]; x++) {
+//            pixels.emplace(x, y, dst.at<double>(y, x));
+//        }
+//    }
 
     std::set<pixel, pixel_value> points;
     auto it = pixels.begin();
 
+
+
     if (frame->mpMap->mspMapPoints.empty()) {
         frame->shouldBeKeyFrame = true;
         do {
-            auto pit = points.begin();
 
-            for (; pit != points.end(); pit++) {
-                if (std::abs(pit->x - it->x) < kernel_size) {
-                    if (std::abs(pit->y - it->y) < kernel_size) {
-                        break;
-                    }
-                }
-            }
-            if (pit == points.end()) {
-                points.insert(*it);
-            }
+            points.insert(*it);
+
             it++;
         } while (points.size() < 12 && it != pixels.end() && it->p > 200);
 
         for (auto point: points) {
             // initial depth = 1
-            cv::Mat posInFrame = param->K_n.inv() * (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
+            cv::Mat posInFrame = (cv::Mat_<float>(3, 1) << point.x, point.y, 1);
             auto mp = make_shared<MapPoint>(posInFrame);
+            cv::Mat posInWorld = param->K_n.inv() * posInFrame;
+            mp->setWorldPos(posInWorld);
             frame->mvpMapPoints.insert(mp);
 //            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));
         }
@@ -111,7 +112,6 @@ void Optimizer::optimize(Frame* frame) {
             frame->mvpMapPoints.insert(mp);
 //            frame->mpMap->mspMapPoints.insert(mp);
 //            cv::circle(img, cv::Point(point.x, point.y), 25, cvScalar(200, 200, 250));
-            LOG(INFO) << posInFrame;
         }
 //        cv::imshow("img", img);
 //                cv::waitKey(0);

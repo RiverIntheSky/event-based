@@ -29,7 +29,7 @@ void Tracking::Track() {
         // assume success??
         init();
     } else if(mState == OK) {
-        estimate();
+        init(); // estimate();
     }
 
     if (mState == LOST) {
@@ -41,7 +41,7 @@ void Tracking::Track() {
     // add frame to map
     mpMap->addFrame(mCurrentFrame);
     LOG(INFO) << "current velocity model:";
-    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
+//    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
     LOG(INFO) << "\nw\n" << mCurrentFrame->w;
     LOG(INFO) << "\nv\n" << mCurrentFrame->v;
 
@@ -51,44 +51,44 @@ void Tracking::Track() {
     r = rotm2axang(R);
     mCurrentFrame->getTranslation().copyTo(t);
 
-    if (mCurrentFrame->shouldBeKeyFrame) {
-        auto pMPs = mpMap->getAllMapPoints();
-        auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
-        mpMap->addKeyFrame(pKF);
-        LOG(INFO) << "new keyframe added";
-        float x, y;
-        int i = 0;
-        for (auto pMP: pMPs) {
-            cv::Mat nw = pMP->getNormal();
-            cv::Mat fPos = pMP->getFramePos();
-            if (mState == NOT_INITIALIZED) {
-                cv::Mat pos = fPos / pMP->d;
-                pMP->setWorldPos(pos);
-                pMP->addObservation(pKF);
-            } else {
+//    if (mCurrentFrame->shouldBeKeyFrame) {
+//        auto pMPs = mpMap->getAllMapPoints();
+//        auto pKF = make_shared<KeyFrame>(*mCurrentFrame);
+//        mpMap->addKeyFrame(pKF);
+//        LOG(INFO) << "new keyframe added";
+//        float x, y;
+//        int i = 0;
+//        for (auto pMP: pMPs) {
+//            cv::Mat nw = pMP->getNormal();
+//            cv::Mat fPos = pMP->getFramePos();
+//            if (mState == NOT_INITIALIZED) {
+//                cv::Mat pos = fPos / pMP->d;
+//                pMP->setWorldPos(pos);
+//                pMP->addObservation(pKF);
+//            } else {
 
-                auto kf = *pMP->getObservations().begin();
-                if (kf != *pMP->getObservations().end()) {
-                    cv::Mat Rwc = kf->getRotation();
-                    cv::Mat twc = kf->getTranslation();
-                    cv::Mat pos = Rwc * fPos * (1.f/pMP->d + twc.dot(nw)) + twc;
-//                    LOG(INFO) << "mi " << i << " pos " << pos << "d " << pMP->d;
-                    pMP->setWorldPos(pos);
-                    if (Optimizer::inFrame_(pos, R, t, x, y)) {
-                        pMP->addObservation(pKF);
-                    }
-                }
-                else {
-                    pMP->addObservation(pKF);
-                    cv::Mat pos = R * fPos * (1.f/pMP->d + t.dot(nw)) + t;
-//                    LOG(INFO) << "mi " << i << " pos " << pos << "d " << pMP->d;
+//                auto kf = *pMP->getObservations().begin();
+//                if (kf != *pMP->getObservations().end()) {
+//                    cv::Mat Rwc = kf->getRotation();
+//                    cv::Mat twc = kf->getTranslation();
+//                    cv::Mat pos = Rwc * fPos * (1.f/pMP->d + twc.dot(nw)) + twc;
+////                    LOG(INFO) << "mi " << i << " pos " << pos << "d " << pMP->d;
+//                    pMP->setWorldPos(pos);
+//                    if (Optimizer::inFrame_(pos, R, t, x, y)) {
+//                        pMP->addObservation(pKF);
+//                    }
+//                }
+//                else {
+//                    pMP->addObservation(pKF);
+//                    cv::Mat pos = R * fPos * (1.f/pMP->d + t.dot(nw)) + t;
+////                    LOG(INFO) << "mi " << i << " pos " << pos << "d " << pMP->d;
 
-                    pMP->setWorldPos(pos);
-                }
-            }
-            i++;
-        }
-    }
+//                    pMP->setWorldPos(pos);
+//                }
+//            }
+//            i++;
+//        }
+//    }
     mState = OK; // ??
     visualization = true;
     while (visualization) {std::this_thread::yield();}

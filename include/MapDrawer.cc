@@ -43,6 +43,16 @@ void MapDrawer::drawMapPoints() {
 }
 
 void MapDrawer::setUp() {
+    int normalsSize[] = {4,3,3};
+    normals = cv::Mat(3,normalsSize,CV_32F);
+    for (int x = 0; x < 4; x++) {
+        for (int y = 0; y < 3; y++) {
+            normals.at<float>(x, y, 0) = 0;
+            normals.at<float>(x, y, 1) = M_PI;
+            normals.at<float>(x, y, 2) = 1;
+        }
+    }
+
 
     if (!glfwInit())
         exit(EXIT_FAILURE);
@@ -617,7 +627,7 @@ void MapDrawer::draw_map_texture(cv::Mat& Rwc, cv::Mat& twc, GLuint& fbo) {
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
 
-        for (auto pMP: map->mspMapPoints) {
+        for (auto pMP: frame->mvpMapPoints) {
             cv::Mat pos = pMP->getWorldPos();
             if (pMP->getObservations().count(kf) != 0 && inFrame(pos, Rwc, twc)) {
                 cv::Mat nw = pMP->getNormal();
@@ -775,9 +785,7 @@ float MapDrawer::initialize_map_draw(cv::Mat& nws, std::vector<float>& inv_d_ws,
         glm::vec3 color = glm::vec3((nc.at<float>(0)+1)/2, (-nc.at<float>(1)+1)/2, inv_d_c*param->znear);
         glUniform3fv(glGetUniformLocation(patchShader, "aColor"), 1, glm::value_ptr(color));
 
-        // model matrix of the plane
-        cv::Mat pos = mpPoint->getWorldPos();
-        pos = pos /(-inv_d_ws[i] * pos.dot(nw)); /* n'x + d = 0 */
+        cv::Mat pos = param->K_n.inv() * mpPoint->getFramePos();
         glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
         glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
         glm::vec3 n_ = Converter::toGlmVec3(nw);
@@ -805,7 +813,7 @@ void MapDrawer::draw_map_patch(cv::Mat& Rwc, cv::Mat& twc) {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    for (auto mpPoint: map->mspMapPoints) {
+    for (auto mpPoint: frame->mvpMapPoints) {
         // color stores normal and distance information of the plane
         // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 
@@ -1228,9 +1236,9 @@ float MapDrawer::optimize_map_draw(paramSet* p, cv::Mat& nws, std::vector<float>
 }
 
 void MapDrawer::visualize_map(){
-    draw_map_texture(tmpFramebuffer);
+//    draw_map_texture(tmpFramebuffer);
     draw_map_patch();
-    set_use_polarity(false);
+    set_use_polarity(true);
 
     {
         glBindFramebuffer(GL_FRAMEBUFFER, tmpFramebuffer);
@@ -1268,10 +1276,6 @@ void MapDrawer::visualize_map(){
         cv::Mat t = frame->getTranslation();
         glm::mat4 view = toView(R, t);
 
-        LOG(INFO) << "\n"
-                  << frame->mnId << "\n"
-                  << R  << "\n"  << t;
-
         glUseProgram(patchShader);
         glBindVertexArray(patchVAO);
 
@@ -1282,7 +1286,7 @@ void MapDrawer::visualize_map(){
         glEnable(GL_DEPTH_TEST);
 
         int mi = 0;
-        for (auto mpPoint: map->mspMapPoints) {
+        for (auto mpPoint: frame->mvpMapPoints) {
             // color stores normal and distance information of the plane
             // -1 < x, y < 1, -1/znear < inverse_d < 1/zfar ??
 
@@ -1293,7 +1297,7 @@ void MapDrawer::visualize_map(){
 
             // model matrix of the plane
             cv::Mat pos = mpPoint->getWorldPos();
-            LOG(INFO) << "mi " << mi << " pos " << pos << "d " << mpPoint->d;
+//            LOG(INFO) << "mi " << mi << " pos " << pos << "d " << mpPoint->d;
             glm::mat4 model = glm::translate(glm::mat4(), Converter::toGlmVec3(pos));
             glm::vec3 n = glm::vec3(0.f, 0.f, 1.f);
             glm::vec3 n_ = Converter::toGlmVec3(nw);

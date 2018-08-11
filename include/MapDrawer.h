@@ -161,5 +161,7 @@ public:
     Tracking* tracking;
     // assign this member to frame??
     cv::Mat framePartition;
+
+    cv::Mat normals;
 };
 }

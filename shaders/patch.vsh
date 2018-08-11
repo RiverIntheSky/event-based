@@ -12,7 +12,7 @@ out vec3 vColor;
 void main()
 {
     float z = -model[3][2];
-    gl_Position = projection * view * model * vec4(aPos*z*1.2, 0.f, 1.f);
-//    gl_Position = vec4(aPos*10, 0.f, 1.f);
+    gl_Position = projection * view * model * vec4(aPos*z*1.5, 0.f, 1.f);
+//    gl_Position = vec4(aPos*1, 0.f, 1.f);
     vColor = aColor;
 }
