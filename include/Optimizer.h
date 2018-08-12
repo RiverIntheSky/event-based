@@ -58,5 +58,7 @@ public:
     static int sigma;
     static int count_frame;
     static int count_map;
+    static int width;
+    static int height;
 };
 }

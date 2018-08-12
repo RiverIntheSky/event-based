@@ -11,10 +11,12 @@ bool Optimizer::toMap = true;
 int Optimizer::sigma = 1;
 int Optimizer::count_frame = 0;
 int Optimizer::count_map = 0;
+int Optimizer::height = 400;
+int Optimizer::width = 1500;
 
 double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     MapPoint* pMP = (MapPoint *) params;
-    cv::Mat src;
+    cv::Mat src, dst;
 
     // this has to be adjusted according to viewing angle!!
     double psi = gsl_vector_get(vec, 1);
@@ -23,11 +25,11 @@ double Optimizer::variance_map(const gsl_vector *vec, void *params) {
 
     // image = pMP->mBack;
     intensity(src, vec, pMP);
-    cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
+    cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
 //    imwriteRescaled(src, "back_buffer.jpg", NULL);
 //    imshowRescaled(src, 1, "back_buffer");
     cv::Scalar mean, stddev;
-    cv::meanStdDev(src, mean, stddev);
+    cv::meanStdDev(dst, mean, stddev);
     double cost = -stddev[0];
     src.copyTo(pMP->mBack);
 
@@ -54,7 +56,7 @@ double Optimizer::variance_track(const gsl_vector *vec, void *params) {
 
     intensity(src, vec, mf);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
-    imshowRescaled(src, 1);
+     imshowRescaled(src, 1);
 
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
@@ -82,7 +84,7 @@ double Optimizer::variance_relocalization(const gsl_vector *vec, void *params) {
 
     intensity_relocalization(src, vec, mf);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
-    imshowRescaled(src, 1);
+    // imshowRescaled(src, 1);
 
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
@@ -165,7 +167,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
         lock_guard<mutex> lock(pMP->mMutexFeatures);
 
         if (pMP->mFront.empty())
-            pMP->mFront = cv::Mat::zeros(500, 500, CV_64F);
+            pMP->mFront = cv::Mat::zeros(height, width, CV_64F);
 
         // reset back buffer
         pMP->swap(false);
@@ -241,7 +243,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
 }
 
 void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Frame* frame) {
-    image = cv::Mat::zeros(500, 500, CV_64F);
+    image = cv::Mat::zeros(height, width, CV_64F);
     // only works for planar scene!!
     Eigen::Vector3d nw = Converter::toVector3d(frame->mpMap->getAllMapPoints().front()->getNormal());
     Eigen::Matrix3d Rcw = Converter::toMatrix3d(frame->getRotation().t());
@@ -332,7 +334,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFram
 
         // project to first frame
         warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, false);
+        fuse(image, point_warped, EVit->measurement.p);
     }
 //         imshowRescaled(image, 0);
 
@@ -390,7 +392,7 @@ void Optimizer::intensity_relocalization(cv::Mat& image, const gsl_vector *vec, 
 
         // project to first frame
         warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, false);
+        fuse(image, point_warped, EVit->measurement.p);
     }
 }
 
@@ -437,7 +439,7 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, mapPointAndFrame* m
 
         // project to first frame
         warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, false);
+        fuse(image, point_warped, EVit->measurement.p);
     }
 }
 
@@ -524,7 +526,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndKeyF
             // project to first frame
             t = (EVit->timeStamp - t0).toSec();
             warp(point_warped, p, t, theta, K, v, nc, H_);
-            fuse(image, point_warped, false);
+            fuse(image, point_warped, EVit->measurement.p);
         }
         i++;
     }
@@ -586,15 +588,15 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, KeyFrame* kF) {
 
         // project to first frame
         warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, false);
+        fuse(image, point_warped, EVit->measurement.p);
     }
 }
 
 void Optimizer::optimize(MapPoint* pMP) {
     // for one map point and n keyframes, variable numbers 2 + nKFs * 6
 
-    mPatchProjectionMat(0, 0) = 200;
-    mPatchProjectionMat(1, 1) = 200;
+    mPatchProjectionMat(0, 0) = 300;
+    mPatchProjectionMat(1, 1) = 300;
     mPatchProjectionMat(0, 2) = 250;
     mPatchProjectionMat(1, 2) = 250;
 
@@ -751,7 +753,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
             cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
             double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
             LOG(INFO) << "overlap " << overlap_rate;
-            if (overlap_rate < 0.8)
+            if (overlap_rate < 0.9)
                 frame->shouldBeKeyFrame = true;
         }
     }
@@ -835,8 +837,8 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
     // check if the optimization is successful
     cv::Mat current_frame, current_frame_blurred, other_frames, other_frames_blurred,
             occupancy_map, occupancy_frame, occupancy_overlap, map;
-    current_frame = cv::Mat::zeros(500, 500, CV_64F);
-    other_frames = cv::Mat::zeros(500, 500, CV_64F);
+    current_frame = cv::Mat::zeros(height, width, CV_64F);
+    other_frames = cv::Mat::zeros(height, width, CV_64F);
 
     double res[14] = {};
     for (int j = 0; j < 14; j++)
@@ -867,7 +869,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
     cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
     double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
     LOG(INFO) << "key frame overlap " << overlap_rate;
-    if (overlap_rate < 0.5 || cv::countNonZero(occupancy_frame) < 10) {
+    if (overlap_rate < 0.4 || cv::countNonZero(occupancy_frame) < 10) {
         return false;
     }
 
