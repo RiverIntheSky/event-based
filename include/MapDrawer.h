@@ -126,9 +126,10 @@ public:
     GLint quad_tex_location;
 
     GLuint eventVAO, eventVBO, eventShader, warpFramebuffer, warppedImage;
-    GLint event_apos_location, w_location, v_location, camera_matrix_location, wc1c2_location,
+
+    GLint event_apos_location, w_location, v_location, t_location, camera_matrix_location, wc1c2_location,
           tc1c2_location, near_plane_location, occlusion_map_location, event_projection_location,
-          use_polarity_location;
+          use_polarity_location, emodel_location, eview_location, eprojection_location;
 
     // separable gaussian blur
     GLuint blurShader, blurFramebuffer, blurredImage;

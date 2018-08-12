@@ -14,29 +14,85 @@ void MapDrawer::drawMapPoints() {
     while(!glfwWindowShouldClose(window)) {
 
         if (map->isDirty) {
-
             updateFrame();
-            if (map->mspMapPoints.empty()) {
 
-                initialize_map();
+            glUseProgram(eventShader);
+
+            glm::vec3 w_, v_, wc1c2, tc1c2;
+            glUniform3fv(w_location, 1, glm::value_ptr(w_));
+            glUniform3fv(v_location, 1, glm::value_ptr(v_));
+            glUniform3fv(wc1c2_location, 1, glm::value_ptr(wc1c2));
+            glUniform3fv(tc1c2_location, 1, glm::value_ptr(tc1c2));
+
+
+            glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+
+
+            for (int i = 99; i > -1; i--) {
+                glUseProgram(eventShader);
+                glUniform1f(t_location, i/100.f);
+                glm::mat4 model = glm::translate(glm::mat4(), glm::vec3(0,0,-2.f));
+                if (i < 20) {
+                    model = glm::rotate(model, float(M_PI/2)/20*i, glm::vec3(1.f,0.f,0.f));
+                } else {
+                    model = glm::rotate(model, float(M_PI/2), glm::vec3(1.f,0.f,0.f));
+                }
+
+                glUniformMatrix4fv(emodel_location, 1, GL_FALSE, glm::value_ptr(model));
+                glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_ONE, GL_ONE);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                glDisable(GL_DEPTH_TEST);
+
+                glBindVertexArray(frame->vao);
+                glDrawArrays(GL_POINTS, 0, frame->events());
+
+                glDisable(GL_BLEND);
+
+                drawImage(warppedImage);
             }
-            glFinish();
+            for (int i = 199; i > -1; i--) {
+                drawImage(warppedImage);
+            }
+            glUseProgram(eventShader);
 
-            map->isDirty = false;
+            v_ = glm::vec3(0.16, 0, 0);
 
-            if (tracking->newFrame) {
+            glUniform3fv(v_location, 1, glm::value_ptr(v_));
 
-                track();
-                glFinish();              
-                tracking->newFrame = false;
+            for (int i = 99; i > -1; i--) {
+                glUseProgram(eventShader);
+                glUniform1f(t_location, i/100.f);
+                glm::mat4 model = glm::translate(glm::mat4(), glm::vec3(0,0,-2.f));
+                if (i < 20) {
+                    model = glm::rotate(model, float(M_PI/2)/20*i, glm::vec3(1.f,0.f,0.f));
+                } else {
+                    model = glm::rotate(model, float(M_PI/2), glm::vec3(1.f,0.f,0.f));
+                }
+
+                glUniformMatrix4fv(emodel_location, 1, GL_FALSE, glm::value_ptr(model));
+                glBindFramebuffer(GL_FRAMEBUFFER, warpFramebuffer);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_ONE, GL_ONE);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                glDisable(GL_DEPTH_TEST);
+
+                glBindVertexArray(frame->vao);
+                glDrawArrays(GL_POINTS, 0, frame->events());
+
+                glDisable(GL_BLEND);
+
+                drawImage(warppedImage);
+            }
+            for (int i = 199; i > -1; i--) {
+                drawImage(warppedImage);
             }
         }
-        if (tracking->visualization) {
-            visualize_map();
-            glFinish();
-            tracking->visualization = false;
-        }
-
         std::this_thread::yield();
     }
     glfwTerminate();
@@ -59,7 +115,7 @@ void MapDrawer::setUp() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    window = glfwCreateWindow(param->width, param->height, "window", NULL, NULL);
+    window = glfwCreateWindow(param->width * 2, param->height*2, "window", NULL, NULL);
     if (!window) {
         exit(EXIT_FAILURE);
         glfwTerminate();
@@ -67,7 +123,7 @@ void MapDrawer::setUp() {
     glfwMakeContextCurrent(window);
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
         exit(EXIT_FAILURE);
-    glViewport(0, 0, param->width, param->height);
+    glViewport(0, 0, param->width * 2, param->height*2);
 //    glfwSetFramebufferSizeCallback(window, &MapDrawer::framebuffer_size_callback, this);
 //    glfwSetKeyCallback(window, key_callback);
 
@@ -158,6 +214,7 @@ void MapDrawer::setUpEventShader() {
 
         w_location = glGetUniformLocation(eventShader, "w");
         v_location = glGetUniformLocation(eventShader, "v");
+        t_location = glGetUniformLocation(eventShader, "t");
         camera_matrix_location = glGetUniformLocation(eventShader, "cameraMatrix");
         glm::mat3 K;
         K[0][0] = param->fx;
@@ -167,16 +224,29 @@ void MapDrawer::setUpEventShader() {
         glUniformMatrix3fv(camera_matrix_location, 1, GL_FALSE, glm::value_ptr(K));
 
         wc1c2_location = glGetUniformLocation(eventShader, "wc1c2");
-        tc1c2_location = glGetUniformLocation(eventShader, "tc1c2");
+        tc1c2_location = glGetUniformLocation(eventShader, "tc1c2");    
 
-        near_plane_location = glGetUniformLocation(eventShader, "nearPlane");
-        glUniform1f(near_plane_location, param->znear);
+        glm::mat4 projection;
 
-        occlusion_map_location = glGetUniformLocation(eventShader, "patchTexture");
-        glUniform1i(occlusion_map_location, 0);
+        projection[0][0] = 2.f * param->fx / param->width;
 
-        use_polarity_location = glGetUniformLocation(eventShader, "usePolarity");
-        glUniform1i(use_polarity_location, true);
+        projection[1][1] = 2.f * param->fy / param->height;
+
+        projection[2][0] = 1.f - 2.f * param->cx / param->width;
+        projection[2][1] = 2.f * param->cy / param->height - 1.f;
+        projection[2][2] = (param->zfar) / (- param->zfar);
+        projection[2][3] = -1.f;
+
+        projection[3][2] = 0.f;
+        projection[3][3] = 0.f;
+
+        emodel_location = glGetUniformLocation(eventShader, "model");
+        eview_location = glGetUniformLocation(eventShader, "view");
+
+        glm::mat4 view;
+        glUniformMatrix4fv(eview_location, 1, GL_FALSE, glm::value_ptr(view));
+        eprojection_location = glGetUniformLocation(eventShader, "projection");
+        glUniformMatrix4fv(eprojection_location, 1, GL_FALSE, glm::value_ptr(projection));
     }
 }
 
@@ -291,7 +361,7 @@ void MapDrawer::setUp2DRect(GLuint& FBO, GLuint& tex) {
     glBindFramebuffer(GL_FRAMEBUFFER, FBO);
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_RECTANGLE, tex);
-    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB32F, param->width, param->height, 0,
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB32F, param->width*2, param->height*2, 0,
                  GL_RGB, GL_FLOAT, 0);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE, tex, 0);
