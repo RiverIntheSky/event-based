@@ -58,7 +58,7 @@ def draw_path(camera, rotation, translation):
             q = [w[0] * math.sin(angle/2) / angle, w[1] * math.sin(angle/2) / angle, w[2] * math.sin(angle/2) / angle, math.cos(angle/2)]
 
         T = (mathutils.Quaternion([q[3], q[0], q[1], q[2]]).to_matrix()*R_cam_blender).to_4x4()
-        T.translation = mathutils.Vector([t_world_cam[0], t_world_cam[1], t_world_cam[2]])
+        T.translation = R_blender_cam * mathutils.Vector([t_world_cam[0], t_world_cam[1], t_world_cam[2]])
 
         trajectory[frame_id] = T
 
@@ -94,11 +94,11 @@ def main():
     cam2.data = cam.data.copy()
     scene.objects.link(cam2)
 
-    groundtruth_translation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/groundtruth_pose_translation.txt'
-    groundtruth_rotation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/groundtruth_pose_rotation.txt'
+    groundtruth_translation_path = '/home/weizhen/Dropbox/MA/thesis defense/data/shapes_6dof_4000/groundtruth_pose_translation.txt'
+    groundtruth_rotation_path = '/home/weizhen/Dropbox/MA/thesis defense/data/shapes_6dof_4000/groundtruth_pose_rotation.txt'
     draw_path(cam, groundtruth_rotation_path, groundtruth_translation_path)
-    estimated_translation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/estimated_pose_translation.txt'
-    estimated_rotation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/estimated_pose_rotation.txt'
+    estimated_translation_path = '/home/weizhen/Dropbox/MA/thesis defense/data/shapes_6dof_4000/estimated_pose_translation.txt'
+    estimated_rotation_path = '/home/weizhen/Dropbox/MA/thesis defense/data/shapes_6dof_4000/estimated_pose_rotation.txt'
     draw_path(cam2, estimated_rotation_path, estimated_translation_path)
 
 
