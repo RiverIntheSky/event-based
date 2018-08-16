@@ -11,8 +11,8 @@ bool Optimizer::toMap = true;
 int Optimizer::sigma = 1;
 int Optimizer::count_frame = 0;
 int Optimizer::count_map = 0;
-int Optimizer::height = 400;
-int Optimizer::width = 1500;
+int Optimizer::height = 500;
+int Optimizer::width = 500;
 
 double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     MapPoint* pMP = (MapPoint *) params;
@@ -26,11 +26,11 @@ double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     // image = pMP->mBack;
     intensity(src, vec, pMP);
     cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
-//    imwriteRescaled(src, "back_buffer.jpg", NULL);
-//    imshowRescaled(src, 1, "back_buffer");
+//    imwriteRescaled(dst, "/home/weizhen/Documents/dataset/shapes_translation/map_reloc/4000/back_" + std::to_string(count_frame) + ".jpg", NULL);
+    imshowRescaled(src, 1, "back_buffer");
     cv::Scalar mean, stddev;
     cv::meanStdDev(dst, mean, stddev);
-    double cost = -stddev[0];
+    double cost = -std::pow(stddev[0], 2);
     src.copyTo(pMP->mBack);
 
     return cost;
@@ -42,10 +42,11 @@ double Optimizer::variance_frame(const gsl_vector *vec, void *params) {
 
     intensity(src, vec, f);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
+//    imwriteRescaled(src, "/home/weizhen/Documents/dataset/shapes_translation/map_reloc/4000/frame_" + std::to_string(count_frame) + ".jpg", NULL);
     imshowRescaled(src, 1);
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
-    double cost = -stddev[0];
+    double cost = -std::pow(stddev[0], 2);
 
     return cost;
 }
@@ -60,7 +61,7 @@ double Optimizer::variance_track(const gsl_vector *vec, void *params) {
 
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
-    double cost = -stddev[0];
+    double cost = -std::pow(stddev[0], 2);
 
     return cost;
 }
@@ -71,9 +72,10 @@ double Optimizer::variance_ba(const gsl_vector *vec, void *params) {
 
     intensity(src, vec, mkf);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
+    imshowRescaled(src, 1);
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
-    double cost = -stddev[0];
+    double cost = -std::pow(stddev[0], 2);
 
     return cost;
 }
@@ -84,25 +86,13 @@ double Optimizer::variance_relocalization(const gsl_vector *vec, void *params) {
 
     intensity_relocalization(src, vec, mf);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
-    // imshowRescaled(src, 1);
+     imshowRescaled(src, 1);
 
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
-    double cost = -stddev[0];
+    double cost = -std::pow(stddev[0], 2);
 
     return cost;
-}
-
-void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, const Eigen::Vector3d& w, const Eigen::Vector3d& v,const Eigen::Vector3d& n) {
-
-    {
-        // plane homography first taylor expansion
-        Eigen::Matrix3d H = Eigen::Matrix3d::Identity() + ev::skew(-t * w) + v * t * n.transpose();
-
-        x_w = H.inverse() * x;
-        x_w /= x_w(2);
-        x_w = mPatchProjectionMat * x_w;
-    }
 }
 
 void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K,
@@ -334,7 +324,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFram
 
         // project to first frame
         warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, EVit->measurement.p);
+        fuse(image, point_warped, false);
     }
 //         imshowRescaled(image, 0);
 
@@ -392,7 +382,7 @@ void Optimizer::intensity_relocalization(cv::Mat& image, const gsl_vector *vec, 
 
         // project to first frame
         warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, EVit->measurement.p);
+        fuse(image, point_warped, false);
     }
 }
 
@@ -439,7 +429,7 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, mapPointAndFrame* m
 
         // project to first frame
         warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, EVit->measurement.p);
+        fuse(image, point_warped, false);
     }
 }
 
@@ -526,7 +516,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndKeyF
             // project to first frame
             t = (EVit->timeStamp - t0).toSec();
             warp(point_warped, p, t, theta, K, v, nc, H_);
-            fuse(image, point_warped, EVit->measurement.p);
+            fuse(image, point_warped, false);
         }
         i++;
     }
@@ -588,15 +578,15 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, KeyFrame* kF) {
 
         // project to first frame
         warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, EVit->measurement.p);
+        fuse(image, point_warped, false);
     }
 }
 
 void Optimizer::optimize(MapPoint* pMP) {
     // for one map point and n keyframes, variable numbers 2 + nKFs * 6
 
-    mPatchProjectionMat(0, 0) = 300;
-    mPatchProjectionMat(1, 1) = 300;
+    mPatchProjectionMat(0, 0) = 200;
+    mPatchProjectionMat(1, 1) = 200;
     mPatchProjectionMat(0, 2) = 250;
     mPatchProjectionMat(1, 2) = 250;
 
@@ -630,7 +620,7 @@ void Optimizer::optimize(MapPoint* pMP) {
         i++;
     }
 
-    optimize_gsl(0.05, nVariables, variance_map, pMP, s, x, result, 100);
+    optimize_gsl(1, nVariables, variance_map, pMP, s, x, result, 100);
 
     pMP->setNormalDirection(result[0], result[1]);
 //    LOG(INFO) << "\nn\n" << pMP->getNormal();
@@ -698,7 +688,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         gsl_vector_set(x, 4, v.at<double>(1));
         gsl_vector_set(x, 5, v.at<double>(2));
 
-        optimize_gsl(0.05, nVariables, variance_frame, frame, s, x, result, 100);
+        optimize_gsl(1, nVariables, variance_frame, frame, s, x, result, 100);
 
         w.at<double>(0) = result[0];
         w.at<double>(1) = result[1];
@@ -726,7 +716,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         gsl_vector_set(x, 4, v.at<double>(1));
         gsl_vector_set(x, 5, v.at<double>(2));
 
-        optimize_gsl(0.05, nVariables, variance_track, &params, s, x, result, 100);
+        optimize_gsl(0.5, nVariables, variance_track, &params, s, x, result, 100);
 
         w.at<double>(0) = result[0];
         w.at<double>(1) = result[1];
@@ -753,7 +743,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
             cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
             double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
             LOG(INFO) << "overlap " << overlap_rate;
-            if (overlap_rate < 0.9)
+            if (overlap_rate < 0.8)
                 frame->shouldBeKeyFrame = true;
         }
     }
@@ -869,7 +859,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
     cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
     double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
     LOG(INFO) << "key frame overlap " << overlap_rate;
-    if (overlap_rate < 0.4 || cv::countNonZero(occupancy_frame) < 10) {
+    if (overlap_rate < 0.3 || cv::countNonZero(occupancy_frame) < 10) {
         return false;
     }
 
@@ -931,6 +921,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
 
 bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
 
+    double scale = Frame::gScale + twc.dot(pMP->getNormal());
     if (inFrame)
     {
         int nVariables = 6;
@@ -942,7 +933,7 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
         /* Starting point */
         x = gsl_vector_alloc(nVariables);
 
-        v /= frame->mScale;
+        v /= scale;
 
         gsl_vector_set(x, 0, w.at<double>(0));
         gsl_vector_set(x, 1, w.at<double>(1));
@@ -962,15 +953,14 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
         v.at<double>(1) = result[4];
         v.at<double>(2) = result[5];
 
-        v *= frame->mScale;
+        v *= scale;
     }
 
     int nVariables = 12;
     double result[nVariables] = {};
 
     cv::Mat Rwc_w = rotm2axang(Rwc);
-    twc /= Frame::gScale;
-    v /= frame->mScale;
+    v /= scale;
 
     mapPointAndFrame params{pMP, frame};
     gsl_multimin_fminimizer *s = NULL;
@@ -995,7 +985,7 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
     gsl_vector_set(x, 10, twc.at<double>(1));
     gsl_vector_set(x, 11, twc.at<double>(2));
 
-    optimize_gsl(0.05, nVariables, variance_relocalization, &params, s, x, result, 100);
+    optimize_gsl(0.5, nVariables, variance_relocalization, &params, s, x, result, 100);
 
     w.at<double>(0) = result[0];
     w.at<double>(1) = result[1];
@@ -1028,7 +1018,7 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
     cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
     double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
     LOG(INFO) << "overlap " << overlap_rate;
-    if (overlap_rate > 0.8) {
+    if (overlap_rate > 0.7) {
         cv::Mat Twc1 = cv::Mat::eye(4,4,CV_64F);
         Rwc = axang2rotm(Rwc_w);
         twc *= Frame::gScale;

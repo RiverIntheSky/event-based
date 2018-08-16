@@ -2,7 +2,7 @@
 
 namespace ev
 {
-double Frame::gScale = 0.584;
+double Frame::gScale = 1.;
 unsigned int Frame::nNextId = 0;
 
 // first pose of a frame is always set at construction
