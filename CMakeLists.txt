@@ -69,18 +69,9 @@ include_directories(${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include)
 
 # only for editting, delete all non-executables afterwards
-add_library(${PROJECT_NAME} SHARED
-${PROJECT_SOURCE_DIR}/event.cpp
-${PROJECT_SOURCE_DIR}/ThreadedEventIMU.cpp
-${PROJECT_SOURCE_DIR}/Frontend.cpp
-${CMAKE_SOURCE_DIR}/include/util/utils.cpp
-${CMAKE_SOURCE_DIR}/include/KeyFrame.cc
-${CMAKE_SOURCE_DIR}/include/Map.cc
-${CMAKE_SOURCE_DIR}/include/MapPoint.cc
-${CMAKE_SOURCE_DIR}/include/Tracking.cc
-${CMAKE_SOURCE_DIR}/include/Frame.cc
-${CMAKE_SOURCE_DIR}/include/Converter.cc
-${CMAKE_SOURCE_DIR}/include/Optimizer.cc)
+
+file(GLOB_RECURSE LIBS "*.cc" "*.h" "*.*sh")
+add_library(${PROJECT_NAME} SHARED ${LIBS})
 
 add_executable(event_based "main.cpp")
 

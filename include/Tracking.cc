@@ -26,9 +26,9 @@ void Tracking::Track() {
         // assume success??
         init();
     } else if(mState==OK) {
-        estimate();
+        init();//estimate();
     }
-//    mState = LOST;
+    mState = OK;
     if (mState == LOST) {
 
         R = cv::Mat::eye(3, 3, CV_64F);
@@ -51,79 +51,79 @@ void Tracking::Track() {
     mState = OK;
 
     // add frame to map
-    mpMap->addFrame(mCurrentFrame);
+//    mpMap->addFrame(mCurrentFrame);
     LOG(INFO) << "current velocity model:";
     LOG(INFO) << "\nw\n" << mCurrentFrame->w;
-    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+//    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
     LOG(INFO);
     w = mCurrentFrame->w;
-    v = mCurrentFrame->v;
+//    v = mCurrentFrame->v;
     R = mCurrentFrame->getRotation();
     r = rotm2axang(R);
-    t = mCurrentFrame->getTranslation();
+//    t = mCurrentFrame->getTranslation();
 //    LOG(INFO) << mCurrentFrame->mScale;
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
-
+LOG(INFO);
     // under certain conditions, Create KeyFrame
 
     // delete currentFrame
 }
 
-void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
-    // Get Map Mutex -> Map cannot be changed
-    unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
-    undistortEvents();
-    mCurrentFrame->mTimeStamp = (*(mCurrentFrame->vEvents.cbegin()))->timeStamp;
-    mCurrentFrame->dt = ((*(mCurrentFrame->vEvents.crbegin()))->timeStamp - mCurrentFrame->mTimeStamp).toSec();
-    cv::Mat Twc1 = cv::Mat::eye(4,4,CV_64F);
-    R_.copyTo(Twc1.rowRange(0,3).colRange(0,3));
-    t_.copyTo(Twc1.rowRange(0,3).col(3));
-    mCurrentFrame->setAngularVelocity(w_);
-    mCurrentFrame->setLinearVelocity(v_);
+//void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
+//    // Get Map Mutex -> Map cannot be changed
+//    unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
+//    undistortEvents();
+//    mCurrentFrame->mTimeStamp = (*(mCurrentFrame->vEvents.cbegin()))->timeStamp;
+//    mCurrentFrame->dt = ((*(mCurrentFrame->vEvents.crbegin()))->timeStamp - mCurrentFrame->mTimeStamp).toSec();
+//    cv::Mat Twc1 = cv::Mat::eye(4,4,CV_64F);
+//    R_.copyTo(Twc1.rowRange(0,3).colRange(0,3));
+//    t_.copyTo(Twc1.rowRange(0,3).col(3));
+//    mCurrentFrame->setAngularVelocity(w_);
+//    mCurrentFrame->setLinearVelocity(v_);
 
-    LOG(INFO) << "groundtruth velocity model:";
-    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
-    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
-    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
-    LOG(INFO);
+//    LOG(INFO) << "groundtruth velocity model:";
+//    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
+//    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
+//    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+//    LOG(INFO);
 
-    if(mState==NOT_INITIALIZED) {
-        // assume success??
-        init();
-    } else if(mState==OK) {
-        estimate();
-    }
-    mState = LOST;
-    if (mState == LOST) {
-        cv::Mat R_ = mCurrentFrame->getRotation();
-        cv::Mat t_ = mCurrentFrame->getTranslation();
-        if (!relocalize(R_, t_, mCurrentFrame->w, mCurrentFrame->v)) {
-            relocalize(R, t, w, v);
-            // need better solution;
-            mState = OK;
-        }
-    }
+//    if(mState==NOT_INITIALIZED) {
+//        // assume success??
+//        init();
+//    } else if(mState==OK) {
+//        init();//estimate();
+//    }
+//    mState = LOST;
+//    if (mState == LOST) {
+//        cv::Mat R_ = mCurrentFrame->getRotation();
+//        cv::Mat t_ = mCurrentFrame->getTranslation();
+//        if (!relocalize(R_, t_, mCurrentFrame->w, mCurrentFrame->v)) {
+//            relocalize(R, t, w, v);
+//            // need better solution;
+//            mState = OK;
+//        }
+//    }
 
-    // add frame to map
-    mpMap->addFrame(mCurrentFrame);
+//    // add frame to map
+//    mpMap->addFrame(mCurrentFrame);
 
-    LOG(INFO) << "current velocity model:";
-    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
-    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
-    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
-    LOG(INFO);
-    w = mCurrentFrame->w;
-    v = mCurrentFrame->v;
-    R = mCurrentFrame->getRotation();
-    r = rotm2axang(R);
-    t = mCurrentFrame->getTranslation();
+//    LOG(INFO) << "current velocity model:";
+//    LOG(INFO) << "\nT\n" << mCurrentFrame->getFirstPose();
+//    LOG(INFO) << "\nw\n" << mCurrentFrame->w;
+//    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+//    LOG(INFO);
+//    w = mCurrentFrame->w;
+//    v = mCurrentFrame->v;
+//    R = mCurrentFrame->getRotation();
+//    r = rotm2axang(R);
+//    t = mCurrentFrame->getTranslation();
 
-    mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
+//    mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
 
-    // under certain conditions, Create KeyFrame
+//    // under certain conditions, Create KeyFrame
 
-    // delete currentFrame
-}
+//    // delete currentFrame
+//}
 
 bool Tracking::init() {
     if (!mpMap->mapPointsInMap()) {
@@ -135,64 +135,65 @@ bool Tracking::init() {
     mpMap->addKeyFrame(pKF);
 
     // at initialization phase there is at most one element in mspMapPoints
-    Optimizer::optimize(pMP.get());
+//    Optimizer::optimize(pMP.get());
+    Optimizer::optimize(pMP.get(), mCurrentFrame.get());
 
     // set pose of current frame to be the same as current keyframe??
-    mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
-    mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
-    mCurrentFrame->setFirstPose(pKF->getFirstPose());
-    mCurrentFrame->setLastPose(pKF->getLastPose());
-    mCurrentFrame->setScale(pKF->getScale());
+//    mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
+//    mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
+//    mCurrentFrame->setFirstPose(pKF->getFirstPose());
+//    mCurrentFrame->setLastPose(pKF->getLastPose());
+//    mCurrentFrame->setScale(pKF->getScale());
 
-    if (pMP->observations() >= nInitializer) {
-        mState = OK;
-        pMP->swap(true);
-    }
+//    if (pMP->observations() >= nInitializer) {
+//        mState = OK;
+//        pMP->swap(true);
+//    }
     return true;
 }
 
-bool Tracking::estimate() {
-    // WIP
-    auto pMP = mpMap->getAllMapPoints().front();
-    Optimizer::optimize(pMP.get(), mCurrentFrame.get());
-    if (mCurrentFrame->shouldBeKeyFrame) {
-        shared_ptr<KeyFrame> pKF = make_shared<KeyFrame>(*mCurrentFrame);
-        if(insertKeyFrame(pKF)) {
-            mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
-            mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
-            mCurrentFrame->setFirstPose(pKF->getFirstPose());
-            mCurrentFrame->setLastPose(pKF->getLastPose());
+//bool Tracking::estimate() {
+//    // WIP
+//    auto pMP = mpMap->getAllMapPoints().front();
+//    Optimizer::optimize(pMP.get(), mCurrentFrame.get());
+//    if (mCurrentFrame->shouldBeKeyFrame) {
+//        shared_ptr<KeyFrame> pKF = make_shared<KeyFrame>(*mCurrentFrame);
+//        if(insertKeyFrame(pKF)) {
+//            mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
+//            mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
+//            mCurrentFrame->setFirstPose(pKF->getFirstPose());
+//            mCurrentFrame->setLastPose(pKF->getLastPose());
 
-            pMP->addObservation(pKF);
-            pMP->swap(true);
-            mpMap->addKeyFrame(pKF);
-            LOG(INFO) << "keyframe id " << pKF->mnFrameId;
-        }
-    }
-    return true;
-}
+//            pMP->addObservation(pKF);
+//            pMP->swap(true);
+//            mpMap->addKeyFrame(pKF);
+//            LOG(INFO) << "keyframe id " << pKF->mnFrameId;
+//        }
+//    }
+//    return true;
+//}
 
-bool Tracking::relocalize(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
-    auto pMP = mpMap->getAllMapPoints().front();
-    if(Optimizer::optimize(pMP.get(), mCurrentFrame.get(), Rwc, twc, w, v)) {
-        mState = OK;
-        return true;
-    }
-    return false;
-}
+//bool Tracking::relocalize(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
+//    auto pMP = mpMap->getAllMapPoints().front();
+//    if(Optimizer::optimize(pMP.get(), mCurrentFrame.get(), Rwc, twc, w, v)) {
+//        mState = OK;
+//        return true;
+//    }
+//    return false;
+//}
 
-bool Tracking::insertKeyFrame(shared_ptr<KeyFrame>& pKF) {
-    auto pMP = mpMap->getAllMapPoints().front();
+//bool Tracking::insertKeyFrame(shared_ptr<KeyFrame>& pKF) {
+//    auto pMP = mpMap->getAllMapPoints().front();
 
-    if (Optimizer::optimize(pMP.get(), pKF)) {
-        return true;
-    } else {
-        mState = LOST;
-        LOG(ERROR) << "LOST";
-        KeyFrame::nNextId--;
-        return false;
-    }
-}
+//    if (Optimizer::optimize(pMP.get(), pKF)) {
+//        return true;
+//    } else {
+//        mState = LOST;
+//        LOG(ERROR) << "LOST";
+//        KeyFrame::nNextId--;
+//        return false;
+//    }
+//}
 
 bool Tracking::undistortEvents() {
     std::vector<cv::Point2d> inputDistortedPoints;

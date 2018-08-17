@@ -28,10 +28,10 @@ ThreadedEventIMU::~ThreadedEventIMU() {
 void ThreadedEventIMU::init() {
     mpMap = new Map();
     mpTracker = new Tracking(parameters_.cameraMatrix, parameters_.distCoeffs, mpMap);
-    Optimizer::mCameraProjectionMat(0, 0) = 200;
-    Optimizer::mCameraProjectionMat(1, 1) = 200;
-    Optimizer::mCameraProjectionMat(0, 2) = 250;
-    Optimizer::mCameraProjectionMat(1, 2) = 250;
+    Optimizer::mPatchProjectionMat(0, 0) = 200;
+    Optimizer::mPatchProjectionMat(1, 1) = 200;
+    Optimizer::mPatchProjectionMat(0, 2) = 250;
+    Optimizer::mPatchProjectionMat(1, 2) = 250;
     startThreads();
 }
 
@@ -164,7 +164,7 @@ void ThreadedEventIMU::eventConsumerLoop() {
 
     std::string files_path = parameters_.path + "/" + parameters_.experiment_name + "/" + std::to_string(parameters_.window_size) + "/";
 
-    okvis::Time start(30.0);
+    okvis::Time start(1.0);
     ev::Pose p;
     interpolateGroundtruth(p, start);
     Eigen::Quaterniond R0 = p.q.inverse();
@@ -219,14 +219,14 @@ void ThreadedEventIMU::eventConsumerLoop() {
                 mpTracker->Track();
 
                 auto pMP = mpMap->getAllMapPoints().front();
-                imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
-                cv::Mat blurred_map;
-                cv::GaussianBlur(pMP->mFront, blurred_map, cv::Size(0, 0), 1, 0);
-                imshowRescaled(blurred_map, 1, "map");
+//                imwriteRescaled(pMP->mFront, files_path + "map_" + std::to_string(count) + ".jpg", NULL);
+//                cv::Mat blurred_map;
+//                cv::GaussianBlur(pMP->mFront, blurred_map, cv::Size(0, 0), 1, 0);
+//                imshowRescaled(blurred_map, 1, "map");
 
-                LOG(INFO) << "keyframes " << mpMap->getAllKeyFrames().size();
-                LOG(INFO) << "frames " << ++count; Optimizer::count_frame++;
-                LOG(INFO) << "normal " << pMP->getNormal();
+//                LOG(INFO) << "keyframes " << mpMap->getAllKeyFrames().size();
+//                LOG(INFO) << "frames " << ++count; Optimizer::count_frame++;
+//                LOG(INFO) << "normal " << pMP->getNormal();
 
                 if (parameters_.write_to_file) {
 
