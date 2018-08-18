@@ -7,7 +7,7 @@ namespace ev {
 double Optimizer::f_frame(const gsl_vector *vec, void *params) {
     Frame* frame = (Frame *) params;
     cv::Mat src;
-
+LOG(INFO) << "---------";
     intensity(src, vec, NULL, frame);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
 //    imwriteRescaled(src, "/home/weizhen/Documents/dataset/shapes_translation/map_reloc/4000/frame_" + std::to_string(count_frame) + ".jpg", NULL);
@@ -96,37 +96,46 @@ void Optimizer::fdf_frame(const gsl_vector *vec, void *params, double *f, gsl_ve
 void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd* dIdW, Frame* frame) {
     image = cv::Mat::zeros(height, width, CV_64F);
     // only works for planar scene!!
-//    Eigen::Vector3d nw = Converter::toVector3d(frame->mpMap->getAllMapPoints().front()->getNormal());
-//    Eigen::Matrix3d Rcw = Converter::toMatrix3d(frame->getRotation().t());
-//    Eigen::Vector3d twc = Converter::toVector3d(frame->getTranslation()) / Frame::gScale;
-//    Eigen::Vector3d nc = Rcw * nw;
-//    Eigen::Matrix3d Rn = frame->mpMap->getAllMapPoints().front()->Rn;
-//    Eigen::Matrix3d H_ = Rn * (Rcw * (Eigen::Matrix3d::Identity() + twc * nw.transpose())).inverse();
+    Eigen::Vector3d nw = Converter::toVector3d(frame->mpMap->getAllMapPoints().front()->getNormal());
+    Eigen::Matrix3d Rcw = Converter::toMatrix3d(frame->getRotation().t());
+    Eigen::Vector3d twc = Converter::toVector3d(frame->getTranslation());
+    //    Eigen::Vector3d nc = Rcw * nw;
+    //    Eigen::Matrix3d Rn = frame->mpMap->getAllMapPoints().front()->Rn;
+    //    Eigen::Matrix3d H_ = Rn * (Rcw * (Eigen::Matrix3d::Identity() + twc * nw.transpose())).inverse();
 
-//    Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
+    //    Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
 
-    Eigen::Vector3d nc;
-    Eigen::Matrix3d H_;
+    Eigen::Matrix3d H_ = Eigen::Matrix3d::Identity();;
 
     okvis::Time t0 = frame->mTimeStamp;
 
     // velocity
     Eigen::Vector3d w;
     w << gsl_vector_get(vec, 0),
-         gsl_vector_get(vec, 1),
-         gsl_vector_get(vec, 2);
+            gsl_vector_get(vec, 1),
+            gsl_vector_get(vec, 2);
 
     Eigen::Vector3d v;
-//    v << gsl_vector_get(vec, 3),
-//         gsl_vector_get(vec, 4),
-//         gsl_vector_get(vec, 5);
+    v << gsl_vector_get(vec, 3),
+            gsl_vector_get(vec, 4),
+            gsl_vector_get(vec, 5);
+
+    Eigen::Vector2d n;
+    n << gsl_vector_get(vec, 6),
+            gsl_vector_get(vec, 7);
+
+    Eigen::Vector3d nc;
+    nc << std::cos(n(0)) * std::sin(n(1)),
+            std::sin(n(0)) * std::sin(n(1)),
+            std::cos(n(1));
 
     double theta = -w.norm();
 
     Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
     if (theta != 0)
         K = skew(w.normalized());
-    Eigen::MatrixXd dW;
+    Eigen::MatrixXd dW = Eigen::MatrixXd::Zero(3, 8);
+    LOG(INFO) << "---------";
     for (const auto EVit: frame->vEvents) {
 
         Eigen::Vector3d p, point_warped;
@@ -134,7 +143,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd
 
         // project to first frame
         if (dIdW) {
-            warp(&dW, point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
+            warp(&dW, point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_, n);
             fuse(dIdW, &dW, image, point_warped, EVit->measurement.p);
         } else {
             warp(NULL, point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
@@ -450,11 +459,13 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd
 //}
 
 void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
-    int nVariables = 3;
+    LOG(INFO) << "---------";
+    int nVariables = 8;
     double result[nVariables] = {};
 
+    auto n = pMP->getNormalDirection();
     cv::Mat w = frame->getAngularVelocity();
-//    cv::Mat v = frame->getLinearVelocity() / frame->mScale;
+    cv::Mat v = frame->getLinearVelocity() /*/ frame->mScale*/;
 
     if (inFrame)
     {
@@ -468,19 +479,24 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         gsl_vector_set(x, 1, w.at<double>(1));
         gsl_vector_set(x, 2, w.at<double>(2));
 
-//        gsl_vector_set(x, 3, v.at<double>(0));
-//        gsl_vector_set(x, 4, v.at<double>(1));
-//        gsl_vector_set(x, 5, v.at<double>(2));
+        gsl_vector_set(x, 3, v.at<double>(0));
+        gsl_vector_set(x, 4, v.at<double>(1));
+        gsl_vector_set(x, 5, v.at<double>(2));
 
+        gsl_vector_set(x, 6, n[0]);
+        gsl_vector_set(x, 7, n[1]);
+LOG(INFO) << "---------";
         gsl_fdf(f_frame, df_frame, fdf_frame, nVariables, frame, s, x, result);
-
+LOG(INFO) << "---------";
         w.at<double>(0) = result[0];
         w.at<double>(1) = result[1];
         w.at<double>(2) = result[2];
 
-//        v.at<double>(0) = result[3];
-//        v.at<double>(1) = result[4];
-//        v.at<double>(2) = result[5];
+        v.at<double>(0) = result[3];
+        v.at<double>(1) = result[4];
+        v.at<double>(2) = result[5];
+
+        pMP->setNormalDirection(result[6], result[7]);
     }
 
 //    if (toMap) {
@@ -531,23 +547,23 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
 //                frame->shouldBeKeyFrame = true;
 //        }
 //    }
-
+LOG(INFO) << "---------";
     frame->setAngularVelocity(w);
 //    v *= frame->mScale;
-//    frame->setLinearVelocity(v);
+    frame->setLinearVelocity(v);
 
     double dt = frame->dt;
     cv::Mat dw = w * dt;
     cv::Mat Rc1c2 = axang2rotm(dw);
-//    cv::Mat tc1c2 = v * dt; // up to a global scale
+    cv::Mat tc1c2 = v * dt; // up to a global scale
     cv::Mat Twc1 = frame->getFirstPose();
     cv::Mat Rwc1 = Twc1.rowRange(0,3).colRange(0,3);
     cv::Mat twc1 = Twc1.rowRange(0,3).col(3);
     cv::Mat Rwc2 = Rwc1 * Rc1c2;
-//    cv::Mat twc2 = Rwc1 * tc1c2 + twc1;
+    cv::Mat twc2 = Rwc1 * tc1c2 + twc1;
     cv::Mat Twc2 = cv::Mat::eye(4,4,CV_64F);
     Rwc2.copyTo(Twc2.rowRange(0,3).colRange(0,3));
-//    twc2.copyTo(Twc2.rowRange(0,3).col(3));
+    twc2.copyTo(Twc2.rowRange(0,3).col(3));
 //    frame->setLastPose(Twc2);
     frame->setLastPose(Twc1);
 }

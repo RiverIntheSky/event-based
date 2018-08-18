@@ -89,21 +89,41 @@ void Optimizer::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, const Eigen::Vec
     // v is actually v/dc
 
     Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
-//    Eigen::Matrix3d H = R * (Eigen::Matrix3d::Identity() + v * t * nc.transpose());
-//    x_w = H_ * H.inverse() * x;
-    x_w = R.inverse() * x;
-    x_w = mPatchProjectionMat * x_w;
+    Eigen::Matrix3d T = Eigen::Matrix3d::Identity() + v * t * nc.transpose();
+    Eigen::MatrixXd W = mPatchProjectionMat * H_ * T.inverse();
+    x_w = W * R.inverse() * x_w;
     if (dW) {
-        Eigen::MatrixXd dW_ = -t * mPatchProjectionMat * skew(x);
+        Eigen::MatrixXd dW_ = Eigen::MatrixXd::Zero(dW->rows(), dW->cols());
+        dW_.block(0, 0, 3, 3) = -t * W * skew(x);
+        dW_.block(0, 3, 3, 3) = -t * nc.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1)  * W;
         *dW = (dW_ - x_w * dW_.row(2) / x_w(2)) / x_w(2);
-//        LOG(INFO) << *dW ;
-//        x_w /= x_w(2);
-//        Eigen::MatrixXd d(3, 3);
-//        d <<     -t*x(1)*x_w(0), t*(x(0)*x_w(0)+1), -t*x(1),
-//                -t*(x(1)*x_w(1)+1),     t*x(0)*x_w(1),  t*x(0),
-//                0,                  0,        0;
-        //LOG(INFO) << "-----------";
-//        *dW = mPatchProjectionMat * d;
+    }
+    x_w /= x_w(2);
+}
+
+void Optimizer::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K,
+                     const Eigen::Vector3d& v, const Eigen::Vector3d& nc, const Eigen::Matrix3d& H_, const Eigen::Vector2d& n) {
+    // plane homography
+    // v is actually v/dc
+    Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
+    Eigen::Matrix3d T = Eigen::Matrix3d::Identity() + v * t * nc.transpose();
+    Eigen::MatrixXd W = mPatchProjectionMat * H_ * T.inverse();
+    x_w = W * R.inverse() * x;
+    if (dW) {
+        Eigen::MatrixXd dW_ = Eigen::MatrixXd::Zero(dW->rows(), dW->cols());
+        dW_.block(0, 0, 3, 3) = -t * W * skew(x);
+        dW_.block(0, 3, 3, 3) = -t * nc.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1)  * W;
+        Eigen::MatrixXd dndp(3, 2);
+        dndp << -std::sin(n(0)) * std::sin(n(1)),  std::cos(n(0)) * std::cos(n(1)),
+                 std::cos(n(0)) * std::sin(n(1)),  std::sin(n(0)) * std::cos(n(1)),
+                 0,  -std::sin(n(1));
+        dW_.block(0, 6, 3, 2) = -t * v.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1)  * W * dndp;
+//                LOG(INFO) <<  x_w(2);
+//                        LOG(INFO) <<x_w * dW_.row(2) / x_w(2);
+//        LOG(INFO) << dW_ - x_w * dW_.row(2) / x_w(2);
+//        LOG(INFO) << (dW_ - x_w * dW_.row(2) / x_w(2)) / x_w(2);
+        *dW = (dW_ - x_w * dW_.row(2) / x_w(2)) / x_w(2);
+//        LOG(INFO) <<  *dW ;
     }
     x_w /= x_w(2);
 
