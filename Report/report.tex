@@ -30,26 +30,25 @@
 
 % % TODO Add your title
 \title{Use of a DVS for High Speed Applications}
-%\subtitle{bla bla bla}
+% \subtitle{bla bla bla}
 
 \studentA{Weizhen Huang}
 
-\supervisionA{Florian Tschopp}
-\supervisionB{Ignacio Alzugaray}
+\supervisionA{Florian Tschopp} \supervisionB{Ignacio Alzugaray}
 
 \projectYear{\the\year} % This year
-%\projectYear{\advance\year by -1 \the\year\advance\year by 1} % Last year
+% \projectYear{\advance\year by -1 \the\year\advance\year by
+% 1} % Last year
 
 \maketitle
-\pagestyle{plain}
-\pagenumbering{roman}
+\pagestyle{plain} \pagenumbering{roman}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Declaration of originality
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \pagestyle{empty}
 % TODO Modify placeholders in declaration.tex
-%\input{chapters/declaration}
+% \input{chapters/declaration}
 \includepdf[pagecommand={}]{chapters/declaration-originality.pdf}
 
 
@@ -66,29 +65,18 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Chapters standard
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\input{chapters/preface}
-\cleardoublepage
-\input{chapters/abstract}
-\cleardoublepage
-\input{chapters/symbols}
-\cleardoublepage
+\input{chapters/preface} \cleardoublepage \input{chapters/abstract}
+\cleardoublepage \input{chapters/symbols} \cleardoublepage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Chapters custom
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\pagestyle{fancy}
-\pagenumbering{arabic}
+\pagestyle{fancy} \pagenumbering{arabic}
 
 % TODO Add your own chapters here
-\input{chapters/introduction}
-\cleardoublepage
-\input{chapters/chapter}
-\cleardoublepage
-% \input{}
-% \cleardoublepage
-% \input{}
-% \cleardoublepage
-% ...
+\input{chapters/introduction} \cleardoublepage
+\input{chapters/chapter} \cleardoublepage
+% \input{} \cleardoublepage \input{} \cleardoublepage ...
 %
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -96,8 +84,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \bibliographystyle{bibliography/IEEEtranN}
 \bibliography{bibliography/references}
-\addcontentsline{toc}{chapter}{Bibliography}
-\cleardoublepage
+\addcontentsline{toc}{chapter}{Bibliography} \cleardoublepage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Appendix
