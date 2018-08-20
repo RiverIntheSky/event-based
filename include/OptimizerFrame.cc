@@ -41,8 +41,10 @@ void Optimizer::df_frame(const gsl_vector *vec, void *params, gsl_vector* df) {
                 di -= (image.at<double>(r, c) - mean) * (dimage.at<double>(r, c) - dmean);
             }
         }
+        LOG(INFO) << "dw"<<i<<" = " << di * 2 / area;
         gsl_vector_set(df, i, di * 2 / area);
     }
+    LOG(INFO) << "-----------";
 }
 
 void Optimizer::fdf_frame(const gsl_vector *vec, void *params, double *f, gsl_vector* df) {
@@ -69,10 +71,10 @@ void Optimizer::fdf_frame(const gsl_vector *vec, void *params, double *f, gsl_ve
                 di -= (image.at<double>(r, c) - mean[0]) * (dimage.at<double>(r, c) - dmean);
             }
         }
-//        LOG(INFO) << "dw"<<i<<" mean = " << mean[0] << " " << dmean;
-//        LOG(INFO) << "dw"<<i<<" = " << di * 2 / area;
+        LOG(INFO) << "dw"<<i<<" = " << di * 2 / area;
         gsl_vector_set(df, i, di * 2 / area);
     }
+    LOG(INFO) << "-----------";
 }
 
 //double Optimizer::variance_track(const gsl_vector *vec, void *params) {
@@ -456,7 +458,6 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd
 //}
 
 void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
-    LOG(INFO) << "---------";
     int nVariables = 8;
     double result[nVariables] = {};
 
@@ -467,6 +468,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
     if (inFrame)
     {
         gsl_multimin_fdfminimizer *s = NULL;
+//        gsl_multimin_fminimizer* s = NULL;
         gsl_vector *x;
 
         /* Starting point */
@@ -483,6 +485,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         gsl_vector_set(x, 6, n[0]);
         gsl_vector_set(x, 7, n[1]);
 LOG(INFO) << "---------";
+//        optimize_gsl(1, nVariables, f_frame, frame, s, x, result, 100);
         gsl_fdf(f_frame, df_frame, fdf_frame, nVariables, frame, s, x, result);
 LOG(INFO) << "---------";
         w.at<double>(0) = result[0];

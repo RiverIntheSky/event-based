@@ -26,7 +26,7 @@ void Tracking::Track() {
         // assume success??
         init();
     } else if(mState==OK) {
-        init();//estimate();
+        estimate();
     }
     mState = OK;
     if (mState == LOST) {
@@ -153,26 +153,26 @@ bool Tracking::init() {
     return true;
 }
 
-//bool Tracking::estimate() {
-//    // WIP
-//    auto pMP = mpMap->getAllMapPoints().front();
-//    Optimizer::optimize(pMP.get(), mCurrentFrame.get());
-//    if (mCurrentFrame->shouldBeKeyFrame) {
-//        shared_ptr<KeyFrame> pKF = make_shared<KeyFrame>(*mCurrentFrame);
-//        if(insertKeyFrame(pKF)) {
-//            mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
-//            mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
-//            mCurrentFrame->setFirstPose(pKF->getFirstPose());
-//            mCurrentFrame->setLastPose(pKF->getLastPose());
+bool Tracking::estimate() {
+    // WIP
+    auto pMP = mpMap->getAllMapPoints().front();
+    Optimizer::optimize(pMP.get(), mCurrentFrame.get());
+    if (mCurrentFrame->shouldBeKeyFrame) {
+        shared_ptr<KeyFrame> pKF = make_shared<KeyFrame>(*mCurrentFrame);
+        if(insertKeyFrame(pKF)) {
+            mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
+            mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
+            mCurrentFrame->setFirstPose(pKF->getFirstPose());
+            mCurrentFrame->setLastPose(pKF->getLastPose());
 
-//            pMP->addObservation(pKF);
-//            pMP->swap(true);
-//            mpMap->addKeyFrame(pKF);
-//            LOG(INFO) << "keyframe id " << pKF->mnFrameId;
-//        }
-//    }
-//    return true;
-//}
+            pMP->addObservation(pKF);
+            pMP->swap(true);
+            mpMap->addKeyFrame(pKF);
+            LOG(INFO) << "keyframe id " << pKF->mnFrameId;
+        }
+    }
+    return true;
+}
 
 //bool Tracking::relocalize(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
 //    auto pMP = mpMap->getAllMapPoints().front();
@@ -183,18 +183,18 @@ bool Tracking::init() {
 //    return false;
 //}
 
-//bool Tracking::insertKeyFrame(shared_ptr<KeyFrame>& pKF) {
-//    auto pMP = mpMap->getAllMapPoints().front();
+bool Tracking::insertKeyFrame(shared_ptr<KeyFrame>& pKF) {
+    auto pMP = mpMap->getAllMapPoints().front();
 
-//    if (Optimizer::optimize(pMP.get(), pKF)) {
-//        return true;
-//    } else {
-//        mState = LOST;
-//        LOG(ERROR) << "LOST";
-//        KeyFrame::nNextId--;
-//        return false;
-//    }
-//}
+    if (Optimizer::optimize(pMP.get(), pKF)) {
+        return true;
+    } else {
+        mState = LOST;
+        LOG(ERROR) << "LOST";
+        KeyFrame::nNextId--;
+        return false;
+    }
+}
 
 bool Tracking::undistortEvents() {
     std::vector<cv::Point2d> inputDistortedPoints;

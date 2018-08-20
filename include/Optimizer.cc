@@ -165,8 +165,8 @@ void Optimizer::fuse(Eigen::MatrixXd* dIdW, Eigen::MatrixXd* dW, cv::Mat& image,
 //        LOG(INFO) << cv::sum(image)[0];
         if (dIdW) {
             Eigen::VectorXd d = Eigen::VectorXd::Zero(nVariables);
-            d += (p(1) - y1 - 1) * pol * dW->row(0);
-            d += (p(0) - x1 - 1) * pol * dW->row(1);
+            d += (p(1) - y2) * pol * dW->row(0);
+            d += (p(0) - x2) * pol * dW->row(1);
             for (int i = 0; i != nVariables; i++) {
                 (*dIdW)(x1 * image.rows + y1, i) += d(i);
             }
@@ -178,8 +178,8 @@ void Optimizer::fuse(Eigen::MatrixXd* dIdW, Eigen::MatrixXd* dW, cv::Mat& image,
         image.ptr<double>(y2)[x1] += a;
         if (dIdW) {
             Eigen::VectorXd d = Eigen::VectorXd::Zero(nVariables);
-            d += (-p(1) + y2 - 1) * pol * dW->row(0);
-            d += (-p(0) + x1 + 1) * pol * dW->row(1);
+            d += (-p(1) + y1) * pol * dW->row(0);
+            d += (-p(0) + x2) * pol * dW->row(1);
             for (int i = 0; i != nVariables; i++) {
                 (*dIdW)(x1 * image.rows + y2, i) += d(i);
             }
@@ -191,8 +191,8 @@ void Optimizer::fuse(Eigen::MatrixXd* dIdW, Eigen::MatrixXd* dW, cv::Mat& image,
         image.ptr<double>(y1)[x2] += a;
         if (dIdW) {
             Eigen::VectorXd d = Eigen::VectorXd::Zero(nVariables);
-            d += (-p(1) + y1 + 1) * pol * dW->row(0);
-            d += (-p(0) + x2 - 1) * pol * dW->row(1);
+            d += (-p(1) + y2) * pol * dW->row(0);
+            d += (-p(0) + x1) * pol * dW->row(1);
             for (int i = 0; i != nVariables; i++) {
                 (*dIdW)(x2 * image.rows + y1, i) += d(i);
             }
@@ -204,8 +204,8 @@ void Optimizer::fuse(Eigen::MatrixXd* dIdW, Eigen::MatrixXd* dW, cv::Mat& image,
         image.ptr<double>(y2)[x2] += a;
         if (dIdW) {
             Eigen::VectorXd d = Eigen::VectorXd::Zero(nVariables);
-            d += (p(1) - y2 + 1) * pol * dW->row(0);
-            d += (p(0) - x2 + 1) * pol * dW->row(1);
+            d += (p(1) - y1) * pol * dW->row(0);
+            d += (p(0) - x1) * pol * dW->row(1);
             for (int i = 0; i != nVariables; i++) {
                 (*dIdW)(x2 * image.rows + y2, i) += d(i);
             }
@@ -767,7 +767,7 @@ void Optimizer::optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, v
 void Optimizer::gsl_fdf(double (*f)(const gsl_vector*, void*), void (*df)(const gsl_vector*, void*, gsl_vector*),
                                  void (*fdf)(const gsl_vector*, void*, double *, gsl_vector *), int nv, void *params,
                                  gsl_multimin_fdfminimizer* s, gsl_vector* x, double* res) {
-    const gsl_multimin_fdfminimizer_type *T = gsl_multimin_fdfminimizer_vector_bfgs;
+    const gsl_multimin_fdfminimizer_type *T = gsl_multimin_fdfminimizer_conjugate_fr;
 
     gsl_multimin_function_fdf minex_func;
 
@@ -782,7 +782,7 @@ void Optimizer::gsl_fdf(double (*f)(const gsl_vector*, void*), void (*df)(const 
 
     s = gsl_multimin_fdfminimizer_alloc(T, nv);
 
-    gsl_multimin_fdfminimizer_set(s, &minex_func, x, 1, 0.01);
+    gsl_multimin_fdfminimizer_set(s, &minex_func, x, 1, 0.1);
 
     do
     {
@@ -793,7 +793,7 @@ void Optimizer::gsl_fdf(double (*f)(const gsl_vector*, void*), void (*df)(const 
         if (status)
             break;
 
-        status = gsl_multimin_test_gradient (s->gradient, 1e-2);
+        status = gsl_multimin_test_gradient (s->gradient, 1e-3);
 
 
         if (status == GSL_SUCCESS)
