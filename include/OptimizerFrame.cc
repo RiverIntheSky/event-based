@@ -7,10 +7,10 @@ namespace ev {
 double Optimizer::f_frame(const gsl_vector *vec, void *params) {
     Frame* frame = (Frame *) params;
     cv::Mat src;
-LOG(INFO) << "---------";
     intensity(src, vec, NULL, frame);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
 //    imwriteRescaled(src, "/home/weizhen/Documents/dataset/shapes_translation/map_reloc/4000/frame_" + std::to_string(count_frame) + ".jpg", NULL);
+
     imshowRescaled(src, 1);
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
@@ -35,16 +35,12 @@ void Optimizer::df_frame(const gsl_vector *vec, void *params, gsl_vector* df) {
         d.resize(height, width);
         cv::eigen2cv(d, dimage);
         cv::GaussianBlur(dimage, dimage, cv::Size(0, 0), sigma, 0);
-//        LOG(INFO) << dimage;
-//        imshowRescaled(dimage, 0);
         double dmean = cv::mean(dimage)[0];
         for (int r = 0; r < height; r++) {
             for (int c = 0; c < width; c++) {
                 di -= (image.at<double>(r, c) - mean) * (dimage.at<double>(r, c) - dmean);
             }
         }
-//        LOG(INFO) << "dw"<<i<<" mean = " << mean << " " << dmean;
-//        LOG(INFO) << "dw"<<i<<" = " << di * 2 / area;
         gsl_vector_set(df, i, di * 2 / area);
     }
 }
@@ -59,7 +55,7 @@ void Optimizer::fdf_frame(const gsl_vector *vec, void *params, double *f, gsl_ve
     cv::Scalar mean, stddev;
     cv::meanStdDev(image, mean, stddev);
     *f = -std::pow(stddev[0], 2);
-// LOG(INFO) << *f;
+//    LOG(INFO) << *f;
     double area = height * width;
     for (size_t i = 0; i != vec->size; i++) {
         double di = 0;
@@ -73,6 +69,7 @@ void Optimizer::fdf_frame(const gsl_vector *vec, void *params, double *f, gsl_ve
                 di -= (image.at<double>(r, c) - mean[0]) * (dimage.at<double>(r, c) - dmean);
             }
         }
+//        LOG(INFO) << "dw"<<i<<" mean = " << mean[0] << " " << dmean;
 //        LOG(INFO) << "dw"<<i<<" = " << di * 2 / area;
         gsl_vector_set(df, i, di * 2 / area);
     }
@@ -105,7 +102,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd
 
     //    Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
 
-    Eigen::Matrix3d H_ = Eigen::Matrix3d::Identity();;
+    Eigen::Matrix3d H_ = Eigen::Matrix3d::Identity();
 
     okvis::Time t0 = frame->mTimeStamp;
 
@@ -134,8 +131,8 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd
     Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
     if (theta != 0)
         K = skew(w.normalized());
+
     Eigen::MatrixXd dW = Eigen::MatrixXd::Zero(3, 8);
-    LOG(INFO) << "---------";
     for (const auto EVit: frame->vEvents) {
 
         Eigen::Vector3d p, point_warped;

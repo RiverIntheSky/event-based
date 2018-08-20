@@ -54,10 +54,11 @@ void Tracking::Track() {
 //    mpMap->addFrame(mCurrentFrame);
     LOG(INFO) << "current velocity model:";
     LOG(INFO) << "\nw\n" << mCurrentFrame->w;
-//    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+    LOG(INFO) << "\nv\n" << mCurrentFrame->v;
+    LOG(INFO) << "\nn\n" << mpMap->getAllMapPoints().front()->getNormal();
     LOG(INFO);
     w = mCurrentFrame->w;
-//    v = mCurrentFrame->v;
+    v = mCurrentFrame->v;
     R = mCurrentFrame->getRotation();
     r = rotm2axang(R);
 //    t = mCurrentFrame->getTranslation();

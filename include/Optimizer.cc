@@ -87,18 +87,23 @@ void Optimizer::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, const Eigen::Vec
                      const Eigen::Vector3d& v, const Eigen::Vector3d& nc, const Eigen::Matrix3d& H_) {
     // plane homography
     // v is actually v/dc
+//    Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
+//    Eigen::Matrix3d T = Eigen::Matrix3d::Identity() + v * t * nc.transpose();
+//    Eigen::MatrixXd W = mPatchProjectionMat * H_ * T.inverse();
+//    x_w = W * R.transpose() * x;
+////    if (dW) {
+////        Eigen::MatrixXd dW_ = Eigen::MatrixXd::Zero(dW->rows(), dW->cols());
+////        dW_.block(0, 0, 3, 3) = -t * W * skew(x);
+////        dW_.block(0, 3, 3, 3) = -t * nc.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1)  * W;
+////        *dW = (dW_ - x_w * dW_.row(2) / x_w(2)) / x_w(2);
+////    }
+//    x_w /= x_w(2);
 
     Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
-    Eigen::Matrix3d T = Eigen::Matrix3d::Identity() + v * t * nc.transpose();
-    Eigen::MatrixXd W = mPatchProjectionMat * H_ * T.inverse();
-    x_w = W * R.inverse() * x_w;
-    if (dW) {
-        Eigen::MatrixXd dW_ = Eigen::MatrixXd::Zero(dW->rows(), dW->cols());
-        dW_.block(0, 0, 3, 3) = -t * W * skew(x);
-        dW_.block(0, 3, 3, 3) = -t * nc.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1)  * W;
-        *dW = (dW_ - x_w * dW_.row(2) / x_w(2)) / x_w(2);
-    }
+    Eigen::Matrix3d H = R * (Eigen::Matrix3d::Identity() + v * t * nc.transpose());
+    x_w = H_ * H.inverse() * x;
     x_w /= x_w(2);
+    x_w = mPatchProjectionMat * x_w;
 }
 
 void Optimizer::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K,
@@ -108,24 +113,24 @@ void Optimizer::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, const Eigen::Vec
     Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
     Eigen::Matrix3d T = Eigen::Matrix3d::Identity() + v * t * nc.transpose();
     Eigen::MatrixXd W = mPatchProjectionMat * H_ * T.inverse();
-    x_w = W * R.inverse() * x;
+    x_w = W * R.transpose() * x;
     if (dW) {
-        Eigen::MatrixXd dW_ = Eigen::MatrixXd::Zero(dW->rows(), dW->cols());
-        dW_.block(0, 0, 3, 3) = -t * W * skew(x);
-        dW_.block(0, 3, 3, 3) = -t * nc.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1)  * W;
+//        LOG(INFO) << dW;
+//        LOG(INFO) << dW->rows();
+//        LOG(INFO) << dW->cols();
+        dW->block(0, 0, 3, 3) = -t * W * skew(x);
+        dW->block(0, 3, 3, 3) =  W * (-t * nc.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1))[0] ;
+
         Eigen::MatrixXd dndp(3, 2);
         dndp << -std::sin(n(0)) * std::sin(n(1)),  std::cos(n(0)) * std::cos(n(1)),
                  std::cos(n(0)) * std::sin(n(1)),  std::sin(n(0)) * std::cos(n(1)),
                  0,  -std::sin(n(1));
-        dW_.block(0, 6, 3, 2) = -t * v.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1)  * W * dndp;
-//                LOG(INFO) <<  x_w(2);
-//                        LOG(INFO) <<x_w * dW_.row(2) / x_w(2);
-//        LOG(INFO) << dW_ - x_w * dW_.row(2) / x_w(2);
-//        LOG(INFO) << (dW_ - x_w * dW_.row(2) / x_w(2)) / x_w(2);
-        *dW = (dW_ - x_w * dW_.row(2) / x_w(2)) / x_w(2);
-//        LOG(INFO) <<  *dW ;
+        dW->block(0, 6, 3, 2) = (-t * v.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1))[0] * W * dndp;
+
+        *dW = (*dW - x_w * (*dW).row(2) / x_w(2)) / x_w(2);
     }
     x_w /= x_w(2);
+//    LOG(INFO) << x_w;
 
 }
 
@@ -155,6 +160,9 @@ void Optimizer::fuse(Eigen::MatrixXd* dIdW, Eigen::MatrixXd* dW, cv::Mat& image,
     if (valid(x1, y1)) {
         double a = (x2 - p(0)) * (y2 - p(1)) * pol;
         image.ptr<double>(y1)[x1] += a;
+//        LOG(INFO) << x1 << " " << y1;
+//        LOG(INFO) << image.ptr<double>(y1)[x1];
+//        LOG(INFO) << cv::sum(image)[0];
         if (dIdW) {
             Eigen::VectorXd d = Eigen::VectorXd::Zero(nVariables);
             d += (p(1) - y1 - 1) * pol * dW->row(0);
@@ -759,7 +767,7 @@ void Optimizer::optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, v
 void Optimizer::gsl_fdf(double (*f)(const gsl_vector*, void*), void (*df)(const gsl_vector*, void*, gsl_vector*),
                                  void (*fdf)(const gsl_vector*, void*, double *, gsl_vector *), int nv, void *params,
                                  gsl_multimin_fdfminimizer* s, gsl_vector* x, double* res) {
-    const gsl_multimin_fdfminimizer_type *T = gsl_multimin_fdfminimizer_conjugate_fr;
+    const gsl_multimin_fdfminimizer_type *T = gsl_multimin_fdfminimizer_vector_bfgs;
 
     gsl_multimin_function_fdf minex_func;
 
@@ -779,12 +787,14 @@ void Optimizer::gsl_fdf(double (*f)(const gsl_vector*, void*), void (*df)(const 
     do
     {
         it++;
+
         status = gsl_multimin_fdfminimizer_iterate(s);
 
         if (status)
             break;
 
         status = gsl_multimin_test_gradient (s->gradient, 1e-2);
+
 
         if (status == GSL_SUCCESS)
             printf ("Minimum found:\n");
