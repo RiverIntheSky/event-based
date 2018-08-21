@@ -42,23 +42,10 @@ int main(int argc, char *argv[])
     events_file.clear();
     events_file.seekg(0);
 
-    // open the IMU file
-    std::string imu_line;
-    std::string imu_path = path + "/imu.txt";
-    std::ifstream imu_file(imu_path);
-    if (!imu_file.good()) {
-        LOG(ERROR)<< "no imu file found at " << imu_path;
-        return -1;
-    }
-
-    imu_file.clear();
-    imu_file.seekg(0);
-
     okvis::Time start(0.0);
-    okvis::Time t_imu = start;
     okvis::Time t_ev = start;
 
-    okvis::Duration deltaT(30);
+    okvis::Duration deltaT(1.0);
 
     std::string configFilename = path + "/calib.txt";
     ev::parameterReader pr(configFilename);
@@ -124,73 +111,39 @@ int main(int argc, char *argv[])
         // q = -q not strictly recognized
         Eigen::Quaterniond orientation(w, x, y, z);
 
-//        if (t_gt - start > deltaT) {
-            ev_estimator.addGroundtruth(t_gt, position, orientation);
-//        }
+        ev_estimator.addGroundtruth(t_gt, position, orientation);
     }
 
-ev_estimator.allGroundtruthAdded_ = true;
+    ev_estimator.allGroundtruthAdded_ = true;
 
-    while (std::getline(imu_file, imu_line)) {
+    do {
+        if (!std::getline(events_file, events_line)) {
+            std::cout << std::endl << "Finished. Press any key to exit." << std::endl << std::flush;
+            cv::waitKey();
+            return 0;
+        }
 
-        std::stringstream stream(imu_line);
+        std::stringstream stream_ev(events_line);
         std::string s;
-        std::getline(stream, s, ' ');
-        std::string nanoseconds = s.substr(s.size() - 9, 9);
-        std::string seconds = s.substr(0, s.size() - 9);
+        std::getline(stream_ev, s, ' ');
+        std::string nanoseconds = s.substr(s.find("."));
+        std::string seconds = s.substr(0, s.find("."));
+        t_ev = okvis::Time(std::stoi(seconds), std::stod(nanoseconds)*1e9);
 
-        Eigen::Vector3d gyr;
-        for (int j = 0; j < 3; ++j) {
-            std::getline(stream, s, ' ');
-            gyr[j] = std::stof(s);
+        std::getline(stream_ev, s, ' ');
+        unsigned int x = std::stoi(s);
+
+        std::getline(stream_ev, s, ' ');
+        unsigned int y = std::stoi(s);
+
+        std::getline(stream_ev, s, ' ');
+        bool p = std::stoi(s);
+
+        if (t_ev - start > deltaT) {
+            ev_estimator.addEventMeasurement(t_ev, x, y, p);
         }
 
-        Eigen::Vector3d acc;
-        for (int j = 0; j < 3; ++j) {
-            std::getline(stream, s, ' ');
-            acc[j] = std::stof(s);
-        }
-
-        t_imu = okvis::Time(std::stoi(seconds), std::stoi(nanoseconds));
-
-
-        do {
-
-            if (!std::getline(events_file, events_line)) {
-                std::cout << std::endl << "Finished. Press any key to exit." << std::endl << std::flush;
-                cv::waitKey();
-                return 0;
-            }
-
-            std::stringstream stream_ev(events_line);
-
-            std::getline(stream_ev, s, ' ');
-            nanoseconds = s.substr(s.find("."));
-            seconds = s.substr(0, s.find("."));
-            t_ev = okvis::Time(std::stoi(seconds), std::stod(nanoseconds)*1e9);
-
-            std::getline(stream_ev, s, ' ');
-            unsigned int x = std::stoi(s);
-
-            std::getline(stream_ev, s, ' ');
-            unsigned int y = std::stoi(s);
-
-            std::getline(stream_ev, s, ' ');
-            bool p = std::stoi(s);
-
-            // ???
-            if (t_ev - start > deltaT) {
-                ev_estimator.addEventMeasurement(t_ev, x, y, p);
-            }
-
-        } while (t_ev <= t_imu);
-
-        // add the IMU measurement for (blocking) processing
-        // ???
-        if (t_imu - start > deltaT) {
-            ev_estimator.addImuMeasurement(t_imu, acc, gyr);
-        }
-    }
+    } while (true);
 
     return 0;
 }
