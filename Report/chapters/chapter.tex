@@ -37,10 +37,58 @@ $\vec{x}_k$ in the above equation to $\vec{x}'_k$.
 
 \subsection{Measuring the Sharpness of an Image}
 \label{sec:contrast}
+There are several metrics one could choose from to measure the
+contrast of an image. A local contrast metric could be, for example,
+convoluting the image with a high pass filter
+\begin{equation}
+  \label{eq:high_pass_filter}
+  \mathcal{C}_H=
+  \begin{bmatrix}
+    -1&-1&-1\\
+    -1&8&-1\\
+    -1&-1&-1
+  \end{bmatrix},
+\end{equation}
+and sum the pixel value of the filtered image. However, this metric
+only compare a pixel with its 8 neighbors, thus an image with
+scattered events (large noise) is also a valid configuration, as shown
+in \cref{fig:contrast}(a). The Michelson contrast
+\citep{michelson1995studies}, defined as
+$\mathcal{C}_M=\left(\mathcal{I}_{\mathrm{max}}-\mathcal{I}_{\mathrm{min}}\right)/\left(\mathcal{I}_{\mathrm{max}}+\mathcal{I}_{\mathrm{min}}\right)$,
+only considers the highest and lowest luminance in the image and is
+thus more suitable to quantify contrast for periodic functions.
+
+We choose to measure the contrast by the variance of the image,
+defined by
+
 \begin{equation}
   \label{eq:variance}
-  \mathrm{Var}\doteq\frac{1}{\mid\Omega\mid}\int_{\Omega}\left(\mathcal{I}\left(\vec{x}\right)-\mu\left(\mathcal{I}\left(\vec{x}\right)\right)\right)^2d\vec{x}
+  \mathrm{Var}\doteq\frac{1}{\mid\Omega\mid}\int_{\Omega}\left(\mathcal{I}\left(\vec{x}\right)-\mu\left(\mathcal{I}\left(\vec{x}\right)\right)\right)^2d\vec{x},
 \end{equation}
+where $\mu\left(\mathcal{I}\left(\vec{x}\right)\right)$ is the average
+image intensity. Since our goal is to align events triggered from the
+same visual stimuli, the variance would be a very suitable metric, as
+a squared metric favors the configuration that projects as many events
+as possible to the same pixel.
+
+\begin{figure}
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/high_pass_contrast.png}
+    % \label{subfig:texture}
+    (a) An optimized frame using sharpening filter metric
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/variance_contrast.png}
+    % \label{subfig:map}
+    (b) An optimized frame using variance metric
+  \end{minipage}
+  \caption{Comparison between two different metrics}
+  \label{fig:contrast}
+\end{figure}
+
 
 
 \subsection{Planar Homography}
@@ -131,7 +179,6 @@ as the camera coordinate of the first frame.
 
 
 
-
 \subsection{Tracking}
 \label{sec:tracking}
 Suppose a map is present, then the normal direction $\vec{n}_w$ of the
@@ -199,8 +246,8 @@ be different since we are refining these parameters.
 After projecting, we obtain an image composed of the map texture and
 the events of the current frame. We maximize the contrast of this
 image using the cost function defined in \cref{eq:variance}. The
-optimized velocity is used to for propagating to the next incoming
-frame via
+optimized velocity is used for propagating the pose to the next
+incoming frame via
 \begin{align}
   \label{eq:pose_propagation}
   \vec{T}_{wc_2}&=\mat{R}_{wc_1}\vec{v}\Delta t+ \vec{T}_{wc_1}\\
@@ -299,6 +346,13 @@ to the plane parametrize by $(\varphi,\psi)$ with \cref{eq:frame2map},
 and again optimize the contrast of the synthesized image the obtain
 the optimal parameter set.
 
+Note that in the mapping process we drop the polarity of the event,
+since different keyframes might include events from the same visual
+stimuli but triggered when moving in different directions, when summed
+together the polarities might cancel each other out. For the same
+reason, we also don't use the polarity when matching a frame to the
+map.
+
 After this step, we also measure the \textit{per-pixel-overlap}
 between the keyframe candidate and the image synthesized by the other
 keyframes, with the newly optimized parameter set. If this is a good
@@ -372,99 +426,68 @@ work
 
 \chapter{Discussion}
 \label{chap:discussion}
+One possible reason why the algorithm sometimes get lost is that there
+are too few textures available, as shown in
+\cref{fig:shapes_tr_lost}(a). At this time we usually need to rely on
+the relocalization or bundle adjustment pipeline. The current
+implementation needs a good initial guess, so it does not always work
+reliably.
+\begin{figure}
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/frame_00000520.png} (a) There is little texture
+    visible
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/shapes_tr_lost.png} (b) Relocalized after get
+    lost (roll component)
+  \end{minipage}
 
+   \begin{minipage}[t]{0.48\textwidth}
+     \centering \includegraphics[width =
+     \textwidth]{images/map_956.jpg} (c) Polluted map after tracking
+     is lost
+   \end{minipage}
+   \caption{When tracking the dataset \textit{shapes\_translation}, we
+     always get lost at around $23 sec$, where only a small part of
+     the oval is visible (a). When later there are more textures
+     available, the camera has already moved some distance so that the
+     current estimation of the pose might already be far off. When the
+     algorithm confirms that there is little overlap between the
+     current frame and the map at this pose, it tries to insert a new
+     keyframe. However, because of the lack of a good initial guess,
+     this new keyframe won't necessarily conform to other already
+     inserted keyframes. The current implementation doesn't
+     reinitialize the map after the tracking is lost. The advantage is
+     that there is still chance to come back to the original map after
+     tracking a wrong \textit{local map} (b); the disadvantage is that
+     the global map will most likely be polluted by the \textit{local
+       map} (c)}
+   \label{fig:shapes_tr_lost}
+ \end{figure}
 
+ \section{Erstellen einer Tabelle}\label{sec:tabellen}
 
-\section{Gliederungen}
-\label{sec:gliederung}
+ Ein Beispiel einer Tabelle:
+ \begin{table}[h]
+   \begin{center}
+     \caption{Daten der Fahrzyklen ECE, EUDC, NEFZ.}\vspace{1ex}
+     \label{tab:tabnefz}
+     \begin{tabular}{ll|ccc}
+       \hline
+       Kennzahl & Einheit & ECE & EUDC & NEFZ \\ \hline \hline
+       Dauer & s & 780 & 400 & 1180 \\
+       Distanz & km & 4.052 & 6.955 & 11.007 \\
+       Durchschnittsgeschwindigkeit & km/h & 18.7 &  62.6 & 33.6 \\
+       Leerlaufanteil & \% & 36 & 10 & 27 \\
+       \hline
+     \end{tabular}
+   \end{center}
+ \end{table}
 
-Ein Text kann mit den Befehlen \texttt{\textbackslash chapter\{.\}},
-\texttt{\textbackslash section\{.\}}, \texttt{\textbackslash
-  subsection\{.\}} und \texttt{\textbackslash subsubsection\{.\}}
-gegliedert werden.
-
-
-\section{Referenzen und Verweise}
-\label{sec:refverw}
-
-Literaturreferenzen werden mit dem Befehl \texttt{\textbackslash
-  citep\{.\}} und \texttt{\textbackslash citet\{.\}}
-erzeugt. Beispiele: ein Buch
-\citep{Raibert1986LeggedRobotsThatBalance}, ein Buch und ein Journal
-Paper
-\citep{Raibert1986LeggedRobotsThatBalance,Vukobratovic2004ZeroMomentPoint},
-ein Konferenz Paper mit Erwähnung des Autors: \citet{Pratt1995SEA}.
-
-Zur Erzeugung von Fussnoten wird der Befehl \texttt{\textbackslash
-  footnote\{.\}} verwendet. Auch hier ein Beispiel\footnote{Bla bla.}.
-
-Querverweise im Text werden mit \texttt{\textbackslash label\{.\}}
-verankert und mit \texttt{\textbackslash cref\{.\}} erzeugt.  Beispiel
-einer Referenz auf das zweite Kapitel: \cref{sec:latexumg}.
-
-
-\section{Aufzählungen}\label{sec:aufz}
-
-Folgendes Beispiel einer Aufzählung ohne Numerierung,
-\begin{itemize}
-\item Punkt 1
-\item Punkt 2
-\end{itemize}
-wurde erzeugt mit:
-\begin{verbatim}
-\begin{itemize}
-\item Punkt 1
-\item Punkt 2
-\end{itemize}
-\end{verbatim}
-
-Folgendes Beispiel einer Aufzählung mit Numerierung,
-\begin{enumerate}
-\item Punkt 1
-\item Punkt 2
-\end{enumerate}
-wurde erzeugt mit:
-\begin{verbatim}
-\begin{enumerate}
-\item Punkt 1
-\item Punkt 2
-\end{enumerate}
-\end{verbatim}
-
-Folgendes Beispiel einer Auflistung,
-\begin{description}
-\item[P1] Punkt 1
-\item[P2] Punkt 2
-\end{description}
-wurde erzeugt mit:
-\begin{verbatim}
-\begin{description}
-\item[P1] Punkt 1
-\item[P2] Punkt 2
-\end{description}
-\end{verbatim}
-
-
-\section{Erstellen einer Tabelle}\label{sec:tabellen}
-
-Ein Beispiel einer Tabelle:
-\begin{table}[h]
-  \begin{center}
-    \caption{Daten der Fahrzyklen ECE, EUDC, NEFZ.}\vspace{1ex}
-    \label{tab:tabnefz}
-    \begin{tabular}{ll|ccc}
-      \hline
-      Kennzahl & Einheit & ECE & EUDC & NEFZ \\ \hline \hline
-      Dauer & s & 780 & 400 & 1180 \\
-      Distanz & km & 4.052 & 6.955 & 11.007 \\
-      Durchschnittsgeschwindigkeit & km/h & 18.7 &  62.6 & 33.6 \\
-      Leerlaufanteil & \% & 36 & 10 & 27 \\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
-
-Die Tabelle wurde erzeugt mit:
+ Die Tabelle wurde erzeugt mit:
 \begin{verbatim}
 \begin{table}[h]
   \begin{center}
@@ -483,76 +506,6 @@ Die Tabelle wurde erzeugt mit:
 \end{table}
 \end{verbatim}
 
-
-\section{Einbinden einer Grafik}\label{sec:epsgraph}
-
-Das Einbinden von Graphiken kann wie folgt bewerkstelligt werden:
-\begin{verbatim}
-\begin{figure}
-  \centering \includegraphics[width=0.75\textwidth]{images/k_surf.pdf}
-  \caption{Ein Bild.}
-  \label{fig:k_surf}
-\end{figure}
-\end{verbatim}
-
-\begin{figure}
-  \centering \includegraphics[width=0.75\textwidth]{images/k_surf.pdf}
-  \caption{Ein Bild}
-  \label{pics:k_surf}
-\end{figure}
-
-oder bei zwei Bildern nebeneinander mit:
-\begin{verbatim}
-\begin{figure}
-  \begin{minipage}[t]{0.48\textwidth}
-    \includegraphics[width = \textwidth]{images/cycle_we.pdf}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[t]{0.48\textwidth}
-    \includegraphics[width = \textwidth]{images/cycle_ml.pdf}
-  \end{minipage}
-  \caption{Zwei Bilder nebeneinander.}
-  \label{pics:cycle}
-\end{figure}
-\end{verbatim}
-
-\begin{figure}
-  \begin{minipage}[t]{0.48\textwidth}
-    \includegraphics[width = \textwidth]{images/cycle_we.pdf}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[t]{0.48\textwidth}
-    \includegraphics[width = \textwidth]{images/cycle_ml.pdf}
-  \end{minipage}
-  \caption{Zwei Bilder nebeneinander}
-  \label{pics:cycle}
-\end{figure}
-
-
-\section{Mathematische Formeln}\label{sec:math}
-
-Einfache mathematische Formeln werden mit der equation-Umgebung
-erzeugt:
-\begin{equation}
-  p_{me0f}(T_e,\omega_e) \ = \ k_1(T_e) \cdot (k_2+k_3 S^2
-  \omega_e^2) \cdot \Pi_{\mathrm{max}} \cdot \sqrt{\frac{k_4}{B}} \, .
-  \label{eq:my_equation}
-\end{equation}
-
-Der Code dazu lautet:
-\begin{verbatim}
-\begin{equation}
-  p_{me0f}(T_e,\omega_e) \ = \ k_1(T_e) \cdot (k_2+k_3 S^2
-  \omega_e^2) \cdot \Pi_{max} \cdot \sqrt{\frac{k_4}{B}} \, .
-\end{equation}
-\end{verbatim}
-
-Mathematische Ausdrücke im Text werden mit \$formel\$ erzeugt (z.B.:
-$a^2+b^2=c^2$).
-
-Vektoren und Matrizen werden mit den Befehlen \texttt{\textbackslash
-  vec\{.\}} und \texttt{\textbackslash mat\{.\}} erzeugt
-(z.B. $\vec{v}$, $\mat{M}$).
 
 
 \section{Weitere nützliche Befehle}\label{sec:div}

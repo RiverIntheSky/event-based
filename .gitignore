@@ -4,3 +4,8 @@ include/matlab/
 .DS_Store
 ._.DS_Store
 libs/
+Report/**/*.out
+Report/**/*.log
+Report/**/*.aux
+Report/**/*.toc
+Report/_region_*
