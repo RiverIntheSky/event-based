@@ -2,6 +2,7 @@
 
 #include "event.h"
 #include "Map.h"
+#include <glog/logging.h>
 
 namespace ev {
 class Map;

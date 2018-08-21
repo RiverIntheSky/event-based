@@ -28,25 +28,25 @@ void Tracking::Track() {
     } else if(mState==OK) {
         estimate();
     }
-//    mState = LOST;
+
     if (mState == LOST) {
+        if (!relocalize(R, t, w, v)) {
+            R = cv::Mat::eye(3, 3, CV_64F);
+            t = cv::Mat::zeros(3, 1, CV_64F);
+            cv::Mat T = mCurrentFrame->getFirstPose();
+            R.copyTo(T.rowRange(0,3).colRange(0,3));
+            t.copyTo(T.rowRange(0,3).col(3));
+            mCurrentFrame->setFirstPose(T);
+            double d = Frame::gScale;
+            mCurrentFrame->setScale(d);
+            mCurrentFrame->w = cv::Mat::zeros(3, 1, CV_64F);
+            mCurrentFrame->v = cv::Mat::zeros(3, 1, CV_64F);
+            LOG(INFO) << t;
 
-        R = cv::Mat::eye(3, 3, CV_64F);
-        t = cv::Mat::zeros(3, 1, CV_64F);
-        cv::Mat T = mCurrentFrame->getFirstPose();
-        R.copyTo(T.rowRange(0,3).colRange(0,3));
-        t.copyTo(T.rowRange(0,3).col(3));
-        mCurrentFrame->setFirstPose(T);
-        double d = Frame::gScale;
-        mCurrentFrame->setScale(d);
-        mCurrentFrame->w = cv::Mat::zeros(3, 1, CV_64F);
-        mCurrentFrame->v = cv::Mat::zeros(3, 1, CV_64F);
-        LOG(INFO) << t;
-
-        relocalize(R, t, mCurrentFrame->w, mCurrentFrame->v);
-        LOG(INFO) << t;
-        LOG(INFO) << mCurrentFrame->getFirstPose();
-
+            relocalize(R, t, mCurrentFrame->w, mCurrentFrame->v);
+            LOG(INFO) << t;
+            LOG(INFO) << mCurrentFrame->getFirstPose();
+        }
     }
     mState = OK;
 

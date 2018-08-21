@@ -1,22 +1,18 @@
 #pragma once
 
-#include <okvis/VioParametersReader.hpp>
-#include <okvis/ThreadedKFVio.hpp>
+#include <okvis/Measurements.h>
 
 namespace ev {
     struct Event {
         /// \brief Default constructor.
         Event(): x(), y(), z(){}
 
-        // Event(const Event &event);
-
         /// \brief Constructor.
         Event(double x_, double y_, double z_, bool p_) {}
 
-    // private:
         double x;
         double y;
-        double z;
+        double z;        ///< Depth of the event; was designed for depth estimation, not implemented, set to 1
         bool p;          ///< Polarity, negative or positive
     };
 
@@ -25,7 +21,6 @@ namespace ev {
 
     struct eventFrameMeasurement {
         std::vector<EventMeasurement> events;
-        unsigned counter_w{0}; // counter for temporal window size
 
         eventFrameMeasurement() {}
     };

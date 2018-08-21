@@ -8,10 +8,9 @@
 #include <iomanip>
 #include <omp.h>
 
-#include <okvis/ImuFrameSynchronizer.hpp>
-#include <okvis/FrameSynchronizer.hpp>
+#include <okvis/Measurements.h>
+#include <okvis/ThreadsafeQueue.h>
 
-#include "Frontend.h"
 #include "Tracking.h"
 
 namespace ev {
@@ -27,8 +26,6 @@ class ThreadedEventIMU
 public:
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
-    typedef okvis::timing::Timer TimerSwitchable;
 
     ThreadedEventIMU(Parameters& parameters);
 

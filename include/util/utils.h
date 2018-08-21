@@ -7,7 +7,7 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
-#include <okvis/Measurements.hpp>
+#include <okvis/Measurements.h>
 #include <Eigen/Sparse>
 #include "glog/logging.h"
 #include <chrono>

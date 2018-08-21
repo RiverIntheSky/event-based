@@ -3,26 +3,22 @@
 #include "ThreadedEventIMU.h"
 #include <chrono>
 
-Eigen::MatrixXd ev::ComputeVarianceFunction::intensity = Eigen::MatrixXd::Zero(180, 240);
 ev::Parameters* ev::Optimizer::param = NULL;
 
 int main(int argc, char *argv[])
 {
-
-
     google::InitGoogleLogging(argv[0]);
 #ifndef NDEBUG
-    //FLAGS_alsologtostderr = 1;  // output LOG for debugging
     FLAGS_logtostderr = 1;  //Logs are written to standard error instead of to files.
 #endif
     FLAGS_colorlogtostderr = 1;
     FLAGS_logtostderr = 1;
 
     if (argc <= 1) {
-        LOG(ERROR) << "\nusage: " << "./event_based dataset_name window_size overlap_rate experiment_name\n"
+        LOG(ERROR) << "\nusage: " << "./event_based dataset_name window_size experiment_name\n"
                   << "example: " << "./event_based "
                   << "/home/weizhen/Documents/dataset/slider_hdr_close"
-                  << " 10000 0.5 x_only\n";
+                  << " 50000 test\n";
         return 1;
     }
 
@@ -57,15 +53,13 @@ int main(int argc, char *argv[])
     if (argc > 2) {
         parameters.window_size = atoi(argv[2]);
         if (argc > 3) {
-            parameters.step_size = std::floor(parameters.window_size * (1 - atof(argv[3])));
-            if (argc > 4) {
-                parameters.experiment_name = argv[4];
-                parameters.write_to_file = true;
-                std::string files_path;
-                files_path = parameters.path + "/" + parameters.experiment_name + "/" + std::to_string(parameters.window_size);
-                system(("rm -rf " + files_path).c_str());
-                system(("mkdir -p " + files_path).c_str());
-            }
+            parameters.experiment_name = argv[3];
+            parameters.write_to_file = true;
+            std::string files_path;
+            files_path = parameters.path + "/" + parameters.experiment_name + "/" + std::to_string(parameters.window_size);
+            // warning: this will rewrite the original file
+            system(("rm -rf " + files_path).c_str());
+            system(("mkdir -p " + files_path).c_str());
         }
     }
 

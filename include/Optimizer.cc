@@ -14,6 +14,21 @@ int Optimizer::count_map = 0;
 int Optimizer::height = 500;
 int Optimizer::width = 500;
 
+double Optimizer::variance_frame(const gsl_vector *vec, void *params) {
+    Frame* f = (Frame *) params;
+    cv::Mat src;
+
+    intensity(src, vec, f);
+    cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
+//    imwriteRescaled(src, "/home/weizhen/Documents/dataset/shapes_translation/map_reloc/4000/frame_" + std::to_string(count_frame) + ".jpg", NULL);
+    imshowRescaled(src, 1);
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(src, mean, stddev);
+    double cost = -std::pow(stddev[0], 2);
+
+    return cost;
+}
+
 double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     MapPoint* pMP = (MapPoint *) params;
     cv::Mat src, dst;
@@ -36,19 +51,70 @@ double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     return cost;
 }
 
-double Optimizer::variance_frame(const gsl_vector *vec, void *params) {
-    Frame* f = (Frame *) params;
+double Optimizer::f_frame(const gsl_vector *vec, void *params) {
+    Frame* frame = (Frame *) params;
     cv::Mat src;
-
-    intensity(src, vec, f);
+    intensity(src, vec, NULL, frame);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
-//    imwriteRescaled(src, "/home/weizhen/Documents/dataset/shapes_translation/map_reloc/4000/frame_" + std::to_string(count_frame) + ".jpg", NULL);
     imshowRescaled(src, 1);
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
     double cost = -std::pow(stddev[0], 2);
 
     return cost;
+}
+
+void Optimizer::df_frame(const gsl_vector *vec, void *params, gsl_vector* df) {
+    Frame* frame = (Frame *) params;
+    cv::Mat image, dimage;
+    Eigen::MatrixXd dIdw = Eigen::MatrixXd::Zero(height * width, vec->size);
+
+    intensity(image, vec, &dIdw, frame);
+    cv::GaussianBlur(image, image, cv::Size(0, 0), sigma, 0);
+    double mean = cv::mean(image)[0];
+    double area = height * width;
+    for (size_t i = 0; i != vec->size; i++) {
+        double di = 0;
+        Eigen::MatrixXd d = dIdw.col(i);
+        d.resize(height, width);
+        cv::eigen2cv(d, dimage);
+        cv::GaussianBlur(dimage, dimage, cv::Size(0, 0), sigma, 0);
+        double dmean = cv::mean(dimage)[0];
+        for (int r = 0; r < height; r++) {
+            for (int c = 0; c < width; c++) {
+                di -= (image.at<double>(r, c) - mean) * (dimage.at<double>(r, c) - dmean);
+            }
+        }
+        gsl_vector_set(df, i, di * 2 / area);
+    }
+}
+
+void Optimizer::fdf_frame(const gsl_vector *vec, void *params, double *f, gsl_vector* df) {
+    Frame* frame = (Frame *) params;
+    cv::Mat image, dimage;
+    Eigen::MatrixXd dIdw = Eigen::MatrixXd::Zero(height * width, vec->size);
+
+    intensity(image, vec, &dIdw, frame);
+    cv::GaussianBlur(image, image, cv::Size(0, 0), sigma, 0);
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(image, mean, stddev);
+    *f = -std::pow(stddev[0], 2);
+
+    double area = height * width;
+    for (size_t i = 0; i != vec->size; i++) {
+        double di = 0;
+        Eigen::MatrixXd d = dIdw.col(i);
+        d.resize(height, width);
+        cv::eigen2cv(d, dimage);
+        cv::GaussianBlur(dimage, dimage, cv::Size(0, 0), sigma, 0);
+        double dmean = cv::mean(dimage)[0];
+        for (int r = 0; r < height; r++) {
+            for (int c = 0; c < width; c++) {
+                di -= (image.at<double>(r, c) - mean[0]) * (dimage.at<double>(r, c) - dmean);
+            }
+        }
+        gsl_vector_set(df, i, di * 2 / area);
+    }
 }
 
 double Optimizer::variance_track(const gsl_vector *vec, void *params) {
@@ -94,6 +160,7 @@ double Optimizer::variance_relocalization(const gsl_vector *vec, void *params) {
 
     return cost;
 }
+
 
 void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K,
                      const Eigen::Vector3d& v, const Eigen::Vector3d& nc, const Eigen::Matrix3d& Rn, const Eigen::Matrix3d& H_) {
@@ -148,6 +215,93 @@ void Optimizer::fuse(cv::Mat& image, Eigen::Vector3d& p, bool polarity) {
     if (valid(x2, y2)) {
         double a = (x1 - p(0)) * (y1 - p(1)) * pol;
         image.ptr<double>(y2)[x2] += a;
+    }
+}
+
+void Optimizer::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K,
+                     const Eigen::Vector3d& v, const Eigen::Vector3d& nc, const Eigen::Matrix3d& H_) {
+
+    Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
+    Eigen::Matrix3d T = Eigen::Matrix3d::Identity() + v * t * nc.transpose();
+    Eigen::MatrixXd W = mPatchProjectionMat * H_ * T.inverse();
+    x_w = W * R.transpose() * x;
+    if (dW) {
+        dW->block(0, 0, 3, 3) = -t * W * skew(x);
+        dW->block(0, 3, 3, 3) =  W * (-t * nc.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1))[0] ;
+        *dW = (*dW - x_w * (*dW).row(2) / x_w(2)) / x_w(2);
+    }
+    x_w /= x_w(2);
+}
+
+void Optimizer::fuse(Eigen::MatrixXd* dIdW, Eigen::MatrixXd* dW, cv::Mat& image, Eigen::Vector3d& p, bool polarity) {
+    // range check
+    auto valid = [image](int x, int y)  -> bool {
+        return (x >= 0 && x < image.cols && y >= 0 && y < image.rows);
+    };
+
+    int pol = int(polarity) * 2 - 1;
+    int x1 = std::floor(p(0));
+    int x2 = x1 + 1;
+    int y1 = std::floor(p(1));
+    int y2 = y1 + 1;
+
+    int nVariables;
+    if (dIdW) {
+        nVariables = dIdW->cols();
+
+    }
+
+    if (valid(x1, y1)) {
+        double a = (x2 - p(0)) * (y2 - p(1)) * pol;
+        image.ptr<double>(y1)[x1] += a;
+
+        if (dIdW) {
+            Eigen::VectorXd d = Eigen::VectorXd::Zero(nVariables);
+            d += (p(1) - y2) * pol * dW->row(0);
+            d += (p(0) - x2) * pol * dW->row(1);
+            for (int i = 0; i != nVariables; i++) {
+                (*dIdW)(x1 * image.rows + y1, i) += d(i);
+            }
+        }
+    }
+
+    if (valid(x1, y2)) {
+        double a = -(x2 - p(0)) * (y1 - p(1)) * pol;
+        image.ptr<double>(y2)[x1] += a;
+        if (dIdW) {
+            Eigen::VectorXd d = Eigen::VectorXd::Zero(nVariables);
+            d += (-p(1) + y1) * pol * dW->row(0);
+            d += (-p(0) + x2) * pol * dW->row(1);
+            for (int i = 0; i != nVariables; i++) {
+                (*dIdW)(x1 * image.rows + y2, i) += d(i);
+            }
+        }
+    }
+
+    if (valid(x2, y1)) {
+        double a = - (x1 - p(0)) * (y2 - p(1)) * pol;
+        image.ptr<double>(y1)[x2] += a;
+        if (dIdW) {
+            Eigen::VectorXd d = Eigen::VectorXd::Zero(nVariables);
+            d += (-p(1) + y2) * pol * dW->row(0);
+            d += (-p(0) + x1) * pol * dW->row(1);
+            for (int i = 0; i != nVariables; i++) {
+                (*dIdW)(x2 * image.rows + y1, i) += d(i);
+            }
+        }
+    }
+
+    if (valid(x2, y2)) {
+        double a = (x1 - p(0)) * (y1 - p(1)) * pol;
+        image.ptr<double>(y2)[x2] += a;
+        if (dIdW) {
+            Eigen::VectorXd d = Eigen::VectorXd::Zero(nVariables);
+            d += (p(1) - y1) * pol * dW->row(0);
+            d += (p(0) - x1) * pol * dW->row(1);
+            for (int i = 0; i != nVariables; i++) {
+                (*dIdW)(x2 * image.rows + y2, i) += d(i);
+            }
+        }
     }
 }
 
@@ -274,6 +428,52 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Frame* frame) {
     }
 }
 
+void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd* dIdW, Frame* frame) {
+    image = cv::Mat::zeros(height, width, CV_64F);
+    // only works for planar scene!!
+    Eigen::Vector3d nw = Converter::toVector3d(frame->mpMap->getAllMapPoints().front()->getNormal());
+    Eigen::Matrix3d Rcw = Converter::toMatrix3d(frame->getRotation().t());
+    Eigen::Vector3d twc = Converter::toVector3d(frame->getTranslation()) / Frame::gScale;
+    Eigen::Vector3d nc = Rcw * nw;
+    Eigen::Matrix3d Rn = frame->mpMap->getAllMapPoints().front()->Rn;
+    Eigen::Matrix3d H_ = Rn * (Rcw * (Eigen::Matrix3d::Identity() + twc * nw.transpose())).inverse();
+
+    okvis::Time t0 = frame->mTimeStamp;
+
+    // velocity
+    Eigen::Vector3d w;
+    w << gsl_vector_get(vec, 0),
+         gsl_vector_get(vec, 1),
+         gsl_vector_get(vec, 2);
+
+    Eigen::Vector3d v;
+    v << gsl_vector_get(vec, 3),
+         gsl_vector_get(vec, 4),
+         gsl_vector_get(vec, 5);
+
+    double theta = -w.norm();
+
+    Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
+    if (theta != 0)
+        K = skew(w.normalized());
+
+    Eigen::MatrixXd dW = Eigen::MatrixXd::Zero(3, 6);
+    for (const auto EVit: frame->vEvents) {
+
+        Eigen::Vector3d p, point_warped;
+        p << EVit->measurement.x ,EVit->measurement.y, 1;
+
+        // project to first frame
+        if (dIdW) {
+            warp(&dW, point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
+            fuse(dIdW, &dW, image, point_warped, EVit->measurement.p);
+        } else {
+            warp(NULL, point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
+            fuse(NULL, NULL, image, point_warped, EVit->measurement.p);
+        }
+    }
+}
+
 void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf) {
     MapPoint* pMP = mf->mP;
     Frame* frame = mf->frame;
@@ -346,24 +546,20 @@ void Optimizer::intensity_relocalization(cv::Mat& image, const gsl_vector *vec, 
     // velocity
     Eigen::Vector3d w, v, Rwc_w, twc, nc;
 
-    w << gsl_vector_get(vec, 0),
-         gsl_vector_get(vec, 1),
-         gsl_vector_get(vec, 2);
+    w = Converter::toVector3d(frame->getAngularVelocity());
 
-    v << gsl_vector_get(vec, 3),
-         gsl_vector_get(vec, 4),
-         gsl_vector_get(vec, 5);
+    v = Converter::toVector3d(frame->getLinearVelocity());
 
-    Rwc_w << gsl_vector_get(vec, 6),
-             gsl_vector_get(vec, 7),
-             gsl_vector_get(vec, 8);
+    Rwc_w << gsl_vector_get(vec, 0),
+             gsl_vector_get(vec, 1),
+             gsl_vector_get(vec, 2);
 
     Eigen::Matrix3d Rcw = axang2rotm(Rwc_w).transpose();
     nc = Rcw * nw;
 
-    twc << gsl_vector_get(vec, 9),
-           gsl_vector_get(vec, 10),
-           gsl_vector_get(vec, 11);
+    twc << gsl_vector_get(vec, 3),
+           gsl_vector_get(vec, 4),
+           gsl_vector_get(vec, 5);
 
     Eigen::Matrix3d Rn = pMP->Rn;
     Eigen::Matrix3d H_ = Rn * (Rcw * (Eigen::Matrix3d::Identity() + twc * nw.transpose())).inverse();
@@ -674,7 +870,7 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
 
     if (inFrame)
     {
-        gsl_multimin_fminimizer *s = NULL;
+        gsl_multimin_fdfminimizer *s = NULL;
         gsl_vector *x;
 
         /* Starting point */
@@ -688,7 +884,8 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         gsl_vector_set(x, 4, v.at<double>(1));
         gsl_vector_set(x, 5, v.at<double>(2));
 
-        optimize_gsl(1, nVariables, variance_frame, frame, s, x, result, 100);
+//        optimize_gsl(1, nVariables, variance_frame, frame, s, x, result, 100);
+        gsl_fdf(f_frame, df_frame, fdf_frame, nVariables, frame, s, x, result);
 
         w.at<double>(0) = result[0];
         w.at<double>(1) = result[1];
@@ -921,19 +1118,18 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
 
 bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v) {
 
-    double scale = Frame::gScale + twc.dot(pMP->getNormal());
-    if (inFrame)
-    {
+//    double scale = Frame::gScale + twc.dot(pMP->getNormal());
+{
         int nVariables = 6;
         double result[nVariables] = {};
 
-        gsl_multimin_fminimizer *s = NULL;
+        gsl_multimin_fdfminimizer *s = NULL;
         gsl_vector *x;
 
         /* Starting point */
         x = gsl_vector_alloc(nVariables);
 
-        v /= scale;
+//        v /= scale;
 
         gsl_vector_set(x, 0, w.at<double>(0));
         gsl_vector_set(x, 1, w.at<double>(1));
@@ -943,7 +1139,8 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
         gsl_vector_set(x, 4, v.at<double>(1));
         gsl_vector_set(x, 5, v.at<double>(2));
 
-        optimize_gsl(1, nVariables, variance_frame, frame, s, x, result, 100);
+//        optimize_gsl(1, nVariables, variance_frame, frame, s, x, result, 100);
+        gsl_fdf(f_frame, df_frame, fdf_frame, nVariables, frame, s, x, result);
 
         w.at<double>(0) = result[0];
         w.at<double>(1) = result[1];
@@ -953,14 +1150,16 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
         v.at<double>(1) = result[4];
         v.at<double>(2) = result[5];
 
-        v *= scale;
+//        v *= scale;
+    frame->setAngularVelocity(w);
+    frame->setLinearVelocity(v);
     }
 
-    int nVariables = 12;
+    int nVariables = 6;
     double result[nVariables] = {};
 
     cv::Mat Rwc_w = rotm2axang(Rwc);
-    v /= scale;
+//    v /= scale;
 
     mapPointAndFrame params{pMP, frame};
     gsl_multimin_fminimizer *s = NULL;
@@ -969,39 +1168,23 @@ bool Optimizer::optimize(MapPoint* pMP, Frame* frame, cv::Mat& Rwc, cv::Mat& twc
     /* Starting point */
     x = gsl_vector_alloc(nVariables);
 
-    gsl_vector_set(x, 0, w.at<double>(0));
-    gsl_vector_set(x, 1, w.at<double>(1));
-    gsl_vector_set(x, 2, w.at<double>(2));
+    gsl_vector_set(x, 0, Rwc_w.at<double>(0));
+    gsl_vector_set(x, 1, Rwc_w.at<double>(1));
+    gsl_vector_set(x, 2, Rwc_w.at<double>(2));
 
-    gsl_vector_set(x, 3, v.at<double>(0));
-    gsl_vector_set(x, 4, v.at<double>(1));
-    gsl_vector_set(x, 5, v.at<double>(2));
+    gsl_vector_set(x, 3, twc.at<double>(0));
+    gsl_vector_set(x, 4, twc.at<double>(1));
+    gsl_vector_set(x, 5, twc.at<double>(2));
 
-    gsl_vector_set(x, 6, Rwc_w.at<double>(0));
-    gsl_vector_set(x, 7, Rwc_w.at<double>(1));
-    gsl_vector_set(x, 8, Rwc_w.at<double>(2));
+    optimize_gsl(0.1, nVariables, variance_relocalization, &params, s, x, result, 100);
 
-    gsl_vector_set(x, 9, twc.at<double>(0));
-    gsl_vector_set(x, 10, twc.at<double>(1));
-    gsl_vector_set(x, 11, twc.at<double>(2));
+    Rwc_w.at<double>(0) = result[0];
+    Rwc_w.at<double>(1) = result[1];
+    Rwc_w.at<double>(2) = result[2];
 
-    optimize_gsl(0.5, nVariables, variance_relocalization, &params, s, x, result, 100);
-
-    w.at<double>(0) = result[0];
-    w.at<double>(1) = result[1];
-    w.at<double>(2) = result[2];
-
-    v.at<double>(0) = result[3];
-    v.at<double>(1) = result[4];
-    v.at<double>(2) = result[5];
-
-    Rwc_w.at<double>(0) = result[6];
-    Rwc_w.at<double>(1) = result[7];
-    Rwc_w.at<double>(2) = result[8];
-
-    twc.at<double>(0) = result[9];
-    twc.at<double>(1) = result[10];
-    twc.at<double>(2) = result[11];
+    twc.at<double>(0) = result[3];
+    twc.at<double>(1) = result[4];
+    twc.at<double>(2) = result[5];
 
     // maybe count area rather than pixels is more stable??
     cv::Mat occupancy_map, occupancy_frame,
@@ -1097,6 +1280,51 @@ void Optimizer::optimize_gsl(double ss, int nv, double (*f)(const gsl_vector*, v
     gsl_vector_free(x);
     gsl_vector_free(step_size);
     gsl_multimin_fminimizer_free (s);
+}
+
+void Optimizer::gsl_fdf(double (*f)(const gsl_vector*, void*), void (*df)(const gsl_vector*, void*, gsl_vector*),
+                                 void (*fdf)(const gsl_vector*, void*, double *, gsl_vector *), int nv, void *params,
+                                 gsl_multimin_fdfminimizer* s, gsl_vector* x, double* res) {
+    const gsl_multimin_fdfminimizer_type *T = gsl_multimin_fdfminimizer_conjugate_fr;
+
+    gsl_multimin_function_fdf minex_func;
+
+    size_t it = 0;
+    int status;
+
+    minex_func.n = nv;
+    minex_func.f = f;
+    minex_func.df = df;
+    minex_func.fdf = fdf;
+    minex_func.params = params;
+
+    s = gsl_multimin_fdfminimizer_alloc(T, nv);
+
+    gsl_multimin_fdfminimizer_set(s, &minex_func, x, 1, 0.1);
+
+    do
+    {
+        it++;
+
+        status = gsl_multimin_fdfminimizer_iterate(s);
+
+        if (status)
+            break;
+
+        status = gsl_multimin_test_gradient (s->gradient, 1e-2);
+
+
+        if (status == GSL_SUCCESS)
+            printf ("Minimum found:\n");
+
+    }
+    while (status == GSL_CONTINUE && it < 100);
+
+    for (int i = 0; i < nv; i++)
+        res[i] = gsl_vector_get(s->x, i);
+
+    gsl_vector_free(x);
+    gsl_multimin_fdfminimizer_free (s);
 }
 
 }

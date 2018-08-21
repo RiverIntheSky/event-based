@@ -19,6 +19,12 @@ public:
     bool estimate();
     bool relocalize(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
     bool insertKeyFrame(shared_ptr<KeyFrame>& pKF);
+
+    /**
+     * \brief   Correct the distorted events of the currently tracked frame
+     * \return Returns true normally.
+     */
+
     bool undistortEvents();
 
 public:
