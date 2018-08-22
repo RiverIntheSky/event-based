@@ -28,7 +28,7 @@ pixel will be the sum of the polarities of all the events that are
 triggered at this pixel location within the window
 \begin{equation}
   \label{eq:intensity}
-  \mathcal{I}(\vec{x}) = \sum_1^N\pm_k(\vec{x}-\vec{x}_k),
+  \mathcal{I}(\vec{x}) = \sum_{k=1}^N\pm_k\delta(\vec{x}-\vec{x}_k),
 \end{equation}
 with $\pm_k$ and $\vec{x}_k$ denoting the polarity and pixel
 coordinates of the $k$th event, respectively. After warping the events
@@ -63,13 +63,15 @@ defined by
 
 \begin{equation}
   \label{eq:variance}
-  \mathrm{Var}\doteq\frac{1}{\mid\Omega\mid}\int_{\Omega}\left(\mathcal{I}\left(\vec{x}\right)-\mu\left(\mathcal{I}\left(\vec{x}\right)\right)\right)^2d\vec{x},
+  \mathrm{Var}\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)\doteq\frac{1}{\mid\Omega\mid}\int_{\Omega}\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)-\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)\right)^2d\vec{x},
 \end{equation}
-where $\mu\left(\mathcal{I}\left(\vec{x}\right)\right)$ is the average
+where $\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)$ is the average
 image intensity. Since our goal is to align events triggered from the
 same visual stimuli, the variance would be a very suitable metric, as
 a squared metric favors the configuration that projects as many events
 as possible to the same pixel.
+
+Intergral sum pixels
 
 \begin{figure}
   \begin{minipage}[t]{0.48\textwidth}
@@ -94,7 +96,7 @@ as possible to the same pixel.
 \subsection{Planar Homography}
 
 \label{sec:planar_homo}
-The warp function $\vec{x}'=\mat{W}(\vec{x},t;\theta)$ does not only
+The warp function $\vec{x}'=\mat{W}(\vec{x},t;\bm{\theta})$ does not only
 depend on the motion parameters, but also the scene parameters, which
 is the unknown depth.  In the case of a planar scene the problems
 simplifies, since a plane $\mathbf{P}$ can be parameterized by two
@@ -429,65 +431,64 @@ work
 One possible reason why the algorithm sometimes get lost is that there
 are too few textures available, as shown in
 \cref{fig:shapes_tr_lost}(a). At this time we usually need to rely on
-the relocalization or bundle adjustment pipeline. The current
-implementation needs a good initial guess, so it does not always work
+the relocalization pipeline. The current implementation of
+relocalization needs a good initial guess, so it does not alway work
 reliably.
 \begin{figure}
   \begin{minipage}[t]{0.48\textwidth}
     \centering \includegraphics[width =
-    \textwidth]{images/frame_00000520.png} (a) There is little texture
-    visible
+    \textwidth]{images/frame_00000520.png}
+      (a) There is little texture visible
   \end{minipage}
   \hfill
   \begin{minipage}[t]{0.48\textwidth}
     \centering \includegraphics[width =
-    \textwidth]{images/shapes_tr_lost.png} (b) Relocalized after get
-    lost (roll component)
+    \textwidth]{images/shapes_tr_lost.png}
+       (b) Relocalized after get lost (roll component)
   \end{minipage}
 
    \begin{minipage}[t]{0.48\textwidth}
-     \centering \includegraphics[width =
-     \textwidth]{images/map_956.jpg} (c) Polluted map after tracking
-     is lost
-   \end{minipage}
-   \caption{When tracking the dataset \textit{shapes\_translation}, we
-     always get lost at around $23 sec$, where only a small part of
-     the oval is visible (a). When later there are more textures
-     available, the camera has already moved some distance so that the
-     current estimation of the pose might already be far off. When the
-     algorithm confirms that there is little overlap between the
-     current frame and the map at this pose, it tries to insert a new
-     keyframe. However, because of the lack of a good initial guess,
-     this new keyframe won't necessarily conform to other already
-     inserted keyframes. The current implementation doesn't
-     reinitialize the map after the tracking is lost. The advantage is
-     that there is still chance to come back to the original map after
-     tracking a wrong \textit{local map} (b); the disadvantage is that
-     the global map will most likely be polluted by the \textit{local
-       map} (c)}
-   \label{fig:shapes_tr_lost}
- \end{figure}
+    \centering \includegraphics[width =
+    \textwidth]{images/map_956.jpg}
+     (c) Polluted map after tracking is lost
+  \end{minipage} \caption{When tracking the dataset \textit{shapes\_translation}, we
+    always get lost at around $23 sec$, where only a small part of the
+    oval is visible (a). When later there are more textures available,
+    the camera has already moved some distance so that the current
+    estimation of the pose might already be far off. The \textit{bundle adjustment }When the
+    algorithm confirms that there is little overlap between the
+    current frame and the map at this pose. it tries to insert a
+    keyframe and track from the new keyframe. The current
+    implementation doesn't reinitialize the map after the tracking is
+    lost. The advantage is that there is still chance to come back to
+    the original map after tracking a wrong ``local map'' (b); the
+    disadvantage is that the global map will most likely be polluted
+    by the ``local map'' (c)}
+  \label{fig:shapes_tr_lost}
+\end{figure}
 
- \section{Erstellen einer Tabelle}\label{sec:tabellen}
 
- Ein Beispiel einer Tabelle:
- \begin{table}[h]
-   \begin{center}
-     \caption{Daten der Fahrzyklen ECE, EUDC, NEFZ.}\vspace{1ex}
-     \label{tab:tabnefz}
-     \begin{tabular}{ll|ccc}
-       \hline
-       Kennzahl & Einheit & ECE & EUDC & NEFZ \\ \hline \hline
-       Dauer & s & 780 & 400 & 1180 \\
-       Distanz & km & 4.052 & 6.955 & 11.007 \\
-       Durchschnittsgeschwindigkeit & km/h & 18.7 &  62.6 & 33.6 \\
-       Leerlaufanteil & \% & 36 & 10 & 27 \\
-       \hline
-     \end{tabular}
-   \end{center}
- \end{table}
 
- Die Tabelle wurde erzeugt mit:
+\section{Erstellen einer Tabelle}\label{sec:tabellen}
+
+Ein Beispiel einer Tabelle:
+\begin{table}[h]
+  \begin{center}
+    \caption{Daten der Fahrzyklen ECE, EUDC, NEFZ.}\vspace{1ex}
+    \label{tab:tabnefz}
+    \begin{tabular}{ll|ccc}
+      \hline
+      Kennzahl & Einheit & ECE & EUDC & NEFZ \\ \hline \hline
+      Dauer & s & 780 & 400 & 1180 \\
+      Distanz & km & 4.052 & 6.955 & 11.007 \\
+      Durchschnittsgeschwindigkeit & km/h & 18.7 &  62.6 & 33.6 \\
+      Leerlaufanteil & \% & 36 & 10 & 27 \\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+Die Tabelle wurde erzeugt mit:
 \begin{verbatim}
 \begin{table}[h]
   \begin{center}
@@ -505,8 +506,6 @@ reliably.
   \end{center}
 \end{table}
 \end{verbatim}
-
-
 
 \section{Weitere nützliche Befehle}\label{sec:div}
 
