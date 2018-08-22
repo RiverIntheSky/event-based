@@ -8,26 +8,12 @@ Eigen::Matrix3d Optimizer::mPatchProjectionMat = Eigen::Matrix3d::Identity();
 Eigen::Matrix3d Optimizer::mCameraProjectionMat = Eigen::Matrix3d::Identity();
 bool Optimizer::inFrame = true;
 bool Optimizer::toMap = true;
+bool Optimizer::num_diff = false;
 int Optimizer::sigma = 1;
 int Optimizer::count_frame = 0;
 int Optimizer::count_map = 0;
 int Optimizer::height = 500;
 int Optimizer::width = 500;
-
-double Optimizer::variance_frame(const gsl_vector *vec, void *params) {
-    Frame* f = (Frame *) params;
-    cv::Mat src;
-
-    intensity(src, vec, f);
-    cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
-//    imwriteRescaled(src, "/home/weizhen/Documents/dataset/shapes_translation/map_reloc/4000/frame_" + std::to_string(count_frame) + ".jpg", NULL);
-    imshowRescaled(src, 1);
-    cv::Scalar mean, stddev;
-    cv::meanStdDev(src, mean, stddev);
-    double cost = -std::pow(stddev[0], 2);
-
-    return cost;
-}
 
 double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     MapPoint* pMP = (MapPoint *) params;
@@ -41,7 +27,6 @@ double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     // image = pMP->mBack;
     intensity(src, vec, pMP);
     cv::GaussianBlur(src, dst, cv::Size(0, 0), sigma, 0);
-//    imwriteRescaled(dst, "/home/weizhen/Documents/dataset/shapes_translation/map_reloc/4000/back_" + std::to_string(count_frame) + ".jpg", NULL);
     imshowRescaled(src, 1, "back_buffer");
     cv::Scalar mean, stddev;
     cv::meanStdDev(dst, mean, stddev);
@@ -117,19 +102,70 @@ void Optimizer::fdf_frame(const gsl_vector *vec, void *params, double *f, gsl_ve
     }
 }
 
-double Optimizer::variance_track(const gsl_vector *vec, void *params) {
+double Optimizer::f_track(const gsl_vector *vec, void *params) {
     mapPointAndFrame* mf = (mapPointAndFrame *) params;
     cv::Mat src;
-
-    intensity(src, vec, mf);
+    intensity(src, vec, NULL, mf);
     cv::GaussianBlur(src, src, cv::Size(0, 0), sigma, 0);
-     imshowRescaled(src, 1);
-
+    imshowRescaled(src, 1);
     cv::Scalar mean, stddev;
     cv::meanStdDev(src, mean, stddev);
     double cost = -std::pow(stddev[0], 2);
 
     return cost;
+}
+
+void Optimizer::df_track(const gsl_vector *vec, void *params, gsl_vector* df) {
+    mapPointAndFrame* mf = (mapPointAndFrame *) params;
+    cv::Mat image, dimage;
+    Eigen::MatrixXd dIdw = Eigen::MatrixXd::Zero(height * width, vec->size);
+
+    intensity(image, vec, &dIdw, mf);
+    cv::GaussianBlur(image, image, cv::Size(0, 0), sigma, 0);
+    double mean = cv::mean(image)[0];
+    double area = height * width;
+    for (size_t i = 0; i != vec->size; i++) {
+        double di = 0;
+        Eigen::MatrixXd d = dIdw.col(i);
+        d.resize(height, width);
+        cv::eigen2cv(d, dimage);
+        cv::GaussianBlur(dimage, dimage, cv::Size(0, 0), sigma, 0);
+        double dmean = cv::mean(dimage)[0];
+        for (int r = 0; r < height; r++) {
+            for (int c = 0; c < width; c++) {
+                di -= (image.at<double>(r, c) - mean) * (dimage.at<double>(r, c) - dmean);
+            }
+        }
+        gsl_vector_set(df, i, di * 2 / area);
+    }
+}
+
+void Optimizer::fdf_track(const gsl_vector *vec, void *params, double *f, gsl_vector* df) {
+    mapPointAndFrame* mf = (mapPointAndFrame *) params;
+    cv::Mat image, dimage;
+    Eigen::MatrixXd dIdw = Eigen::MatrixXd::Zero(height * width, vec->size);
+
+    intensity(image, vec, &dIdw, mf);
+    cv::GaussianBlur(image, image, cv::Size(0, 0), sigma, 0);
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(image, mean, stddev);
+    *f = -std::pow(stddev[0], 2);
+
+    double area = height * width;
+    for (size_t i = 0; i != vec->size; i++) {
+        double di = 0;
+        Eigen::MatrixXd d = dIdw.col(i);
+        d.resize(height, width);
+        cv::eigen2cv(d, dimage);
+        cv::GaussianBlur(dimage, dimage, cv::Size(0, 0), sigma, 0);
+        double dmean = cv::mean(dimage)[0];
+        for (int r = 0; r < height; r++) {
+            for (int c = 0; c < width; c++) {
+                di -= (image.at<double>(r, c) - mean[0]) * (dimage.at<double>(r, c) - dmean);
+            }
+        }
+        gsl_vector_set(df, i, di * 2 / area);
+    }
 }
 
 double Optimizer::variance_ba(const gsl_vector *vec, void *params) {
@@ -474,7 +510,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd
     }
 }
 
-void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf) {
+void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd* dIdW, mapPointAndFrame* mf) {
     MapPoint* pMP = mf->mP;
     Frame* frame = mf->frame;
 
@@ -511,23 +547,21 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFram
     if (theta != 0)
         K = ev::skew(w.normalized());
 
-//    LOG(INFO)<<"H_ " << H_;
-//    LOG(INFO)<<"K_ " << K;
-//    LOG(INFO)<<"v " << v;
-//    LOG(INFO)<<"nc " << nc;
-//    LOG(INFO)<<"theta " << theta;
-
+    Eigen::MatrixXd dW = Eigen::MatrixXd::Zero(3, 6);
     for (const auto EVit: frame->vEvents) {
 
         Eigen::Vector3d p, point_warped;
         p << EVit->measurement.x ,EVit->measurement.y, 1;
 
         // project to first frame
-        warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, false);
+        if (dIdW) {
+            warp(&dW, point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
+            fuse(dIdW, &dW, image, point_warped, false);
+        } else {
+            warp(NULL, point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
+            fuse(NULL, NULL, image, point_warped, false);
+        }
     }
-//         imshowRescaled(image, 0);
-
 }
 
 void Optimizer::intensity_relocalization(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf) {
@@ -695,15 +729,6 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndKeyF
         if (theta != 0)
             K = ev::skew(w.normalized());
 
-//        LOG(INFO) << "id " << KFit->mnId;
-//        LOG(INFO)<<"R_ " << Rcw;
-//        LOG(INFO)<<"twc " << twc;
-//        LOG(INFO)<<"w " << w;
-//        LOG(INFO)<<"v " << v;
-//        LOG(INFO)<<"nc " << nc;
-//        LOG(INFO)<<"theta " << theta;
-//        LOG(INFO) << "---------------------";
-
         for (const auto EVit: *(KFit->vEvents)) {
 
             Eigen::Vector3d p, point_warped;
@@ -757,15 +782,6 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, KeyFrame* kF) {
     Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
     if (theta != 0)
         K = ev::skew(w.normalized());
-
-//    LOG(INFO) << "id " << kF->mnId;
-//    LOG(INFO)<<"R_ " << Rcw;
-//    LOG(INFO)<<"twc " << twc;
-//    LOG(INFO)<<"w " << w;
-//    LOG(INFO)<<"v " << v;
-//    LOG(INFO)<<"nc " << nc;
-//    LOG(INFO)<<"theta " << theta;
-//    LOG(INFO) << "---------------------";
 
     for (const auto EVit: *(kF->vEvents)) {
 
@@ -870,7 +886,6 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
 
     if (inFrame)
     {
-        gsl_multimin_fdfminimizer *s = NULL;
         gsl_vector *x;
 
         /* Starting point */
@@ -884,8 +899,13 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         gsl_vector_set(x, 4, v.at<double>(1));
         gsl_vector_set(x, 5, v.at<double>(2));
 
-//        optimize_gsl(1, nVariables, variance_frame, frame, s, x, result, 100);
-        gsl_fdf(f_frame, df_frame, fdf_frame, nVariables, frame, s, x, result);
+        if (num_diff) {
+            gsl_multimin_fminimizer *s = NULL;
+            optimize_gsl(1, nVariables, f_frame, frame, s, x, result, 100);
+        } else {
+            gsl_multimin_fdfminimizer *s = NULL;
+            gsl_fdf(f_frame, df_frame, fdf_frame, nVariables, frame, s, x, result);
+        }
 
         w.at<double>(0) = result[0];
         w.at<double>(1) = result[1];
@@ -894,12 +914,14 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         v.at<double>(0) = result[3];
         v.at<double>(1) = result[4];
         v.at<double>(2) = result[5];
+
+//        LOG(INFO) << "\n frame w \n" << w;
+//        LOG(INFO) << "\n frame v \n" << v;
     }
 
     if (toMap) {
         mapPointAndFrame params{pMP, frame};
 
-        gsl_multimin_fminimizer *s = NULL;
         gsl_vector *x;
 
         /* Starting point */
@@ -913,7 +935,14 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         gsl_vector_set(x, 4, v.at<double>(1));
         gsl_vector_set(x, 5, v.at<double>(2));
 
-        optimize_gsl(0.5, nVariables, variance_track, &params, s, x, result, 100);
+        if (num_diff) {
+            gsl_multimin_fminimizer *s = NULL;
+            optimize_gsl(0.5, nVariables, f_track, &params, s, x, result, 100);
+        } else {
+            gsl_multimin_fdfminimizer *s = NULL;
+            gsl_fdf(f_track, df_track, fdf_track, nVariables, &params, s, x, result);
+        }
+//        optimize_gsl(0.5, nVariables, variance_track, &params, s, x, result, 100);
 
         w.at<double>(0) = result[0];
         w.at<double>(1) = result[1];
@@ -922,6 +951,9 @@ void Optimizer::optimize(MapPoint* pMP, Frame* frame) {
         v.at<double>(0) = result[3];
         v.at<double>(1) = result[4];
         v.at<double>(2) = result[5];
+
+//        LOG(INFO) << "\n track w \n" << w;
+//        LOG(INFO) << "\n track v \n" << v;
 
         if ((*(pMP->getObservations().cbegin()))->mnFrameId != frame->mnId - 1) {
 
@@ -1056,7 +1088,7 @@ bool Optimizer::optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF) {
     cv::bitwise_and(occupancy_frame, occupancy_map, occupancy_overlap);
     double overlap_rate = (double)cv::countNonZero(occupancy_overlap) / cv::countNonZero(occupancy_frame);
     LOG(INFO) << "key frame overlap " << overlap_rate;
-    if (overlap_rate < 0.3 || cv::countNonZero(occupancy_frame) < 10) {
+    if (overlap_rate < 0.5 || cv::countNonZero(occupancy_frame) < 10) {
         return false;
     }
 

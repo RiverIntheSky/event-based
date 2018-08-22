@@ -4,16 +4,6 @@
 namespace ev
 {
 
-std::vector<cv::Mat> Converter::toDescriptorVector(const cv::Mat &Descriptors)
-{
-    std::vector<cv::Mat> vDesc;
-    vDesc.reserve(Descriptors.rows);
-    for (int j=0;j<Descriptors.rows;j++)
-        vDesc.push_back(Descriptors.row(j));
-
-    return vDesc;
-}
-
 cv::Mat Converter::toCvMat(const Eigen::Matrix<double,4,4> &m)
 {
     cv::Mat cvMat(4,4,CV_64F);

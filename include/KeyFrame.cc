@@ -8,13 +8,11 @@ unsigned KeyFrame::nNextId = 0;
 
 KeyFrame::KeyFrame(Frame& F):
     // keyframe has the same motion model from the derived frame
-    mnFrameId(F.mnId), w(F.w), v(F.v), mTimeStamp(F.mTimeStamp), dt(F.dt) {
+    mnFrameId(F.mnId), w(F.w), v(F.v), mScale(F.mScale), mTimeStamp(F.mTimeStamp), dt(F.dt) {
     mnId = nNextId++;
-    // same pose??
     setFirstPose(F.getFirstPose());
     setLastPose(F.getLastPose());
     vEvents = &(F.vEvents);
-    mScale = F.mScale;
 }
 
 cv::Mat KeyFrame::getFirstPose()
@@ -33,16 +31,12 @@ void KeyFrame::setFirstPose(const cv::Mat &Twc_)
 {
     lock_guard<mutex> lock(mMutexPose);
     Twc_.copyTo(mTwc1);
-//    mRwc = mTwc1.rowRange(0,3).colRange(0,3);
-//    mtwc = mTwc1.rowRange(0,3).col(3);
 }
 
 void KeyFrame::setLastPose(const cv::Mat &Twc_)
 {
     lock_guard<mutex> lock(mMutexPose);
     Twc_.copyTo(mTwc2);
-//    mRwc = mTwc2.rowRange(0,3).colRange(0,3);
-//    mtwc = mTwc2.rowRange(0,3).col(3);
 }
 
 cv::Mat KeyFrame::getAngularVelocity() {

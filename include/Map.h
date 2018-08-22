@@ -26,9 +26,7 @@ public:
 
     mutex mMutexMapUpdate;
 
-
 protected:
-    // forward declaration doesn't work?
     struct idxOrder {
        template <class F>
        bool operator()(const std::shared_ptr<F>& lhs, const std::shared_ptr<F>& rhs) const {
@@ -38,7 +36,7 @@ protected:
     std::set<shared_ptr<MapPoint>> mspMapPoints;
     std::set<shared_ptr<KeyFrame>, idxOrder> mspKeyFrames;
 
-    // not yet sure if it's necessary to keep all frames
+    // maybe it's actually unnecessary to keep all frames
     std::set<shared_ptr<Frame>, idxOrder> mspFrames;
     mutex mMutexMap;
 };

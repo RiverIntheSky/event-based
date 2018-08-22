@@ -13,18 +13,18 @@ public:
         : mState(NOT_INITIALIZED), mK(K), mDistCoeffs(DistCoeffs), mpMap(mpMap_){}
 
     shared_ptr<Frame> getCurrentFrame();
+
     void Track();
+
+    // Debugging purpose; use this function to initialize the optimization near ground truth
     void Track(cv::Mat R, cv::Mat t, cv::Mat w, cv::Mat v);
+
     bool init();
     bool estimate();
     bool relocalize(cv::Mat& Rwc, cv::Mat& twc, cv::Mat& w, cv::Mat& v);
     bool insertKeyFrame(shared_ptr<KeyFrame>& pKF);
 
-    /**
-     * \brief   Correct the distorted events of the currently tracked frame
-     * \return Returns true normally.
-     */
-
+    // Correct the distorted events of the currently tracked frame
     bool undistortEvents();
 
 public:

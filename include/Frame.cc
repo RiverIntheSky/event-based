@@ -2,7 +2,9 @@
 
 namespace ev
 {
+// distance from first frame to the map
 double Frame::gScale = 1.;
+
 unsigned int Frame::nNextId = 0;
 
 // first pose of a frame is always set at construction
@@ -21,7 +23,12 @@ Frame::Frame(Frame &other): mpMap(other.mpMap), shouldBeKeyFrame(false){
     cv::Mat n = mpMap->getAllMapPoints().front()->getNormal();
     cv::Mat twc = getFirstPose().rowRange(0,3).col(3);
     mScale = gScale + twc.dot(n);
-    LOG(INFO) << mScale;
+
+    // This output is for debugging purpose. Sometimes the algorithm diverges and
+    // mScale becomes near zero, causing no events visible in the scene; there is
+    // no proper mechanismus to handle this situation yet.
+    LOG(INFO) << "dc " << mScale;
+
     w = other.w.clone();
     v = other.v.clone();
     ev::EventMeasurement* event = new ev::EventMeasurement();
@@ -42,15 +49,11 @@ cv::Mat Frame::getLastPose()
 void Frame::setFirstPose(const cv::Mat &Twc_)
 {
     Twc_.copyTo(mTwc1);
-//    mRwc = mTwc1.rowRange(0,3).colRange(0,3);
-//    mtwc = mTwc1.rowRange(0,3).col(3);
 }
 
 void Frame::setLastPose(const cv::Mat &Twc_)
 {
     Twc_.copyTo(mTwc2);
-//    mRwc = mTwc2.rowRange(0,3).colRange(0,3);
-//    mtwc = mTwc2.rowRange(0,3).col(3);
 }
 
 cv::Mat Frame::getAngularVelocity() {

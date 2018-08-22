@@ -44,7 +44,6 @@ public:
     std::set<EventMeasurement*, timeOrder>* vEvents;
 
     // Motion Model
-    // in world coord??
     cv::Mat w;
     cv::Mat v;
 

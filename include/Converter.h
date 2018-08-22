@@ -1,8 +1,8 @@
 #pragma once
 
-#include<opencv2/core/core.hpp>
+#include <opencv2/core/core.hpp>
 
-#include<Eigen/Dense>
+#include <Eigen/Dense>
 
 namespace ev
 {
@@ -10,10 +10,6 @@ namespace ev
 class Converter
 {
 public:
-    static std::vector<cv::Mat> toDescriptorVector(const cv::Mat &Descriptors);
-
-
-
     static cv::Mat toCvMat(const Eigen::Matrix<double,4,4> &m);
     static cv::Mat toCvMat(const Eigen::Matrix3d &m);
     static cv::Mat toCvMat(const Eigen::Matrix<double,3,1> &m);

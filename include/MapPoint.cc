@@ -7,7 +7,6 @@ namespace ev {
 mutex MapPoint::mGlobalMutex;
 
 MapPoint::MapPoint() {
-    // also pose??
     setNormalDirection(0, M_PI);  // normal (0, 0, -1)
                                   // psi \in (M_PI/2, 3*M_PI/2)
                                   // phi \in (0, 2 * M_PI)

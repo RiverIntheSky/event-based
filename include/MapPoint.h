@@ -18,6 +18,10 @@ struct idxOrder {
 };
 
 class MapPoint{
+    /**
+     *  \brief
+     *  A MapPoint is a plane with normal direction, position and texture
+     */
 public:
     MapPoint();
     void setWorldPos(const cv::Mat &Pos);
@@ -32,7 +36,13 @@ public:
     void addObservation(shared_ptr<KeyFrame>& pKF);
 
     std::set<shared_ptr<KeyFrame>, idxOrder>& getObservations();
+
+    // number of observations
     int observations();
+
+    // if the optimization is successful, we copy the image from back buffer to front buffer;
+    // otherwise, we copy the front buffer to the back buffer and restart the optimization
+    // process
     void swap(bool success);
 public:
     unsigned int mnId;
@@ -40,8 +50,8 @@ public:
     std::array<double, 2> mNormalDirection;
     cv::Mat mNormalVector;
 
-    // Synthetic image of the plane
-    // access not yet thread safe !!
+    // buffers to store the texture; mBack is the back buffer, will be constanly changed to
+    // compute the cost of different parameters; mFront is the optimized texture
     cv::Mat mFront;
     cv::Mat mBack;
 
@@ -59,7 +69,6 @@ public:
 protected:
     // a point on the plane, could be center of the patch
     cv::Mat mWorldPos;
-
 
     mutex mMutexPos;
 

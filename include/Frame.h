@@ -17,7 +17,7 @@ class Frame
 public:
     Frame(Map *pMap);
 
-    // initinize motion model from last frame
+    // initialize motion model from last frame
     Frame(Frame& other);
 
     void addEvent(EventMeasurement* event);
@@ -45,24 +45,22 @@ public:
     static unsigned int nNextId;
 
     // all events within keyframe
-
     std::set<EventMeasurement*, timeOrder> vEvents;
 
     // Motion Model
-    // in local coord, global scale, only an initial guess
     cv::Mat w;
     cv::Mat v;
 
     // scale
-    double mScale;
-    static double gScale;
+    double mScale; /* distance from current frame to the map */
+    static double gScale; /* distance from the first frame to the map */
 
     // camera pose of first event
     cv::Mat mTwc1;
     // camera pose of last event
     cv::Mat mTwc2;
 
-    // rotation and translation
+    // orientation and translation
     cv::Mat mRwc;
     cv::Mat mtwc;
 
@@ -75,6 +73,7 @@ public:
     // whether should be added to keyframe
     bool shouldBeKeyFrame;
 
+    // pointer to the map
     Map* mpMap;
 };
 }

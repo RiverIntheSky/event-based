@@ -30,6 +30,9 @@ public:
     double static f_frame(const gsl_vector *vec, void *params);
     void static df_frame(const gsl_vector *vec, void *params, gsl_vector* df);
     void static fdf_frame(const gsl_vector *vec, void *params, double *f, gsl_vector* df);
+    double static f_track(const gsl_vector *vec, void *params);
+    void static df_track(const gsl_vector *vec, void *params, gsl_vector* df);
+    void static fdf_track(const gsl_vector *vec, void *params, double *f, gsl_vector* df);
     void static optimize(MapPoint* pMP);
     void static optimize(MapPoint* pMP, Frame* frame);
     bool static optimize(MapPoint* pMP, shared_ptr<KeyFrame>& pKF);
@@ -53,10 +56,10 @@ public:
     // add event to frame via bilinear interpolation
     void static fuse(cv::Mat& image, Eigen::Vector3d& p_, bool polarity);
     void static fuse(Eigen::MatrixXd* dIdW, Eigen::MatrixXd* dW, cv::Mat& image, Eigen::Vector3d& p_, bool polarity);
-    void static intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd* dIdw, Frame* pF);
+    void static intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd* dIdW, Frame* pF);
     void static intensity(cv::Mat& image, const gsl_vector *vec, Frame* pF);
     void static intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP);
-    void static intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf);
+    void static intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd* dIdW, mapPointAndFrame* mf);
     void static intensity(cv::Mat& image, const double *vec, mapPointAndFrame* mf);
     void static intensity_relocalization(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf);
     void static intensity_relocalization(cv::Mat& image, const double *vec, mapPointAndFrame* mf);
@@ -73,5 +76,6 @@ public:
     static int count_map;
     static int width;
     static int height;
+    static bool num_diff;
 };
 }
