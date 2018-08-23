@@ -19,6 +19,7 @@
     "pdfpages"
     "packages/ethasl"
     "mathrsfs"
+    "algorithm2e"
     "bm")
    (LaTeX-add-bibliographies
     "bibliography/references"))
