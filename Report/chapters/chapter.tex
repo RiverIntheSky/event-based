@@ -322,7 +322,7 @@ the method described in \cref{sec:tracking}.
 As the camera moves, there might be new information available in the
 scene, so that the map needs to be expanded. After optimization for
 each single frame, we also measure the \textit{per-pixel-overlap}
-between the frame and the map, that is, how many percent pixels in the
+between the frame and the map,S that is, how many percent pixels in the
 frame can be explained by the map. The overlap might be small, when
 the camera is just exploring a new area so that only part of the frame
 and the map is overlapping; another possibility is that the map is not
@@ -368,6 +368,90 @@ use this map to start the \textit{relocalization} procedure.
 
 \section{Experiments}
 \label{sec:experiments}
+The algorithm is tested on four planar datasets provided by the
+\textit{Robotics and Perception Group} at UZH
+\citep{mueggler2017event}, which includes \textit{poster\_6dof,
+  poster\_translation, shapes\_6dof, shapes\_translation}. The
+\textit{shapes} dataset contains several simple shapes on the wall,
+whereas the \textit{poster} contains richer rock texture. A planar
+assumption is redundant for the rotation datasets and thus the results
+are not listed for comparison here.
+
+We define the camera axes as in \cref{fig:axes}. The camera coordinate
+frame of the first synthesized frame is set as the global coordinate
+frame. The x, y and z axes are also pitch yaw, roll axes,
+respectively.
+
+\begin{figure}
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width = \textwidth]{images/axes.png}
+    (a)
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/slider_groundtruth.png} (b)
+  \end{minipage}
+  \hfill
+  \caption{Axes definition}
+  \label{fig:axes}
+\end{figure}
+\Cref{fig:shapes_6dof_pose} shows the comparison of the results of the
+proposed method against ground truth on the whole \textit{shapes\_6dof}
+sequence.
+\begin{figure}
+  \begin{minipage}[t]{\textwidth}
+    \centering \includegraphics[trim={5cm 0cm 5cm 0cm},clip,width =
+    \textwidth]{images/shapes_6dof_rotation.png} (a) Orientation
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{\textwidth}
+    \centering \includegraphics[trim={5cm 0cm 5cm 0cm},clip,width =
+    \textwidth]{images/shapes_6dof_translation.png} (b) Translation
+  \end{minipage}
+  \hfill
+  \caption{Axes definition}
+  \label{fig:shapes_6dof_pose}
+\end{figure}
+
+
+\begin{table}[h]
+\begin{center}
+\caption{Quantitative evaluation on planar sequences}\vspace{1ex}
+\label{tab:err_est}
+\begin{tabular}{l|c|ccc}
+\hline
+  Dataset &
+            \begin{tabular}{c}Mean Orientation\\ Error/deg\\
+              \hline
+              \begin{tabular}{c|c|c}pitch&yaw&roll\end{tabular}\end{tabular}  &
+             \begin{tabular}{c}Mean Translation Error/m\\
+              \hline
+              \begin{tabular}{c|c|c}x&y&z\end{tabular}\end{tabular} &                                                                 EUDC & NEFZ \\ \hline \hline
+shapes\_6dof & s & 780 & 400 & 1180 \\
+shapes\_translation & km & 4.052 & 6.955 & 11.007 \\
+poster\_6dof& km/h & 18.7 & 62.6 & 33.6 \\
+poster\_translation& \% & 36 & 10 & 27 \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\begin{tabular}{lcccccccl}
+\hline
+  &\multicolumn{3}{c}{Mean Orientation}& \multicolumn{3}{c}{Mean Translation}&Travelled Distance&Note \\
+  Dataset&\multicolumn{3}{c}{Error/deg}& \multicolumn{3}{c}{Error/m}&\\
+\cline{2-9}
+    & pitch & yaw&roll&x&y&z&46.89& \\
+\hline
+Gnat      & per gram    & 13.65 &&&&&&     \\
+          & each        & 0.01   &&&&&&    \\
+Gnu       & stuffed     & 92.50  &&&&&&    \\
+Emu       & stuffed     & 33.33   &&&&&&   \\
+Armadillo & frozen      & 8.99    &&&&&&   \\
+\hline
+\end{tabular}
+
 Despite of the rapid movements, in the above datasets the camera
 actually only moves in a relative small region in front of the
 textured plane, as depicted in \cref{fig:shapes_6dof_path}. However,

@@ -35,8 +35,9 @@ In the case of planar homography the events warping is computed as
                % t)\vec{x}_k,
 \end{align}
 where $\mat{P}$ is the projection matrix from the camera frame to the
-world frame or the map. Also, for simplicity of notation we assume
-$d = 1$, and denote
+world frame or the map, which does not have to correspond with the
+camera matrix provided by the dataset. Also, for simplicity of
+notation we assume $d = 1$, and denote
 $\mat{P}\left(\mat{I}+\vec{v}t\vec{n}^\top\right)^{-1}$ as
 $\mat{P_v}$. Since $t$ usually spans a small temporal window, we can
 simplify the derivative with respect to angular velocity as
@@ -82,9 +83,9 @@ $\frac{\partial\vec{x}'_k}{\partial\bm{\theta}}$ as
   \label{eq:dxdtheta}
   \frac{\partial\vec{x}'_k}{\partial\bm{\theta}}=\frac{\partial\bar{\vec{x}}'_k}{\partial\bm{\theta}}\frac{1}{z'}-\bar{\vec{x}}'_k\frac{\partial z'}{\partial\bm{\theta}}\frac{1}{z'^2}
 \end{equation}
-Theoretically, the derivative of the Dirac delta
-$\nabla\delta(\vec{x})$ should be evaluated at each pixel location
-($240\times180$ for DAVIS) for each event. However, since we are using
+Theoretically, to evaluate the derivative of the cost function, the
+dirac delta $\nabla\delta(\vec{x})$ should be evaluated at each pixel
+location ($240\times180$ for DAVIS). However, since we are using
 bilinear voting, a infinitesimal change $d\vec{x}$ at an event
 location $\vec{x}$ will only affect the derivative evaluated at the
 four neighboring pixels of $\vec{x}$. An illustration is shown in
@@ -92,43 +93,60 @@ four neighboring pixels of $\vec{x}$. An illustration is shown in
 
 \begin{figure}
   \begin{minipage}[t]{0.48\textwidth}
-    \centering \includegraphics[width =
+    \centering \includegraphics[trim={1cm 7cm 18cm 1cm},clip,width =
     \textwidth]{images/bi_voting.pdf} (a) The intensity at a pixel
     location is the area of the rectangle spanned by the opposite
     pixel and the event location
   \end{minipage}
   \hfill
   \begin{minipage}[t]{0.48\textwidth}
-    \centering \includegraphics[width =
+    \centering \includegraphics[trim={18cm 7cm 1cm 1cm},clip,width =
     \textwidth]{images/bi_voting.pdf} (b) Intensity change after an
     infinitesimal movement of the event
   \end{minipage}
-  \caption{Bilear voting.}
+  \caption{Bilear voting}
   \label{fig:bi_voting}
 \end{figure}
-The detailed algorithms for the evaluation of the Dirac delta as well
-as its derivative is shown below
-\Input{A set of warped events $\mathscr{E}*\{e'_k\}_1^N$}
-\Output{The intensity at each pixel &\mathcal{I}(\vec{x})& as well as the derivative $\frac{\partial\mathcal{I}(\vec{x})}{\partial\vec{x}}$}
-Remap $L_{k-1}(\vec{u})$ to current pose and update $R_{k-1}(\vec{u})$  to get $L_k(\vec{u}),R_k(\vec{u})$ \;
-\ForEach{voxel block VB requested during swap-in}{
-	\ForEach{voxel in VB}{
-		get voxel global location $\vec{x}_{v,g}=h.\vec{pos}+\vec{x}_{v,VB}$\;
-		forward project $v$ to image plane with $\vec{u}=\pi\left(KT_{d,g}^{-1}\tilde{\vec{x}}_{v,g}\right)$\;
-		\If{$\vec{u}$ in current image}{
-			\uIf{$L_k(\vec{u})$ empty}{
-				$L_k(\vec{u})=\vec{x}_{v,g}+\mu.sdf.\vec{r}$\;
-				$R_k(\vec{u})=v.reliability$\;
-				}
-				\ElseIf{$v.reliability>R_k(\vec{u})$}{
-				$v.reliability=L_k(\vec{u})$\;
-				}
-		}
-	}
-}
-\caption{sIncremental Raycasting}
+The detailed algorithm for the evaluation of the Dirac delta as well
+as its derivative is shown in algorithm.~\ref{alg:bi_voting}. The
+behavior of the bilinear voting for derivatives is undefined when
+$\vec{x}_k'$ locates exactly at a pixel location. However, the
+possibility of this to happen is zero except when $t=0$, and can be
+solved by simply discarding the event or disturbing with a small
+random noise. When projecting back to the map, The author uses a
+project matrix with different focal lengths than the ones in the
+camera calibration matrix, so that there won't be event at integer
+pixel locations after warping.
+\begin{algorithm}
+  \label{alg:bi_voting}
+  \DontPrintSemicolon \SetAlgoLined \SetKwInOut{Input}{Input}
+  \SetKwInOut{Output}{Output} \Input{A warped event
+    $e'_k=\{x_k',y_k',t_k\}$} \Output{The \textit{Dirac delta}
+    $\delta(\vec{x}-\vec{x}'_k)$ as well as its derivative
+    $\frac{\partial\delta(\vec{x}-\vec{x}'_k)}{\partial\vec{x}'_k}$}
+  \hrule\; Let\;
+  $x^-=\lfloor x'_k\rfloor, x^+=\lceil x'_k\rceil,y^-=\lfloor
+  y'_k\rfloor, y^+=\lceil y'_k\rceil$\; Then\;
+  $\delta(x^--x'_k,y^--y'_k)=(x-x^+)(y-y^+)$\;
+  $\delta(x^--x'_k,y^+-y'_k)=-(x-x^+)(y-y^-)$\;
+  $\delta(x^+-x'_k,y^--y'_k)=-(x-x^-)(y-y^+)$\;
+  $\delta(x^+-x'_k,y^+-y'_k)=(x-x^-)(y-y^-)$\;
+  $\frac{\partial\delta(x^--x'_k,y^--y'_k)}{\partial
+    x'_k}=y-y^+,\frac{\partial\delta(x^--x'_k,y^--y'_k)}{\partial
+    y'_k}=x-x^+$\;
+  $\frac{\partial\delta(x^--x'_k,y^+-y'_k)}{\partial
+    x'_k}=-(y-y^-),\frac{\partial\delta(x^--x'_k,y^+-y'_k)}{\partial
+    y'_k}=-(x-x^+)$\;
+  $\frac{\partial\delta(x^+-x'_k,y^--y'_k)}{\partial
+    x'_k}=-(y-y^+),\frac{\partial\delta(x^+-x'_k,y^--y'_k)}{\partial
+    y'_k}=-(x-x^-)$\;
+  $\frac{\partial\delta(x^+-x'_k,y^+-y'_k)}{\partial
+    x'_k}=y-y^-,\frac{\partial\delta(x^+-x'_k,y^+-y'_k)}{\partial
+    y'_k}=x-x^-$\;
+  \caption{Bilinear Voting}
 \end{algorithm}
 \BlankLine
+By linearity of the mean and the derivative, gaussian smoothing
 
 However, a general nonlinear optimization is usually very hard,
 especially at bundle adjustment stage he jacobian matrix only measures
