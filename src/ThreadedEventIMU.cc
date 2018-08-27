@@ -23,8 +23,8 @@ void ThreadedEventIMU::init() {
     // the projection matrix to the map
     Optimizer::mCameraProjectionMat(0, 0) = 200;
     Optimizer::mCameraProjectionMat(1, 1) = 200;
-    Optimizer::mCameraProjectionMat(0, 2) = 250;
-    Optimizer::mCameraProjectionMat(1, 2) = 250;
+    Optimizer::mCameraProjectionMat(0, 2) = 300;
+    Optimizer::mCameraProjectionMat(1, 2) = 300;
     startThreads();
 }
 

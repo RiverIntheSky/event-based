@@ -60,6 +60,7 @@ public:
     void static intensity(cv::Mat& image, const gsl_vector *vec, Frame* pF);
     void static intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP);
     void static intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd* dIdW, mapPointAndFrame* mf);
+    // draw using the right parameter set
     void static intensity(cv::Mat& image, const double *vec, mapPointAndFrame* mf);
     void static intensity_relocalization(cv::Mat& image, const gsl_vector *vec, mapPointAndFrame* mf);
     void static intensity_relocalization(cv::Mat& image, const double *vec, mapPointAndFrame* mf);

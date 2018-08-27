@@ -12,8 +12,8 @@ bool Optimizer::num_diff = false;
 int Optimizer::sigma = 1;
 int Optimizer::count_frame = 0;
 int Optimizer::count_map = 0;
-int Optimizer::height = 500;
-int Optimizer::width = 500;
+int Optimizer::height = 600;
+int Optimizer::width = 600;
 
 double Optimizer::variance_map(const gsl_vector *vec, void *params) {
     MapPoint* pMP = (MapPoint *) params;
@@ -206,7 +206,7 @@ void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, d
     Eigen::Matrix3d H = R * (Eigen::Matrix3d::Identity() + v * t * nc.transpose());
     x_w = Rn * H_ * H.inverse() * x;
     x_w /= x_w(2);
-    x_w = mPatchProjectionMat * x_w;
+    x_w = mCameraProjectionMat * x_w;
 }
 
 void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, double theta, const Eigen::Matrix3d& K,
@@ -218,7 +218,7 @@ void Optimizer::warp(Eigen::Vector3d& x_w, const Eigen::Vector3d& x, double t, d
     x_w = H_ * H.inverse() * x;
     x_w /= x_w(2);
 //    x_w = mCameraProjectionMat * x_w;
-    x_w = mPatchProjectionMat * x_w;
+    x_w = mCameraProjectionMat * x_w;
 }
 
 void Optimizer::fuse(cv::Mat& image, Eigen::Vector3d& p, bool polarity) {
@@ -259,11 +259,11 @@ void Optimizer::warp(Eigen::MatrixXd* dW, Eigen::Vector3d& x_w, const Eigen::Vec
 
     Eigen::Matrix3d R = Eigen::Matrix3d::Identity() + std::sin(t*theta) * K + (1 - std::cos(t*theta)) * K * K;
     Eigen::Matrix3d T = Eigen::Matrix3d::Identity() + v * t * nc.transpose();
-    Eigen::MatrixXd W = mPatchProjectionMat * H_ * T.inverse();
-    x_w = W * R.transpose() * x;
+    Eigen::MatrixXd W = mCameraProjectionMat * H_ * T.inverse();
+    x_w = W * R * x;
     if (dW) {
         dW->block(0, 0, 3, 3) = -t * W * skew(x);
-        dW->block(0, 3, 3, 3) =  W * (-t * nc.transpose() * R.inverse() * x/ (t * nc.transpose() * v + 1))[0] ;
+        dW->block(0, 3, 3, 3) =  W * (-t * nc.transpose() * R * x/ (t * nc.transpose() * v + 1))[0] ;
         *dW = (*dW - x_w * (*dW).row(2) / x_w(2)) / x_w(2);
     }
     x_w /= x_w(2);
@@ -364,9 +364,9 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
              std::cos(psi);
 
         Eigen::Vector3d z;
-        z << 0, 0, 1;
-        Eigen::Vector3d v = (-nw).cross(z);
-        double c = -z.dot(nw);
+        z << 0, 0, -1;
+        Eigen::Vector3d v = nw.cross(z);
+        double c = z.dot(nw);
         Eigen::Matrix3d Kn = ev::skew(v);
         Eigen::Matrix3d Rn = Eigen::Matrix3d::Identity() + Kn + Kn * Kn / (1 + c);
 
@@ -422,48 +422,6 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, MapPoint* pMP) 
     }
 }
 
-void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Frame* frame) {
-    image = cv::Mat::zeros(height, width, CV_64F);
-    // only works for planar scene!!
-    Eigen::Vector3d nw = Converter::toVector3d(frame->mpMap->getAllMapPoints().front()->getNormal());
-    Eigen::Matrix3d Rcw = Converter::toMatrix3d(frame->getRotation().t());
-    Eigen::Vector3d twc = Converter::toVector3d(frame->getTranslation()) / Frame::gScale;
-    Eigen::Vector3d nc = Rcw * nw;
-    Eigen::Matrix3d Rn = frame->mpMap->getAllMapPoints().front()->Rn;
-    Eigen::Matrix3d H_ = Rn * (Rcw * (Eigen::Matrix3d::Identity() + twc * nw.transpose())).inverse();
-
-//    Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
-
-    okvis::Time t0 = frame->mTimeStamp;
-
-    // velocity
-    Eigen::Vector3d w;
-    w << gsl_vector_get(vec, 0),
-         gsl_vector_get(vec, 1),
-         gsl_vector_get(vec, 2);
-
-    Eigen::Vector3d v;
-    v << gsl_vector_get(vec, 3),
-         gsl_vector_get(vec, 4),
-         gsl_vector_get(vec, 5);
-
-    double theta = -w.norm();
-
-    Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
-    if (theta != 0)
-        K = ev::skew(w.normalized());
-
-    for (const auto EVit: frame->vEvents) {
-
-        Eigen::Vector3d p, point_warped;
-        p << EVit->measurement.x ,EVit->measurement.y, 1;
-
-        // project to first frame
-        warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, EVit->measurement.p);
-    }
-}
-
 void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd* dIdW, Frame* frame) {
     image = cv::Mat::zeros(height, width, CV_64F);
     // only works for planar scene!!
@@ -487,7 +445,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd
          gsl_vector_get(vec, 4),
          gsl_vector_get(vec, 5);
 
-    double theta = -w.norm();
+    double theta = w.norm();
 
     Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
     if (theta != 0)
@@ -518,7 +476,6 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd
     pMP->swap(false);
 
     // draw to back buffer
-    // test cv::addWeighted!!
     image = pMP->mBack;
 
     Eigen::Vector3d nw = Converter::toVector3d(pMP->getNormal());
@@ -541,7 +498,7 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, Eigen::MatrixXd
          gsl_vector_get(vec, 4),
          gsl_vector_get(vec, 5);
 
-    double theta = -w.norm();
+    double theta = w.norm();
 
     Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
     if (theta != 0)
@@ -646,7 +603,7 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, mapPointAndFrame* m
     w << vec[0], vec[1], vec[2];
     v << vec[3], vec[4], vec[5];
 
-    double theta = -w.norm();
+    double theta = w.norm();
 
     Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
     if (theta != 0)
@@ -658,8 +615,8 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, mapPointAndFrame* m
         p << EVit->measurement.x ,EVit->measurement.y, 1;
 
         // project to first frame
-        warp(point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
-        fuse(image, point_warped, false);
+        warp(NULL, point_warped, p, (EVit->timeStamp - t0).toSec(), theta, K, v, nc, H_);
+        fuse(NULL, NULL, image, point_warped, false);
     }
 }
 
@@ -680,9 +637,9 @@ void Optimizer::intensity(cv::Mat& image, const gsl_vector *vec, mapPointAndKeyF
          std::cos(psi);
 
     Eigen::Vector3d z;
-    z << 0, 0, 1;
-    Eigen::Vector3d v = (-nw).cross(z);
-    double c = -z.dot(nw);
+    z << 0, 0, -1;
+    Eigen::Vector3d v = nw.cross(z);
+    double c = z.dot(nw);
     Eigen::Matrix3d Kn = ev::skew(v);
     Eigen::Matrix3d Rn = Eigen::Matrix3d::Identity() + Kn + Kn * Kn / (1 + c);
 
@@ -754,9 +711,9 @@ void Optimizer::intensity(cv::Mat& image, const double *vec, KeyFrame* kF) {
           std::cos(psi);
 
     Eigen::Vector3d z;
-    z << 0, 0, 1;
-    Eigen::Vector3d nv = (-nw).cross(z);
-    double c = -z.dot(nw);
+    z << 0, 0, -1;
+    Eigen::Vector3d nv = nw.cross(z);
+    double c = z.dot(nw);
     Eigen::Matrix3d Kn = ev::skew(nv);
     Eigen::Matrix3d Rn = Eigen::Matrix3d::Identity() + Kn + Kn * Kn / (1 + c);
 
