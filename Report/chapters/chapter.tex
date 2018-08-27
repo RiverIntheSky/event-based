@@ -65,11 +65,19 @@ defined by
   \label{eq:variance}
   \mathrm{Var}\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)\doteq\frac{1}{\mid\Omega\mid}\int_{\Omega}\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)-\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)\right)^2d\vec{x},
 \end{equation}
-where $\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)$ is the average
-image intensity. Since our goal is to align events triggered from the
-same visual stimuli, the variance would be a very suitable metric, as
-a squared metric favors the configuration that projects as many events
-as possible to the same pixel.
+where $\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)$ is
+the average image intensity. If the scene has more or less balanced
+positive and negative events, the average will be close to
+zero. Actually, since we only want to distinguish the edges with the
+larger blank background, which indeed has zero intensity, we can also
+simply substitute
+$\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)$ with 0.
+
+The goal of measuring the contrast of an image is to find the
+configuration that aligns events triggered from the same visual
+stimuli; thus the variance \cref{eq:variance} would be a very suitable
+metric, as a squared metric favors the configuration that projects as
+many events as possible to the same pixel.
 
 Intergral sum pixels
 
@@ -549,6 +557,7 @@ are strictly local (see appendix). whereas a properly chosen step size for numer
 differentiation
 \begin{itemize}
 \item median\\
+  \item percent\\
   \item scene depth no drift\\
 \end{itemize}
 
@@ -643,9 +652,138 @@ to build a global map, delivering a result similar to \textit{image
 \chapter{A Discussion to 6DoF Motion Estimation in General 3D Scenes}
 \label{chap:general_scene}
 
+For general 3D scenes with complex scene structure, we may consider
+dividing the scene into multiple patches, and assume each patch is a
+plane.
 
+Without knowing which parts of the scene correspond to real planes in
+space, we may simply divide the image into $4\times3$ regular grids,
+assign each event to the grid it belongs with a different set of
+parameters (2 for plane normal and 1 for depth), and optimize the
+frame with one single motion model. Accounting for the scale
+ambiguity, this amount to $(3\times12+5=)41$ parameters for each
+\textit{per-frame} optimization. The scale ambiguity is solved by
+parametrizing the linear velocity with 2 parameters
+$(\phi,\psi)\in\mathbb{S}^2$ indicating its direction, the same as the
+parametrization of a plane normal. This parametrization can not
+describe zero velocity; however, for the hand-held datasets we tested
+on this is not a problem. \textcolor{red}{normalize \& fix one depth
+  value?} Note that we don't need to optimize each patch individually
+and sum the costs together, since the intensity computation
+\cref{eq:intensity} naturally sums all the events together so that we
+only need one cost function for one image. Also, the regions with
+fewer events have more pixels with zero intensity and thus have lower
+contribution to the cost function \cref{eq:variance}, so no extra
+weighting is needed.
 
-\subsection{note}
+In \cref{fig:patches_compr}, we compare the synthesized images before
+and after motion correction of some selective images in various
+sequences. After motion correction, the edges appear much sharper.
+
+Since each frame has a different scale, without a global map as in
+\cref{sec:frame2map}, it's hard to measure the accuracy of the linear
+velocity estimation. We first give the estimation of angular velocity
+in \cref{tab:err_est_planar}. Comparing line 1 with line 2, line 3 and
+line 4, we can see that for general 3D scenes, planar patches
+assumption delivers better result than assuming the whole scene as one
+single plane. Notice that planar patches assumption for general scene
+has a similar error magnitude as planar assumption for planar scenes
+(line 6 and 8). However, the angular velocity estimated by either
+planar or planar patches assumption can not achieve the accuracy when
+estimating scenes with rotation dominated movements (line 5 and 7).
+
+Without known scale for each frames, we can compare the angles between
+ground truth and estimated linear velocities. It turns out that for
+either planar scenes or planar patches assumption for general scenes,
+the mean angle is around $50\degree$, which is much larger than that
+of angular velocity, which is around $20\degree$. We guess that the
+window size is not large enough to provide a sufficient baseline for
+linear velocity estimation. But the window size can also not be chosen
+too large, otherwise the constant velocity assumption would fail. We
+already see in \cref{sec:planar_scenes} that the inaccuracy problem
+can be solved by building a map and track on the map over a
+distance. For general scenes -----
+
+\begin{figure}
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/zero_motion_934.jpg} (a)
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/optimized_934.jpg} (b)
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/zero_motion_1321.jpg} (c)
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/optimized_1321.jpg} (d)
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/zero_motion_2390.jpg} (e)
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/optimized_2390.jpg} (f)
+  \end{minipage}
+  \hfill
+  \caption{Test results on 3 sequences with 6DoF
+    motion. \textit{Left}: Accumulated events without motion
+    compensation. \textit{Right:} Images after motion compensation via
+    dividing scene into 12 regular grids. (a)(b)
+    \textit{dynamic\_6dof} sequence, with ground truth velocities
+    $\bm{\omega}=(-0.145;-3.761;1.925) rad/s,
+    \vec{v}=(0.313;0.855;0.326) m/s$. (c)(d) \textit{boxes\_6dof}
+    sequence, with ground truth velocities
+    $\bm{\omega}=(-1.357;0.981;4.577) rad/s,
+    \vec{v}=(2.805;0.538;-0.676) m/s$. (e)(f)
+    \textit{outdoors\_running} sequence, with no ground truth
+    information available.}
+  \label{fig:patches_compr}
+\end{figure}
+
+\begin{figure}
+\centering \includegraphics[width =
+\textwidth]{images/boxes_6dof_rotation.png}
+\label{fig:boxes_6dof_rotation}
+\caption{boxes 6dof rotation}
+\end{figure}
+
+\begin{table}[h]
+  \label{tab:err_est_planar}
+  \begin{center}
+    \begin{tabular}{rlccccl}
+      \hline
+      \multirow{3}{*}{No.}&\multirow{3}{*}{Dataset}&\multicolumn{3}{c}{Median Orientation}&\multirowcell{3}{Maximal\\Velocity\\(\degree/s)}&\multirow{3}{*}{Parametrization}\\
+                          &                     &\multicolumn{3}{c}{Error (\degree)}& &\\
+      \cline{3-5}
+                          &                    & pitch&  yaw & roll &          &                  \\
+      \hline\hline
+      1&dynamic\_6dof    & 20.88 & 21.60 & 18.08 & 509.37 & 6DoF, 12 patches \\
+      2&dynamic\_6dof    &  &  &  & 509.37 & 6DoF, planar assumption \\
+      3&boxes\_6dof      & 34.69 & 27.49 & 20.21 & 428.19 & 6DoF, 12 patches \\
+      4&boxes\_6dof      & 60.16 & 31.33 & 21.11 & 428.19 & 6DoF, planar assumption \\
+      5&boxes\_rotation  & 9.39 & 9.84 & 12.55 &679.78& 3DoF (angular velocity)\\
+      6&poster\_6dof     & 32.23 & 31.55 & 22.37  & 905.58 & 6DoF, planar assumption\\
+      7&poster\_rotation & 11.62 & 8.47  & 13.23  & 934.88 & 3DoF (angular velocity) \\
+      8&poster\_rotation & 36.45 & 27.00 & 26.14 &905.58& 6DoF, planar assumption\\
+
+      \hline
+    \end{tabular}
+  \end{center}
+  \caption{Comparison between planar assumption, planar patches
+    assumption and rotation only estimation. The maximal velocity
+    computes the maximal velocities among all three axes}
+\end{table}
+
 \label{sec:note}
 
 tried initialize with multiple frames, didn't work very
@@ -655,44 +793,6 @@ work
 \chapter{Discussion}
 \label{chap:discussion}
 
-
-\section{Erstellen einer Tabelle}\label{sec:tabellen}
-
-Ein Beispiel einer Tabelle:
-\begin{table}[h]
-  \begin{center}
-    \caption{Daten der Fahrzyklen ECE, EUDC, NEFZ.}\vspace{1ex}
-    \label{tab:tabnefz}
-    \begin{tabular}{ll|ccc}
-      \hline
-      Kennzahl & Einheit & ECE & EUDC & NEFZ \\ \hline \hline
-      Dauer & s & 780 & 400 & 1180 \\
-      Distanz & km & 4.052 & 6.955 & 11.007 \\
-      Durchschnittsgeschwindigkeit & km/h & 18.7 &  62.6 & 33.6 \\
-      Leerlaufanteil & \% & 36 & 10 & 27 \\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
-
-Die Tabelle wurde erzeugt mit:
-\begin{verbatim}
-\begin{table}[h]
-  \begin{center}
-    \caption{Daten der Fahrzyklen ECE, EUDC, NEFZ.}\vspace{1ex}
-    \label{tab:tabnefz}
-    \begin{tabular}{ll|ccc}
-      \hline
-      Kennzahl & Einheit & ECE & EUDC & NEFZ \\ \hline \hline
-      Dauer & s & 780 & 400 & 1180 \\
-      Distanz & km & 4.052 & 6.955 & 11.007 \\
-      Durchschnittsgeschwindigkeit & km/h & 18.7 &  62.6 & 33.6 \\
-      Leerlaufanteil & \% & 36 & 10 & 27 \\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
-\end{verbatim}
 
 \section{Weitere nützliche Befehle}\label{sec:div}
 
