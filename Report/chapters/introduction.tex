@@ -31,35 +31,39 @@ Since for an event-base camera there is no such thing as a frames,
 feature detection and tracking algorithms that work well for standard
 camera can not be directly applied to an event-based camera. There are
 several works that try to adopt feature detection and tracking
-pipelines. \citet{zhu2017event} aggregate a small number of
-events to construct a frame, and perform Harris corner detector
+pipelines. \citet{zhu2017event} aggregate a small number of events to
+construct a frame, and perform Harris corner detector
 \citep{harris1988combined} on the synthesized frames, then track the
 features with implicit data association. The work of
 \citet{tedaldi2016feature} detects features on the APS outputs, and
 performs tracking with the DVS outputs. Instead of working with
 frames, \citet{mueggler2017fast} detect corners directly in the
-spatiotemporal event stream.
+spatiotemporal event stream. There are also works that perform 3D
+reconstruction with known poses \citep{rebecq2016emvs} or 6-DoF
+tracking with a known map \citep{gallego2017event}, or both with the
+help of IMUS which is integrated on DAVIS
+\citep{rebecq2017real}. Besides, \citep{kim2016real,rebecq2017evo}
+perform 6-DoF tracking and 3D reconstruction purely based on event
+streams, with methods commonly applied in computer vision, for example
+DSI (disparity space image) or EKF (extended Kalman Filter). Newer
+works also combine machine learning and event-based camera
+\citep{orchard2015hfirst,maqueda2018event,zhu2018ev}
 
-algorithnm called EVO which iss proposed by Rebecq et al, try to
-define a set of keyframes and back project the events as rays through
-space. The region of high intensity marks the region of 3D edge
-candidate. The pose of the frames is provided via aligning the current
-frme with the map using Lukas Kanade method.
+\citet{gallego2017accurate} first proposes an interesting contrast
+maximization framework that is rather specific for event-based
+cameras. Without the help of any auxiliary variable such as optical
+flow or feature, this framework finds the optimal angular velocity
+that maximizes the contrast of a synthesized event frame via nonlinear
+optimization. Later in \citep{gallego2018unifying} they showed that
+the same framework can be applied to various important tasks in
+computer vision, such as motion, depth and optical flow estimation.
 
+This work is an extension of \citep{gallego2017accurate,
+  gallego2018unifying}. In these two works they showed how to estimate
+angular velocity in general scenes where only rotational motion is
+present, and 6-DoF motion in planar scenes with contrast maximization
+framework. In this work we will see that the same idea can be applied
+to perform SLAM (simultaneously localizing and mapping) in planar
+scenes, and motion estimation in general scenes with general motion.
 
-This are the works of Gallego et al that are most relevant to the work
-of my master thesis.   As shown in the above picture, Directly
-aggregating a set of events within a temporal window woulld cause a
-visual effect that is similar to motion blur, since the camera is
-moving and each event is happened at a different camera pose.   In
-their earlier work the method is only applicable in rotation only
-scenes, where they compensate the rotation via finding the angular
-velocity that generates the imege with the largest contrast. In their
-later works they also make it possible for 6DoF mition estimation in
-planar scene.   these are the kind of images that we are going to
-see throughout this work. The dark pixels correspond to a negative
-event, white pixels are positine evetns.
-
-
-Real-time 3D reconstruction and 6 DoF tracking with events only
-\citep{kim2016real,rebecq2017evo}
+The outline of this work is as follows:
