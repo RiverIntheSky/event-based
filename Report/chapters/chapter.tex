@@ -544,21 +544,21 @@ reasons for that:
 \end{figure}
 A quantitative error estimation is included in \cref{tab:err_est}. The
 window sizes for \textit{shapes} and \textit{poster} sequences are
-4000 and 30000, respectively. Also, we used the \textit{Nelder-Mead
-  Simplex} algorithm provided by \textit{gsl} to perform the
-optimization on \textit{shapes} sequences, and the
-\textit{Fletcher-Reeves conjugate gradient} algorithm to perform
+4000 and 30000, respectively. Also, we used the \textit{Nelder-Mead Simplex}
+algorithm provided by \textit{GNU-GSL}\citep{gough2009gnu}
+to perform the optimization on \textit{shapes} sequences, and the
+\textit{Fletcher-Reeves conjugate gradient}\citep{fletcher2013practical} algorithm to perform
 optimization on the \textit{poster} dataset. Both methods work. The
 analytic differentiation is faster and more stable. However, when the
 initial guess is further from the ground truth, the numeric
 differentiation seems to work better than the analytic
 differentiation, since the jacobians used for analytic differentiation
-are strictly local (see appendix). whereas a properly chosen step size for numeric
-differentiation
+are strictly local (see appendix). whereas a properly chosen step size
+for numeric differentiation
 \begin{itemize}
 \item median\\
-  \item percent\\
-  \item scene depth no drift\\
+\item percent\\
+\item scene depth no drift\\
 \end{itemize}
 
 \begin{table}[h]
@@ -695,8 +695,8 @@ estimating scenes with rotation dominated movements (line 5 and 7).
 Without known scale for each frames, we can compare the angles between
 ground truth and estimated linear velocities. It turns out that for
 either planar scenes or planar patches assumption for general scenes,
-the mean angle is around $50\degree$, which is much larger than that
-of angular velocity, which is around $20\degree$. We guess that the
+the mean angle is around \unit[50]{\degree}, which is much larger than that
+of angular velocity, which is around \unit[20]{\degree}. We guess that the
 window size is not large enough to provide a sufficient baseline for
 linear velocity estimation. But the window size can also not be chosen
 too large, otherwise the constant velocity assumption would fail. We
@@ -740,11 +740,11 @@ distance. For general scenes -----
     compensation. \textit{Right:} Images after motion compensation via
     dividing scene into 12 regular grids. (a)(b)
     \textit{dynamic\_6dof} sequence, with ground truth velocities
-    $\bm{\omega}=(-0.145;-3.761;1.925) rad/s,
-    \vec{v}=(0.313;0.855;0.326) m/s$. (c)(d) \textit{boxes\_6dof}
+    $\bm{\omega}=(-0.145;-3.761;1.925) \unitfrac{rad}{s},
+    \vec{v}=(0.313;0.855;0.326) \unitfrac{m}{s}$. (c)(d) \textit{boxes\_6dof}
     sequence, with ground truth velocities
-    $\bm{\omega}=(-1.357;0.981;4.577) rad/s,
-    \vec{v}=(2.805;0.538;-0.676) m/s$. (e)(f)
+    $\bm{\omega}=(-1.357;0.981;4.577) \unitfrac{rad}{s},
+    \vec{v}=(2.805;0.538;-0.676) \unitfrac{m}{s}$. (e)(f)
     \textit{outdoors\_running} sequence, with no ground truth
     information available.}
   \label{fig:patches_compr}
@@ -762,19 +762,18 @@ distance. For general scenes -----
   \begin{center}
     \begin{tabular}{rlccccl}
       \hline
-      \multirow{3}{*}{No.}&\multirow{3}{*}{Dataset}&\multicolumn{3}{c}{Median Orientation}&\multirowcell{3}{Maximal\\Velocity\\(\degree/s)}&\multirow{3}{*}{Parametrization}\\
-                          &                     &\multicolumn{3}{c}{Error (\degree)}& &\\
+      \multirow{3}{*}{No.}&\multirow{3}{*}{Dataset}&\multicolumn{3}{c}{Median Orientation}&\multirowcell{3}{Maximal\\Velocity\\(\unitfrac{\degree}{s})}&\multirow{3}{*}{Parametrization}\\
+                          &                     &\multicolumn{3}{c}{Error (\unit{\degree})}& &\\
       \cline{3-5}
                           &                    & pitch&  yaw & roll &          &                  \\
       \hline\hline
       1&dynamic\_6dof    & 20.88 & 21.60 & 18.08 & 509.37 & 6DoF, 12 patches \\
-      2&dynamic\_6dof    &  &  &  & 509.37 & 6DoF, planar assumption \\
-      3&boxes\_6dof      & 34.69 & 27.49 & 20.21 & 428.19 & 6DoF, 12 patches \\
-      4&boxes\_6dof      & 60.16 & 31.33 & 21.11 & 428.19 & 6DoF, planar assumption \\
-      5&boxes\_rotation  & 9.39 & 9.84 & 12.55 &679.78& 3DoF (angular velocity)\\
-      6&poster\_6dof     & 32.23 & 31.55 & 22.37  & 905.58 & 6DoF, planar assumption\\
-      7&poster\_rotation & 11.62 & 8.47  & 13.23  & 934.88 & 3DoF (angular velocity) \\
-      8&poster\_rotation & 36.45 & 27.00 & 26.14 &905.58& 6DoF, planar assumption\\
+      2&boxes\_6dof      & 34.69 & 27.49 & 20.21 & 428.19 & 6DoF, 12 patches \\
+      3&boxes\_6dof      & 60.16 & 31.33 & 21.11 & 428.19 & 6DoF, planar assumption \\
+      4&boxes\_rotation  & 9.39 & 9.84 & 12.55 &679.78& 3DoF (angular velocity)\\
+      5&poster\_6dof     & 32.23 & 31.55 & 22.37  & 905.58 & 6DoF, planar assumption\\
+      6&poster\_rotation & 11.62 & 8.47  & 13.23  & 934.88 & 3DoF (angular velocity) \\
+      7&poster\_rotation & 36.45 & 27.00 & 26.14 &905.58& 6DoF, planar assumption\\
 
       \hline
     \end{tabular}
@@ -790,15 +789,39 @@ tried initialize with multiple frames, didn't work very
 well. similarly sliding window didn't work; too many events didn't
 work
 
-\chapter{Discussion}
-\label{chap:discussion}
+\chapter{Conclusion and Outlook}
+\label{chap:conclusion}
 
+We found that the calibration matrix provided in
+\citep{mueggler2017event} is not very accurate, edges close to the
+upper left corner of the image always appear curved. We checked their
+provided calibration dataset, and found that the checkerboard has
+barely any corners in the upper left part of the image, which should
+be the reason why the undistortion in that area is not working
+well. This might be one of the causes why sometimes the image-to-model
+matching is not performing well. We also tried to cropped part of the
+image, but the resolution of DAVIS is relatively low (240$\times$180),
+cropping reduces the amount of information and does not work better.
 
-\section{Weitere nützliche Befehle}\label{sec:div}
+Usually the maps of \emph{shapes} and \emph{poster} sequences are done
+after 6 and 10 keyframes, respectively; as the number of keyframes
+increases, the size of the parameter set also increases (116
+parameters in the bundle adjustment phase with 10 keyframes), which
+makes the problem hard to optimize. For a least square optimizing
+problem, which is often encountered in visual odometry, the
+Levenberg-Marquardt algorithm\citep{press1988numerical} is a good
+iteration method. However, the cost function \cref{eq:variance} used
+in this work is a more general non-linear function, and thus harder to
+optimize. The Nelder-Mead Simplex algorithm\citep{nelder1965simplex}
+used in bundle adjustment phase is better suitable for problems with
+small parameter size, and the choice of the initial simplex size is
+important. In the per-frame optimization and frame-to-model matching
+phase we make use of the derivatives; both BFGS and conjugate gradient
+approximate the objective function by a quadratic hypersurface, thus
+work well only when the evaluation point is close enough to the
+optimum. For a more reliable tracking over a longer distance, we
+should consider if better strategies are available, for example
+optimize only a subset of the keyframes that are most important for
+the current frame or most recent, or try multiple starting points.
 
-Hervorhebungen im Text sehen so aus: \emph{hervorgehoben}. Erzeugt
-werden sie mit dem \texttt{\textbackslash epmh\{.\}} Befehl.
-
-Einheiten werden mit den Befehlen \texttt{\textbackslash unit[1]\{m\}}
-(z.B.~\unit[1]{m}) und \texttt{\textbackslash unitfrac[1]\{m\}\{s\}}
-(z.B.~\unitfrac[1]{m}{s}) gesetzt.
+DVS: 130 dB (~1 lux**); APS: 55 dB

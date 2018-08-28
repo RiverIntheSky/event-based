@@ -1,11 +1,65 @@
 \chapter{Introduction}
 \label{sec:introduction}
-%\chapter{Einleitung}
-%\label{sec:einleitung}
+% \chapter{Einleitung}
+% \label{sec:einleitung}
 
-2008 introduced \citep{lichtsteiner2008128}, later \citep{brandli2014240} with higher resolution and synchronous frames.
+Frame-based cameras that widely used in computer vision output images
+at a pre-set rate, even when the intensity values stay unchanged,
+resulting redundant data. When the scene moves too fast, an
+insufficient frame rate would cause motion blur. To address this
+problem, \citet{lichtsteiner2008128} presents an event-based camera
+called DVS (dynamic vision sensor) that reports pixel-level log
+intensity changes at a rate of \unit{MHz} scale. Unlike traditional
+cameras that outputs a frame until all the pixels are scanned, an
+event-based camera outputs are asynchronous: when the intensity change
+at a pixel reaches a threshold
+$\mid\ln{I(t)}-\ln{I(t-\Delta t)}\mid>C$, the sensor outputs an
+``event'' $e=\{x,y,t,p\}$, which includes the pixel coordinate
+$(x, y)$, the timestamp $t$ and the polarity $p=\pm1$ indicating
+positive or negative intensity change. The output is thus a stream of
+events instead of frames. Later \citet{brandli2014240} presents DAVIS
+(dynamic and active pixel vision sensor) that has additional APS
+(active pixel sensor) circuits that provides absolute intensity
+information, while offering DVS outputs with higher resolution
+(240$\times180$ against $128\times128$), higher dynamic range (130 dB
+against 120 dB) and lower latency (3 $\mu$s against 15 $\mu$s). Newer
+sensors also provide color
+information\citep{li2015design,moeys2018sensitive} or have higher
+image resolution\citep{son20174}.
+
+Since for an event-base camera there is no such thing as a frames,
+feature detection and tracking algorithms that work well for standard
+camera can not be directly applied to an event-based camera. There are
+several works that try to adopt feature detection and tracking
+pipelines. \citet{zhu2017event} aggregate a small number of
+events to construct a frame, and perform Harris corner detector
+\citep{harris1988combined} on the synthesized frames, then track the
+features with implicit data association. The work of
+\citet{tedaldi2016feature} detects features on the APS outputs, and
+performs tracking with the DVS outputs. Instead of working with
+frames, \citet{mueggler2017fast} detect corners directly in the
+spatiotemporal event stream.
+
+algorithnm called EVO which iss proposed by Rebecq et al, try to
+define a set of keyframes and back project the events as rays through
+space. The region of high intensity marks the region of 3D edge
+candidate. The pose of the frames is provided via aligning the current
+frme with the map using Lukas Kanade method.
 
 
-Feature detection and tracking with traditional computer vision algorithm \citep{mueggler2017fast,tedaldi2016feature,zhu2017event} event stream or frame,
+This are the works of Gallego et al that are most relevant to the work
+of my master thesis.   As shown in the above picture, Directly
+aggregating a set of events within a temporal window woulld cause a
+visual effect that is similar to motion blur, since the camera is
+moving and each event is happened at a different camera pose.   In
+their earlier work the method is only applicable in rotation only
+scenes, where they compensate the rotation via finding the angular
+velocity that generates the imege with the largest contrast. In their
+later works they also make it possible for 6DoF mition estimation in
+planar scene.   these are the kind of images that we are going to
+see throughout this work. The dark pixels correspond to a negative
+event, white pixels are positine evetns.
 
-Real-time 3D reconstruction and 6 DoF tracking with events only \citep{kim2016real,rebecq2017evo}
+
+Real-time 3D reconstruction and 6 DoF tracking with events only
+\citep{kim2016real,rebecq2017evo}
