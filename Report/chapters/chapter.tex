@@ -18,10 +18,11 @@ works naturally as an edge detector.
 \end{figure}
 Note that events can be triggered either by scene or camera motion. In
 this work we assume a static scene and a moving camera.
-
-If we aggregate all the events within a temporal window, depending on
-the size of the window we may get different results as in
-\cref{fig:window_size_3}. From now on we call such synthesized results as \emph{frames}.
+\section{From Events to Frame}
+\label{sec:event_warp}
+A single event does not give much information. If we aggregate all the
+events within a temporal window, depending on the size of the window
+we may get different results as in \cref{fig:window_size_3}.
 
 \begin{figure}[h]
   \begin{minipage}[t]{0.3\textwidth}
@@ -45,30 +46,9 @@ the size of the window we may get different results as in
     other out.}
   \label{fig:window_size_3}
 \end{figure}
-
-The temporal resolution of a DVS in \citep{brandli2014240} is
-\SI{1}{\micro s}; each event has a distinct timestamp, which also
-indicates that events happen at distinct camera poses. Instead of
-simply mingling events from different timestamps, a better strategy is
-to project the events along the motion path, which is clearly visible
-in \cref{fig:stream}, thus faithfully recover the scene edges at a
-given time.
-
-
-\section{From Events to Frame}
-\label{sec:event_warp}
-But how do we compute the motion path? Without additional motion
-capture devices, we have no access to the ground truth pose; it's also
-impossible to know the camera pose associated with each event, which
-happens at such a high rate. To simplify the problem, we assume that
-the camera moves at a constant velocity within a period, which is not
-a bad assumption if the temporal window is small enough. The next step
-is to find the velocity that best describes the events within this
-window.
-
 More specifically, we group a set of events
 $\mathscr{E}\doteq \{e_k\}_{k=1}^N$ within a certain temporal window,
-and synthesize a \emph{frame} by summing up the events. we simply sum
+and synthesize an image by summing up the events. If we simply sum
 along the time axis, the intensity at each pixel will be the sum of
 the polarities of all the events that are triggered at this pixel
 location within the window
@@ -77,28 +57,64 @@ location within the window
   \mathcal{I}(\vec{x}) = \sum_{k=1}^N\pm_k\delta(\vec{x}-\vec{x}_k),
 \end{equation}
 with $\pm_k$ and $\vec{x}_k$ denoting the polarity and pixel
-coordinates of the $k$th event, respectively.
+coordinates of the $k$th event, respectively. We call such synthesized
+results in \cref{fig:window_size_3} as \emph{frames}.
 
-If the motion and scene parameters within this window, then shift the
-window to the next set of events and repeat this process. The temporal
-window size is defined by the event numbers $N$, which should be
-chosen small enough so that a constant velocity model could be applied
-within this window. We choose event numbers against a fixed time
-interval to define the window size, because this corresponds to the
-data-driven nature of an event-based camera: the more rapid the
-apparent motion of the scene is, the larger the event rate will be. If
-the scene stops moving, no events will be generated, the pose will
-also not be further updated.
+The temporal resolution of a DVS in \citep{brandli2014240} is
+\SI{1}{\micro s}; each event has a distinct timestamp, which also
+indicates that events happen at distinct camera poses. Instead of
+simply summing up events from different timestamps, a better strategy
+is to project the events along the motion path, which is clearly
+visible in \cref{fig:stream}, thus faithfully recover the scene edges
+at a given time.
 
-If After warping the events with
-$\vec{x}'_k=\mat{W}(\vec{x}_k,t;\theta)$, we substitute $\vec{x}_k$ in
-the above equation to $\vec{x}'_k$.
+But how do we compute the motion path? Without additional motion
+capture devices, we have no access to the ground truth pose; it's also
+impossible to know the camera pose associated with each event, which
+happens at such a high rate. To simplify the problem, we assume that
+the camera moves at a constant velocity within an interval, which is
+not a bad assumption if this interval is small enough. This group of
+events are warped by the same model
+$\vec{x}'_k=\mat{W}(\vec{x}_k,t_k;\theta)$, and the $\vec{x}_k$ in the
+intensity computation \cref{eq:intensity} is substitute by
+$\vec{x}'_k$. We find the optimal parameters $\theta$ that best
+describes the events within this window, then shift the window to the
+next set of events, and repeat this process.
+
+There are several strategies available on choosing the window size. We
+may group events by
+\begin{enumerate}
+\item a fixed time interval $\Delta t$,\\
+\item a fixed number of events $N$ per subset,\\
+\item dynamically adjusting the window size according to the current
+  velocity.
+\end{enumerate}
+The first strategy is used in \citep{maqueda2018event}, they also
+gives the comparison on different choice of window sizes. This might
+be a good strategy when the motion estimation is needed at a fixed
+rate. However, it suffers from the same problem as the traditional
+camera, that is, it keeps producing redundant frames when no motion is
+present. Also, a fixed time interval can not well compromise between
+slow motion and rapid motion. Event cameras are data-driven cameras,
+the output depends on the motion and the scene complexity, thus the
+other two strategies are more favorable. \citep{zhu2017event} uses the
+\emph{lifetime}\citep{mueggler2015lifetime} of the event to define the
+window size, which depends on the event's velocity on the image
+plane. Since the datasets we tested on each observes a same scene, the
+scene complexity also stays almost the same within a certain
+sequence. Thus we opt for the second strategy, and manually choose the
+window size for each sequence.
+% when the camera stops moving, no events will be generated, the pose
+% will also not be further updated.
 
 \section{Measuring the Sharpness of an Image}
 \label{sec:contrast}
-There are several metrics one could choose from to measure the
-contrast of an image. A local contrast metric could be, for example,
-convoluting the image with a high pass filter
+There are several metrics one could choose from to measure how well a
+warp $\mat{W}$ is. Intuitively, the image would appear sharp if the
+events are warped along its trajectory, otherwise motion-blurred.
+
+the contrast of an image. A local contrast metric could be, for
+example, convoluting the image with a high pass filter
 \begin{equation}
   \label{eq:high_pass_filter}
   \mathcal{C}_H=
