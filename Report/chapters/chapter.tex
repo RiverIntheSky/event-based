@@ -227,11 +227,22 @@ projected on the image plane via
     X\\Y\\Z
   \end{bmatrix}
   =
-  \frac{1}{Z}\mat{K}\vec{X}
+  \frac{1}{Z}\mat{K}\vec{X},
 \end{equation}
+with $\mat{K}$ denoting the camera \emph{intrinsic matrix}, and
+$f_x, f_y$ its focal lengths and $(c_x, c_y)$ the principal point.
 
+Consider warping the events within the timespan $[t_0,t_N]$, and $e_k$
+is an event happened in this timespan with $0<k<N$. The camera pose at
+$t_k$ relative to that at $t_0$ is
+$\mat{T}_{0k}=(\mat{R}_{0k},\vec{t}_{0k})\in SE(3)$, then the 3D point associated with $e_k$ is projected on the image plane at $t_0$ via
+\begin{align}
+  \label{eq:per_frame_warp}
+\vec{X}_k&=Z_k\mat{K}^\top\vec{x}_k\\
+  \vec{X_0}&=\mat{R}_{0k}\vec{X}_k+\vec{t}_{0k}\\
+  \vec{x}_0&=\mat{K}\vec{X}_0/Z_0\\
 
-
+\end{align}
 
 \subsection{Planar Homography}
 
