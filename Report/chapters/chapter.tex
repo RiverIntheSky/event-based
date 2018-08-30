@@ -184,7 +184,7 @@ many events as possible to the same pixel.
 
 
 
-\chapter{6DoF Pose Tracking in Planar Scenes}
+\chapter{6-DoF Pose Tracking in Planar Scenes}
 \label{chap:planar_scenes}
 
 % Throughout this work the following notation is employed: $W$ denotes
@@ -208,11 +208,11 @@ with $\vec{X}_w$ and $\vec{X}_c$ the coordinate with respect to the
 world frame and camera frame, respectively. $\vec{x}$ denotes a 2D
 coordinate on the image plane.
 
-Assume the camera distortion has been removed, a point $\vec{X}$ is
+Assume the lens distortion has been removed, a point $\vec{X}$ is
 projected on the image plane via
 \begin{equation}
   \label{eq:camera_proj}
-  \vec{x}=
+  \bar{\vec{x}}=
   \begin{bmatrix}
     x\\y\\1
   \end{bmatrix}
@@ -229,54 +229,69 @@ projected on the image plane via
   =
   \frac{1}{Z}\mat{K}\vec{X},
 \end{equation}
-with $\mat{K}$ denoting the camera \emph{intrinsic matrix}, and
-$f_x, f_y$ its focal lengths and $(c_x, c_y)$ the principal point.
+with $\mat{K}$ denoting the camera \emph{intrinsic matrix}, $f_x, f_y$
+being its focal lengths and $(c_x, c_y)$ the principal point, and
+$\bar{\vec{x}}$ is the homogeneous coordinate of $\vec{x}$. We write
+$\tilde{\vec{x}}=\mat{K}^{-1}\bar{\vec{x}}$ and call it the
+\emph{calibrated coordinates}.
 
 Consider warping the events within the timespan $[t_0,t_N]$, and $e_k$
-is an event happened in this timespan with $0<k<N$. The camera pose at
-$t_k$ relative to that at $t_0$ is
-$\mat{T}_{0k}=(\mat{R}_{0k},\vec{t}_{0k})\in SE(3)$, then the 3D point associated with $e_k$ is projected on the image plane at $t_0$ via
+is an event happened in this timespan with $0<k<N$. Assume the camera
+pose at $t_k$ relative to that at $t_0$ is
+$\mat{T}_{0k}=(\mat{R}_{0k},\vec{t}_{0k})\in SE(3)$, then the 3D point
+associated with $e_k$ is projected on the image plane at $t_0$ via
 \begin{align}
-  \label{eq:per_frame_warp}
-\vec{X}_k&=Z_k\mat{K}^\top\vec{x}_k\\
-  \vec{X_0}&=\mat{R}_{0k}\vec{X}_k+\vec{t}_{0k}\\
-  \vec{x}_0&=\mat{K}\vec{X}_0/Z_0\\
-
+  \vec{X}_k&=Z_k\tilde{\vec{x}}_k\\
+  \vec{X}_0&=\mat{R}_{0k}\vec{X}_k+\vec{t}_{0k}\label{eq:3d_warp}\\
+  \tilde{\vec{x}}_0&=\vec{X}_0/Z_0\\
+  \Rightarrow\tilde{\vec{x}}_0&\sim\mat{R}_{0k}Z_k\tilde{\vec{x}}_k+\vec{t}_{0k},\label{eq:2d_warp}
 \end{align}
+where $\sim$ means equality up to a non-zero scale
+factor. \Cref{eq:2d_warp} indicates that a warp $\mat{W}$ does
+not only depend on the motion parameters $(\mat{R},\vec{t})$, but also
+the unknown depth of an event. It's intractable to also add the depths
+of every event to the parameter set $\bm{\theta}$; we need further
+simplifications.
 
-\subsection{Planar Homography}
-
+\section{Planar Homography}
 \label{sec:planar_homo}
-The warp function $\vec{x}'=\mat{W}(\vec{x},t;\bm{\theta})$ does not
-only depend on the motion parameters, but also the scene parameters,
-which is the unknown depth.  In the case of a planar scene the
-problems simplifies, since a plane $\mathbf{P}$ can be parameterized
-by two sets of parameters: $\vec{n}\in\mathbb{S}^2$ the unit surface
-normal of $\mathbf{P}$ with respect to the current camera frame, and
-$d$ the distance from the camera center to $\mathbf{P}$. The warp
-function then becomes
+In the case of a planar scene the warping \cref{eq:2d_warp}
+simplifies, since a plane $\mathbf{P}$ can be parameterized by only
+two sets of parameters $(\vec{n}, d)$, with $\vec{n}\in\mathbb{S}^2$
+being the unit surface normal of $\mathbf{P}$ with respect to the
+camera frame, and $d$ the distance from the camera center to
+$\mathbf{P}$. A point $\vec{X}$ on the plane $\mathbf{P}$ is described
+by
+\begin{equation}
+  \label{eq:point_on_plane}
+  \vec{n}^\top\vec{X}-d=0.
+\end{equation}
+Substitute \cref{eq:point_on_plane} in \cref{eq:3d_warp} we get
 \begin{align}
-  \vec{X}'=&\mat{R}(t)\vec{X}+\vec{T}(t)\\
-  \vec{X}=&\mat{R}(t)^\top\left(\vec{X}'-\vec{T}(t)\right)\\
-  \vec{X}=&\mat{R}(t)^\top\left(\mat{I}+\vec{T}(t)\vec{n}^\top/d\right)\vec{X}',  \label{eq:planar_homo_0}
+  \vec{X}_0&=\mat{R}_{0k}\vec{X}_k+\vec{t}_{0k}\nonumber\\
+  \vec{X}_k&=\mat{R}_{0k}^\top\left(\vec{X}_0-\vec{t}_{0k}\right)\\
+  \vec{X}_k&=\mat{R}_{0k}^\top\left(\mat{I}_3+\vec{t}_{0k}\vec{n}^\top/d\right)\vec{X}_0.
 \end{align}
-thus
-$\vec{x}'\sim\left(\mat{R}(t)^\top\left(\mat{I}+\vec{T}(t)\vec{n}^\top/d\right)\right)^{-1}\vec{x}$.
-Here $(\mat{R}(t), \vec{T}(t))\in SE(3)$ denotes the relative pose
-between two cameras at which the current event being warped and the
-first event within the window happened, and $t$ is the relative
-timestamp with respect to the first event. Under a constant velocity
-model with linear velocity $\vec{v}\in\mathbb{R}^3$ and angular
-velocity $\bm{\omega}\in\mathbb{R}^3$, the translation is given by
+We denote
+\begin{equation}
+  \label{eq:h_rt}
+  \mat{H}=\mat{R}_{0k}^\top\left(\mat{I}_3+\vec{t}_{0k}\vec{n}^\top/d\right)
+\end{equation}
+as the planar homography, thus the warping function simplifies to
+$\tilde{\vec{x}}_0\sim\mat{H}^{-1}\tilde{\vec{x}}_k$.
+
+Under a constant velocity model with linear velocity
+$\vec{v}\in\mathbb{R}^3$ and angular velocity
+$\bm{\omega}\in\mathbb{R}^3$, the translation is given by
 \begin{equation}
   \label{eq:translation}
-  \vec{T}(t)=\vec{v}t,
+  \vec{t}_{0k}=\vec{v}t_k,
 \end{equation}
 the rotation matrix is given by the \textit{exponential map} exp:
 $\mathfrak{so}(3)\rightarrow SO(3)$:
 \begin{equation}
   \label{eq:rotation}
-  \mat{R}(t)=\mathrm{exp}(\bm{\omega}^\wedge t),
+  \mat{R}_{0k}=\mathrm{exp}(\bm{\omega}^\wedge t_k),
 \end{equation}
 where $^\wedge$ is the \textit{hat} operator
 \begin{equation}
@@ -296,22 +311,23 @@ where $^\wedge$ is the \textit{hat} operator
 
 \section{From Frames to Map}
 \label{sec:frame2map}
-The contrast maximization procedure in the above section optimizes the
-relative pose between successive frames. We show in this section that
-the same idea can be applied to perform global pose tracking in planar
-scenes. We first explain how the map is defined, and how to track a
-known map, then we shown how this map is built by selecting a set of
-keyframes.
+The contrast maximization procedure in \cref{chap:per_frame} optimizes
+the relative pose between successive frames. However, the same idea
+can be applied to perform global pose tracking in a planar scene by
+building a \emph{map}. We first explain how the map is defined, and
+how to track with a known map, then we shown how this map is built by
+selecting a set of keyframes.
 
 \subsection{Map}
 \label{sec:map}
-A map is a plane with three components: the normal direction
-$\vec{n}_w$, the distance $d_w$ to the origin, and the texture; the
-texture of a map represents all the edges on the plane. \Cref{fig:map}
-shows the an example of such map. \Cref{fig:map}(a) also shows the set
-of keyframes used to construct the map. We will talk more about
-keyframes in \cref{sec:keyframe2map}. The global coordinate is chosen
-as the camera coordinate of the first frame.
+A map is a plane associated with a texture; it consists of three
+components: the normal direction $\vec{n}_w$, the distance $d_w$ to
+the origin, and the texture, which represents all the
+edges on the plane. \Cref{fig:map} shows the an example of such a
+map. \Cref{fig:map}(a) also shows the set of keyframes used to
+construct the map. We will talk more about keyframes in
+\cref{sec:keyframe2map}. The global coordinate is chosen as the camera
+coordinate of the first frame.
 
 \begin{figure}
   \begin{minipage}[t]{0.48\textwidth}
@@ -324,93 +340,54 @@ as the camera coordinate of the first frame.
   \begin{minipage}[t]{0.48\textwidth}
     \centering \includegraphics[width = \textwidth]{images/4.png}
     % \label{subfig:map}
-    (b) A map in the global frame
+    (b) A map placed in the global frame
   \end{minipage}
   \caption{Map}
   \label{fig:map}
 \end{figure}
 
-
-
 \subsection{Tracking}
 \label{sec:tracking}
 Suppose a map is present, then the normal direction $\vec{n}_w$ of the
 plane and the distance $d_w$ to the origin are known. Also the pose of
-the current frame $(\mat{R}_{wc}, \vec{T}_{wc})\in SE(3)$ is
+the current frame $(\mat{R}_{wc}, \vec{t}_{wc})\in SE(3)$ is
 determined by the motion estimation from the last frame (a quick note
-to the terminology we are using: whenever we say the \textit{pose} of
-a frame, we always refer to the camera \textit{pose} at which the
-first event within the frame happens). The parameters left to be
-estimated for each frame is
-$\phi=\left(\bm{\omega},\vec{v}\right)\in\mathbb{R}^6$. By
+to the terminology we are using: whenever we say the \emph{pose} of a
+frame, we always refer to the camera pose at which the first event
+within the frame happens). The parameters left to be estimated for
+each frame is
+$\bm{\theta}=\left(\bm{\omega},\vec{v}\right)\in\mathbb{R}^6$. By
 substituting $\vec{n}$ with $\vec{n}_c = \mat{R}_{cw}\vec{n}_w$, and
-$d$ with $d_c = d_w+\vec{T}_{wc}\cdot\vec{n}_w$ in
-\cref{eq:planar_homo_0}, we get the homography matrix within each
-frame as
+$d$ with $d_c = d_w+\vec{t}_{wc}\cdot\vec{n}_w$ in \cref{eq:h_rt}, we
+get the homography matrix within each frame as
 \begin{equation}
   \label{eq:planar_homo_1}
-  \mat{H}_1=\mat{R}^\top\left(\mat{I}+\vec{T}\vec{n}_c^\top/d_c\right)
+  \mat{H}_1=\mat{R}^\top\left(\mat{I}+\vec{t}\vec{n}_c^\top/d_c\right).
 \end{equation}
-and $\vec{x}'_c\sim\mat{H}_1^{-1}x_c$.
+When estimating the motion of the first frame, we use an initial guess
+of
+$\bm{\omega}=\vec{0}_{3\times1},\vec{v}=\vec{0}_{3\times1},\vec{n}=(0,0,-1)$,
+if no better prior is available. \emph{Zero velocity} should be a good
+assumption if the camera just starts moving. In the subsequent frames,
+we use the output from the last frame as the initial guess, assuming
+that in the short period since the last optimization, the velocity did
+not change severely.
 
-A nonlinear optimizing problem naturally suffers from local
-optima. Without a good initialization, the motion computed with the
-method in \cref{sec:event_warp} could sometimes be a local optimum
-delivering an image that appears sharp, despite being wrongly
-estimated (see \cref{fig:local_optimum}). In order to make sure that
-the estimated motion from the per frame contrast maximization also
-conform to the global map. Thus we perform another optimization, where
-we project the events of the current frame to the global map. The
+A nonlinear optimizing problem naturally suffers from local optima
+problem. Without a good initialization, the per-frame optimization in
+would sometimes come up with a parameter set delivering an image that
+appears sharp, despite being wrongly estimated (see
+\cref{fig:local_optimum}). We should also not simply integrate the
+velocities to obtain the global pose, which would result in drift over
+time. In order to make sure that the estimated pose from the per-frame
+contrast maximization also conform to the global map, we perform
+another optimization by projecting the events of the current frame to
+the global map, and measure the contrast of the composed image. The
 parameter set is still $\left(\bm{\omega}^\top,\vec{v}^\top\right)$,
-and we use the output from last procedure as an initial guess.
+and we use the output from the last procedure (the per-frame
+optimization) as the initial guess.
 
-The procedure described in the first paragraph of this section can be
-understood as projecting the events on a \textit{blank
-  canvas}. Similarly, in the projecting-to-map procedure we project
-the events on the \textit{texture} of the map, and measure the
-strength of the synthesized image with the same variance function as
-in \cref{eq:variance}, thus finding the set of the parameters that
-best align the events in the current frame to their correspondences in
-the texture.
-
-The projection from an event to the map is
-\begin{equation}
-  \label{eq:frame2map}
-  \vec{x}_w \sim \mat{R}_n\mat{H}_2^{-1}\mat{H}_1^{-1}\vec{x}_c,
-\end{equation}
-with $\mat{R}_n$ the transformation from the orientation of the global
-frame to the orientation of the map, computed by
-\begin{align}
-  \mat{K}& =(\vec{n}_w\times \vec{z})^\wedge\\
-  \mat{R}_n&=\mat{I} +\mat{K} + \mat{K}^2/ (1 +  \vec{n_w}\cdot\vec{z}),  \label{eq:global2map}
-\end{align}
-where $\vec{z}=(0,0,-1)$ denotes the plane fronto-parallel to the
-camera, and
-\begin{equation}
-  \label{eq:frame2global}
-  \mat{H}_2 = \mat{R}_{cw}\left(\mat{I} + \vec{T}_{wc}\vec{n}^\top/d_w\right)
-\end{equation}
-is the projection from the current frame to the global frame, with
-$\mat{R}_{wc}, \mat{T}_{wc}$ being the pose of the current
-frame. $\mat{H}_1$ is the planar homography for each frame as in
-\cref{eq:planar_homo_1}. But the $\mat{R}(t)$ and $\vec{T}(t)$ might
-be different since we are refining these parameters.
-
-After projecting, we obtain an image composed of the map texture and
-the events of the current frame. We maximize the contrast of this
-image using the cost function defined in \cref{eq:variance}. The
-optimized velocity is used for propagating the pose to the next
-incoming frame via
-\begin{align}
-  \label{eq:pose_propagation}
-  \vec{T}_{wc_2}&=\mat{R}_{wc_1}\vec{v}\Delta t+ \vec{T}_{wc_1}\\
-  \mat{R}_{wc_2}& =\mat{R}_{wc_1}\mathrm{exp}(\bm{\omega}^\wedge \Delta t),
-\end{align}
-where $c_1$ and $c_2$ denotes the current frame and the next frame,
-respectively, and $\Delta t$ is the temporal size of the current
-frame.
-
-\begin{figure}
+\begin{figure}[h]
   \begin{minipage}[t]{0.48\textwidth}
     \centering \includegraphics[width =
     \textwidth]{images/slider_estimation.png}
@@ -422,7 +399,7 @@ frame.
     \centering \includegraphics[width =
     \textwidth]{images/slider_groundtruth.png}
     \label{subfig:groundtruth}
-    (b) Groundtruth
+    (b) Ground truth
   \end{minipage}
   \hfill
 
@@ -434,88 +411,137 @@ frame.
   \end{minipage}
   \hfill
 
-  \caption{An example of local optima. This is the dataset
+  \caption{An example of the local optima problem. This is the dataset
     \textit{slider\_hdr\_close} with a window size of 50000
-    events. (a) shows the optimized image with \textit{linear
-      velocity} $( 0.231, 0.109, 0.256)$, \textit{angular velocity}
-    $(0.405, -0.130, -0.278)$ and \textit{plane normal}
-    $(-0.579, 0.282, -0.765)$. (b) shows the result using groundtruth
-    parameters with \textit{linear velocity} $(0.163, 0, 0)$,
-    \textit{angular velocity} $(0, 0, 0)$ and \textit{plane normal}
-    $(0, 0, -1)$. Both images appear mostly identical, though at the
-    lower right corner, for example, one can still recognize the
-    difference. Also both images look much sharper than the image
-    without motion compensation in (c). It is worth mentioning that
-    the contrast of the estimation is actually slightly larger than
-    that of the groundtruth}
+    events. (a) shows the optimized image with linear velocity
+    $\vec{v} =( 0.231, 0.109,
+    0.256)\si[per-mode=symbol]{\meter\per\second}$, angular velocity
+    $\bm{\omega}=(0.405, -0.130,
+    -0.278)\si[per-mode=symbol]{\radian\per\second}$ and plane normal
+    $\vec{n}=(-0.579, 0.282, -0.765)$. (b) shows the result using
+    ground truth parameters with
+    $\vec{v} =(0.163, 0, 0), \bm{\omega}=(0, 0, 0)$ and
+    $\vec{n}=(0, 0, -1)$. Both images look almost identical, though at
+    the lower right corner, for example, one can still recognize the
+    difference. Both images appeal much sharper than the image without
+    motion compensation in (c). It is worth mentioning that the
+    contrast of the estimation is actually slightly larger than that
+    of the ground truth}
   \label{fig:local_optimum}
 \end{figure}
 
+The projection from an event to the map is
+\begin{equation}
+  \label{eq:frame2map}
+  \vec{x}_w \sim \mat{R}_n\mat{H}_2^{-1}\mat{H}_1^{-1}\vec{x}_c,
+\end{equation}
+with $\mat{H}_1$ the planar homography as in \cref{eq:planar_homo_1},
+but $\mat{R}$ and $\vec{t}$ are not necessarily the same as before,
+since we are refining these parameters, and
+\begin{equation}
+  \label{eq:frame2global}
+  \mat{H}_2 = \mat{R}_{cw}\left(\mat{I} + \vec{T}_{wc}\vec{n}^\top/d_w\right)
+\end{equation}
+the projection from the current frame to the global frame. $\mat{R}_n$
+is the transformation from the orientation of the global frame to the
+orientation of the map, computed by
+\begin{align}
+  \mat{K}& =(\vec{n}_w\times \vec{z})^\wedge\\
+  \mat{R}_n&=\mat{I} +\mat{K} + \mat{K}^2/ (1 +  \vec{n_w}\cdot\vec{z}),  \label{eq:global2map}
+\end{align}
+where $\vec{z}=(0,0,-1)$ denotes the plane fronto-parallel to the
+camera.
+
+The first per-frame optimizing procedure can be understood as
+projecting the events on a \textit{blank canvas}. Similarly, in the
+\emph{projecting-to-map} procedure we project the events on the
+\textit{texture} of the map, and measure the strength of the composed
+image with the same variance function as in \cref{eq:variance}, thus
+finding the set of the parameters that best align the events in the
+current frame to their correspondences in the texture. Note that in
+the project-to-map procedure we have to drop the polarity of the
+event, since the map might include events from the same visual stimuli
+but triggered when moving in a different direction; when we sum such
+events together, the polarities might cancel each other out.
+
+The optimized velocity is used for propagating the pose to the next
+incoming frame via
+\begin{align}
+  \label{eq:pose_propagation}
+  \vec{t}_{wc_2}&=\mat{R}_{wc_1}\vec{v}\Delta t+ \vec{t}_{wc_1}\\
+  \mat{R}_{wc_2}& =\mat{R}_{wc_1}\mathrm{exp}(\bm{\omega}^\wedge \Delta t),
+\end{align}
+where $c_1$ and $c_2$ denotes the current frame and the next frame,
+respectively, and $\Delta t$ is the temporal size of the current
+frame.
+
 \subsection{Mapping}
 \label{sec:keyframe2map}
-
-After having collected the first $N$ events, we start the mapping
+After having collected the first $N$ events, we initialize the mapping
 process. For the first frame we estimate the full parameter set
-$\phi=\left(\bm{\omega}^\top,\vec{v}^\top/d_w,\varphi,\psi\right)^\top\in\mathbb{R}^8$,
+$\bm{\theta}=\left(\bm{\omega}^\top,\vec{v}^\top/d_w,\varphi,\psi\right)^\top\in\mathbb{R}^8$,
 where $\left(\varphi, \psi\right)$ parametrize the unit vector of the
 plane normal, and $\vec{v}^\top/d_w$ account for the scale ambiguity
 problem introduced in linear velocity estimation from monocular
 camera. We can for example determine the scale of the scene by setting
-$d_w$ to $1m$, then scales of the consecutive frames are also
-determined by $d_c = d_w+\vec{T}_{wc}\cdot\vec{n}_w$.
+$d_w$ to \SI{1}{\meter}, then the scales of the consecutive frames are
+determined by $d_c = d_w+\vec{t}_{wc}\cdot\vec{n}_w$.
 
 From the optimized first frame we initialize the map, by projecting
 the frame to the planar scene via a rotation $\mat{R}_n$ as in
-\cref{eq:global2map} \textcolor{red}{(you might have implemented this
-  part wrong)}. Then we can track the next frames with this map using
-the method described in \cref{sec:tracking}.
+\cref{eq:global2map}. Then we can track the next frames with this map
+using the method described in \cref{sec:tracking}.
 
-As the camera moves, there might be new information available in the
-scene, so that the map needs to be expanded. After optimization for
-each single frame, we also measure the \textit{per-pixel-overlap}
-between the frame and the map,S that is, how many percent pixels in
-the frame can be explained by the map. The overlap might be small,
-when the camera is just exploring a new area so that only part of the
-frame and the map is overlapping; another possibility is that the map
-is not accurate enough to explain the current frame, which often
-happens when only one frame is used until now to construct the
-map. When the overlap reaches a certain threshold (0.8 for example),
-we try to insert a new \textit{keyframe}.
+As the camera keeps moving, there might be new information available
+in the scene, so that the map needs to be expanded. After the
+optimization for each single frame, we also measure the
+\textit{per-pixel-overlap} between the frame and the map, that is, how
+many percent pixels in the current frame can be explained by the
+map. A perfect match should have a 100\% overlap. The overlap might be
+small, when the camera is just exploring a new area so that only part
+of the frame and the map is overlapping; another possibility is that
+the map is not accurate enough to explain the current frame, which
+often happens when only one frame is used until now to construct the
+map. When the overlap drops below a certain threshold (80\% for
+example), we try to insert a new \textit{keyframe}.
 
 When the system decides that a new keyframe is needed, we collect all
 the keyframes until now, plus the current frame, which is a keyframe
-candidate, and optimize the poses and velocities of these frames, as
-well as the map together. Suppose there are $k$ frames (including the
-keyframe candidate), the to be optimized parameter set is
+candidate, and optimize the poses and velocities of these frames as
+well as the map altogether. Suppose there are $n$ frames (including
+the keyframe candidate), the to be optimized parameter set is
 \begin{equation*}
-  \phi=\left(\mat{R}_{(1\sim k)},\vec{T}_{(1\sim
-      k)},\bm{\omega}_{(0\sim k)},\vec{v}_{(0\sim
-      k)}/d_w,\varphi,\psi\right)\in\mathbb{R}^{12k-4}.
+  \bm{\theta}=\left(\mat{R}_{(1\sim n)},\vec{t}_{(1\sim
+      n)},\bm{\omega}_{(0\sim n)},\vec{v}_{(0\sim
+      n)}/d_w,\varphi,\psi\right)\in\mathbb{R}^{12n-4}.
 \end{equation*}
-Here $1\sim k$ means from frame $1$ to frame $k$, and we skip the pose
+Here $1\sim n$ means from frame $1$ to frame $n$, and we skip the pose
 optimization of frame $0$, which is the first frame, since it defines
-the global coordinate. We project all the events of these $k$ frames
-to the plane parametrize by $(\varphi,\psi)$ with \cref{eq:frame2map},
-and again optimize the contrast of the synthesized image the obtain
-the optimal parameter set.
-
-Note that in the mapping process we drop the polarity of the event,
-since different keyframes might include events from the same visual
-stimuli but triggered when moving in different directions, when summed
-together the polarities might cancel each other out. For the same
-reason, we also don't use the polarity when matching a frame to the
-map.
+the global frame. We project all the events of these $n$ frames to the
+plane parametrize by $(\varphi,\psi)$ with \cref{eq:frame2map}, and
+again optimize the contrast of the synthesized image the obtain the
+optimal parameter set. For the same reason as before, we also don't
+use the polarity when fusing keyframes.
 
 After this step, we also measure the \textit{per-pixel-overlap}
 between the keyframe candidate and the image synthesized by the other
 keyframes, with the newly optimized parameter set. If this is a good
-match \textcolor{red}{(define a good match)}, we continue the
-tracking. Otherwise, we consider the pose estimation of the current
-frame to be already off. In this case we preserve the former map, and
-use this map to start the \textit{relocalization} procedure.
+match, we continue the tracking. Otherwise, we consider the pose
+estimation of the current frame to be inaccurate. In this case we
+preserve the former map, and use this map to start the
+\textit{relocalization} procedure.
 
 \subsection{Relocalization}
 \label{sec:relocalization}
+A relocalization procedure purely depending on the a nonlinear
+optimization is hard, since we need a good initial guess. If the pose
+is already too much off, there is nothing much we can save. So the
+suggestion is not to start relocalization only when it's too
+late. Later in \cref{sec:experiments} we will talk a little more about
+the situation where the tracking is lost when there is little texture
+visible.
+
+When relocalizing, we project the current events onto the map similar to
 
 \section{Experiments}
 \label{sec:experiments}
