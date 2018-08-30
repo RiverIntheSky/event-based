@@ -20,9 +20,10 @@ Note that events can be triggered either by scene or camera motion. In
 this work we assume a static scene and a moving camera.
 \section{From Events to Frame}
 \label{sec:event_warp}
-A single event does not give much information. If we aggregate all the
-events within a temporal window, depending on the size of the window
-we may get different results as in \cref{fig:window_size_3}.
+A single event gives little information. A common strategy would be to
+aggregate all the events within a small temporal window. Depending on
+the size of the window we may get different results as in
+\cref{fig:window_size_3}.
 
 \begin{figure}[h]
   \begin{minipage}[t]{0.3\textwidth}
@@ -47,26 +48,27 @@ we may get different results as in \cref{fig:window_size_3}.
   \label{fig:window_size_3}
 \end{figure}
 More specifically, we group a set of events
-$\mathscr{E}\doteq \{e_k\}_{k=1}^N$ within a certain temporal window,
+$\mathscr{E}\doteq \{e_k\}_{k=1}^N$ happened within a certain period,
 and synthesize an image by summing up the events. If we simply sum
 along the time axis, the intensity at each pixel will be the sum of
 the polarities of all the events that are triggered at this pixel
-location within the window
+location during this period:
 \begin{equation}
   \label{eq:intensity}
   \mathcal{I}(\vec{x}) = \sum_{k=1}^N\pm_k\delta(\vec{x}-\vec{x}_k),
 \end{equation}
-with $\pm_k$ and $\vec{x}_k$ denoting the polarity and pixel
+with $\pm_k$ and $\vec{x}_k\in\mathbb{R}^2$ denoting the polarity and pixel
 coordinates of the $k$th event, respectively. We call such synthesized
 results in \cref{fig:window_size_3} as \emph{frames}.
 
 The temporal resolution of a DVS in \citep{brandli2014240} is
 \SI{1}{\micro s}; each event has a distinct timestamp, which also
-indicates that events happen at distinct camera poses. Instead of
-simply summing up events from different timestamps, a better strategy
-is to project the events along the motion path, which is clearly
-visible in \cref{fig:stream}, thus faithfully recover the scene edges
-at a given time.
+indicates that events happen at distinct camera poses. As a result, a
+frame as in \cref{fig:window_size_3} does not represent the scene at a
+given time. Instead of simply summing up events from different
+timestamps, a better strategy is to project the events along the
+motion path, which is clearly visible in \cref{fig:stream}, thus
+faithfully recover the scene edges.
 
 But how do we compute the motion path? Without additional motion
 capture devices, we have no access to the ground truth pose; it's also
@@ -75,14 +77,14 @@ happens at such a high rate. To simplify the problem, we assume that
 the camera moves at a constant velocity within an interval, which is
 not a bad assumption if this interval is small enough. This group of
 events are warped by the same model
-$\vec{x}'_k=\mat{W}(\vec{x}_k,t_k;\theta)$, and the $\vec{x}_k$ in the
-intensity computation \cref{eq:intensity} is substitute by
-$\vec{x}'_k$. We find the optimal parameters $\theta$ that best
-describes the events within this window, then shift the window to the
-next set of events, and repeat this process.
+$\vec{x}'_k=\mat{W}(\vec{x}_k,t_k;\bm{\theta})$, after warping the
+$\vec{x}_k$ in the intensity computation \cref{eq:intensity} is
+substitute by $\vec{x}'_k$. We find the optimal parameters
+$\bm{\theta}$ that best describes the events within this window, then
+shift the window to the next set of events, and repeat this process.
 
-There are several strategies available on choosing the window size. We
-may group events by
+There are several strategies available as to choosing the window
+size. We may group events by
 \begin{enumerate}
 \item a fixed time interval $\Delta t$,\\
 \item a fixed number of events $N$ per subset,\\
@@ -93,28 +95,33 @@ The first strategy is used in \citep{maqueda2018event}, they also
 gives the comparison on different choice of window sizes. This might
 be a good strategy when the motion estimation is needed at a fixed
 rate. However, it suffers from the same problem as the traditional
-camera, that is, it keeps producing redundant frames when no motion is
-present. Also, a fixed time interval can not well compromise between
-slow motion and rapid motion. Event cameras are data-driven cameras,
-the output depends on the motion and the scene complexity, thus the
-other two strategies are more favorable. \citep{zhu2017event} uses the
+camera, that is, it keeps producing redundant frames and motion
+estimation when the camera stops moving. Also, a fixed time interval
+is not able to well compromise between slow motion and rapid
+motion. Event cameras are data-driven cameras, the output depends on
+the motion and the scene complexity, thus the other two strategies are
+more favorable. \citet{zhu2017event} uses the
 \emph{lifetime}\citep{mueggler2015lifetime} of the event to define the
 window size, which depends on the event's velocity on the image
-plane. Since the datasets we tested on each observes a same scene, the
-scene complexity also stays almost the same within a certain
-sequence. Thus we opt for the second strategy, and manually choose the
-window size for each sequence.
+plane. This belongs to the third strategy, and is applicable
+independent of the scene complexity.  Considering our test datasets,
+each dataset observes a same scene, the scene complexity thus stays
+almost the same within a certain sequence. For simplicity we opt for
+the second strategy, and manually choose the window size for each
+sequence.
 % when the camera stops moving, no events will be generated, the pose
 % will also not be further updated.
 
 \section{Measuring the Sharpness of an Image}
 \label{sec:contrast}
-There are several metrics one could choose from to measure how well a
-warp $\mat{W}$ is. Intuitively, the image would appear sharp if the
-events are warped along its trajectory, otherwise motion-blurred.
+Intuitively, the image would appear sharp and have high contrast if
+the events are warped along its trajectory, otherwise
+motion-blurred. So we may use the sharpness of the warped image to
+measure how well a warp $\mat{W}$ is.
 
-the contrast of an image. A local contrast metric could be, for
-example, convoluting the image with a high pass filter
+There are several metrics one could choose from. A local contrast
+metric could be, for example, to convolute the image with a high pass
+filter
 \begin{equation}
   \label{eq:high_pass_filter}
   \mathcal{C}_H=
@@ -124,10 +131,11 @@ example, convoluting the image with a high pass filter
     -1&-1&-1
   \end{bmatrix},
 \end{equation}
-and sum the pixel value of the filtered image. However, this metric
-only compare a pixel with its 8 neighbors, thus an image with
-scattered events (large noise) is also a valid configuration, as shown
-in \cref{fig:contrast}(a). The Michelson contrast
+and sum the pixel value of the filtered image. This metric would favor
+that each pixel stands out from its neighbors. However, every pixel is
+only compared with its 8 neighbors, thus an image with scattered
+events (large noise) is also a valid configuration, as shown in
+\cref{fig:contrast}(a). On the other hand, the Michelson contrast
 \citep{michelson1995studies}, defined as
 $\mathcal{C}_M=\left(\mathcal{I}_{\mathrm{max}}-\mathcal{I}_{\mathrm{min}}\right)/\left(\mathcal{I}_{\mathrm{max}}+\mathcal{I}_{\mathrm{min}}\right)$,
 only considers the highest and lowest luminance in the image and is
@@ -142,19 +150,18 @@ defined by
 \end{equation}
 where $\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)$ is
 the average image intensity. If the scene has more or less balanced
-positive and negative events, the average will be close to
-zero. Actually, since we only want to distinguish the edges with the
-larger blank background, which indeed has zero intensity, we can also
-simply substitute
+positive and negative events, $\mu$ should be close to zero. Actually,
+since we only want to distinguish the edges with the larger blank
+background, which indeed has zero intensity, we can also simply
+substitute
 $\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)$ with 0.
 
 The goal of measuring the contrast of an image is to find the
 configuration that aligns events triggered from the same visual
-stimuli; thus the variance \cref{eq:variance} would be a very suitable
+stimuli; thus the variance \cref{eq:variance} is a very suitable
 metric, as a squared metric favors the configuration that projects as
 many events as possible to the same pixel.
-
-Intergral sum pixels
+% Integral sum pixels
 
 \begin{figure}
   \begin{minipage}[t]{0.48\textwidth}
@@ -180,25 +187,63 @@ Intergral sum pixels
 \chapter{6DoF Pose Tracking in Planar Scenes}
 \label{chap:planar_scenes}
 
-Throughout this work the following notation is employed: $W$ denotes
-the world frame, $C_1$ or $C_2$ denotes a camera frame.  $T_{AB}$ is
-the transformation from frame $A$ to frame $B$, measured in frame $A$.
+% Throughout this work the following notation is employed: $W$ denotes
+% the world frame, $C_1$ or $C_2$ denotes a camera frame.  $T_{AB}$ is
+% the transformation from frame $A$ to frame $B$, measured in frame
+% $A$.
 
-$\vec{X}$ the position of the event with respect to world or camera
-frame, $\vec{x}$ the calibrated coordinates of the event.
+% $\vec{X}$ the position of the event with respect to world or camera
+% frame, $\vec{x}$ the calibrated coordinates of the event.
+The warping $\vec{x}'=\mat{W}(\vec{x},t;\bm{\theta})$ appears to be
+done on the 2D image plane, although the 6-DoF rigid body motion is
+happened in 3D space. In this chapter we explain the warping process,
+and how to perform SLAM with the warped events in planar scenes.
+\section{Camera Projection}
+\label{sec:camera_proj}
+Throughout this work the following notation is employed: $w$ denotes
+the world frame, $c_1$ or $c_2$ denotes a camera frame.
+$\mat{T}_{ab}$ is the transformation from frame $a$ to frame $b$,
+measured in frame $a$. $\vec{X}$ denotes the 3D coordinate of a point,
+with $\vec{X}_w$ and $\vec{X}_c$ the coordinate with respect to the
+world frame and camera frame, respectively. $\vec{x}$ denotes a 2D
+coordinate on the image plane.
+
+Assume the camera distortion has been removed, a point $\vec{X}$ is
+projected on the image plane via
+\begin{equation}
+  \label{eq:camera_proj}
+  \vec{x}=
+  \begin{bmatrix}
+    x\\y\\1
+  \end{bmatrix}
+  =
+  \frac{1}{Z}
+  \begin{bmatrix}
+    f_x&&c_x\\
+    &f_y&c_y\\
+    &&1
+  \end{bmatrix}
+  \begin{bmatrix}
+    X\\Y\\Z
+  \end{bmatrix}
+  =
+  \frac{1}{Z}\mat{K}\vec{X}
+\end{equation}
+
+
 
 
 \subsection{Planar Homography}
 
 \label{sec:planar_homo}
-The warp function $\vec{x}'=\mat{W}(\vec{x},t;\bm{\theta})$ does not only
-depend on the motion parameters, but also the scene parameters, which
-is the unknown depth.  In the case of a planar scene the problems
-simplifies, since a plane $\mathbf{P}$ can be parameterized by two
-sets of parameters: $\vec{n}\in\mathbb{S}^2$ the unit surface normal
-of $\mathbf{P}$ with respect to the current camera frame, and $d$ the
-distance from the camera center to $\mathbf{P}$. The warp function
-then becomes
+The warp function $\vec{x}'=\mat{W}(\vec{x},t;\bm{\theta})$ does not
+only depend on the motion parameters, but also the scene parameters,
+which is the unknown depth.  In the case of a planar scene the
+problems simplifies, since a plane $\mathbf{P}$ can be parameterized
+by two sets of parameters: $\vec{n}\in\mathbb{S}^2$ the unit surface
+normal of $\mathbf{P}$ with respect to the current camera frame, and
+$d$ the distance from the camera center to $\mathbf{P}$. The warp
+function then becomes
 \begin{align}
   \vec{X}'=&\mat{R}(t)\vec{X}+\vec{T}(t)\\
   \vec{X}=&\mat{R}(t)^\top\left(\vec{X}'-\vec{T}(t)\right)\\
@@ -417,14 +462,14 @@ the method described in \cref{sec:tracking}.
 As the camera moves, there might be new information available in the
 scene, so that the map needs to be expanded. After optimization for
 each single frame, we also measure the \textit{per-pixel-overlap}
-between the frame and the map,S that is, how many percent pixels in the
-frame can be explained by the map. The overlap might be small, when
-the camera is just exploring a new area so that only part of the frame
-and the map is overlapping; another possibility is that the map is not
-accurate enough to explain the current frame, which often happens when
-only one frame is used until now to construct the map. When the
-overlap reaches a certain threshold (0.8 for example), we try to
-insert a new \textit{keyframe}.
+between the frame and the map,S that is, how many percent pixels in
+the frame can be explained by the map. The overlap might be small,
+when the camera is just exploring a new area so that only part of the
+frame and the map is overlapping; another possibility is that the map
+is not accurate enough to explain the current frame, which often
+happens when only one frame is used until now to construct the
+map. When the overlap reaches a certain threshold (0.8 for example),
+we try to insert a new \textit{keyframe}.
 
 When the system decides that a new keyframe is needed, we collect all
 the keyframes until now, plus the current frame, which is a keyframe
@@ -631,10 +676,11 @@ reasons for that:
 \end{figure}
 A quantitative error estimation is included in \cref{tab:err_est}. The
 window sizes for \textit{shapes} and \textit{poster} sequences are
-4000 and 30000, respectively. Also, we used the \textit{Nelder-Mead Simplex}
-algorithm provided by \textit{GNU-GSL}\citep{gough2009gnu}
+4000 and 30000, respectively. Also, we used the \textit{Nelder-Mead
+  Simplex} algorithm provided by \textit{GNU-GSL}\citep{gough2009gnu}
 to perform the optimization on \textit{shapes} sequences, and the
-\textit{Fletcher-Reeves conjugate gradient}\citep{fletcher2013practical} algorithm to perform
+\textit{Fletcher-Reeves conjugate
+  gradient}\citep{fletcher2013practical} algorithm to perform
 optimization on the \textit{poster} dataset. Both methods work. The
 analytic differentiation is faster and more stable. However, when the
 initial guess is further from the ground truth, the numeric
