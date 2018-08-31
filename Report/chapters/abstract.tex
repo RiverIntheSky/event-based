@@ -1,6 +1,15 @@
 \chapter*{Abstract}
-\addcontentsline{toc}{chapter}{Abstract}
-%\chapter*{Zusammenfassung}
-%\addcontentsline{toc}{chapter}{Zusammenfassung}
+\addcontentsline{toc}{chapter}{Abstract} Event cameras are
+bio-inspired cameras that capture pixel-level intensity changes at a
+rate of up to \SI{1}{\mega\hertz}. They naturally respond to edges in
+the scene and are free from motion blur.
 
-Hier kommt der Abstact hin \dots
+We propose a method which performs SLAM in planar scenes and 6-DoF
+motion estimation in unstructured scenes with a monocular event
+camera, no additional sensing. This method is based on a contrast
+maximization pipeline. Events are grouped by a small temporal window
+and warped with the optimal motion parameters that produce the
+sharpest image. When performing SLAM, all the images are tracked using
+image-to-model alignment, but only a selective set of keyframes are
+used to construct the map. This method performs favorably against the
+ground truth, and is able to track high speed motions.

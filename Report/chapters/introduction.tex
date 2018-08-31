@@ -5,7 +5,7 @@
 
 Frame-based cameras that widely used in computer vision output images
 at a pre-set rate, even when the intensity values stay unchanged,
-resulting redundant data. When the scene moves too fast, an
+resulting in redundant data. When the scene moves too fast, an
 insufficient frame rate would cause motion blur. To address this
 problem, \citet{lichtsteiner2008128} presents an event-based camera
 called DVS (dynamic vision sensor) that reports pixel-level log
@@ -19,7 +19,7 @@ $(x, y)$, the timestamp $t$ and the polarity $p=\pm1$ indicating
 positive or negative intensity change. The output is thus a stream of
 events instead of frames. Later \citet{brandli2014240} presents DAVIS
 (dynamic and active pixel vision sensor) that has additional APS
-(active pixel sensor) circuits that provides absolute intensity
+(active pixel sensor) circuits that provide absolute intensity
 information, while offering DVS outputs with higher resolution
 (240$\times180$ against $128\times128$), higher dynamic range (130 dB
 against 120 dB) and lower latency (3 $\mu$s against 15 $\mu$s). Newer
@@ -27,9 +27,9 @@ sensors also provide color
 information\citep{li2015design,moeys2018sensitive} or have higher
 image resolution\citep{son20174}.
 
-Since for an event-base camera there is no such thing as a frames,
+Since for an event-based camera, there is no such thing as frames,
 feature detection and tracking algorithms that work well for standard
-camera can not be directly applied to an event-based camera. There are
+cameras cannot be directly applied to event-based cameras. There are
 several works that try to adopt feature detection and tracking
 pipelines. \citet{zhu2017event} aggregate a small number of events to
 construct a frame, and perform Harris corner detector
@@ -49,14 +49,14 @@ DSI (disparity space image) or EKF (extended Kalman Filter). Newer
 works also combine machine learning and event-based camera
 \citep{orchard2015hfirst,maqueda2018event,zhu2018ev}
 
-\citet{gallego2017accurate} first proposes an interesting contrast
+\citet{gallego2017accurate} first propose an interesting contrast
 maximization framework that is rather specific for event-based
 cameras. Without the help of any auxiliary variable such as optical
 flow or feature, this framework finds the optimal angular velocity
 that maximizes the contrast of a synthesized event frame via nonlinear
 optimization. Later in \citep{gallego2018unifying} they showed that
 the same framework can be applied to various important tasks in
-computer vision, such as motion, depth and optical flow estimation.
+computer vision, such as motion, depth, and optical flow estimation.
 
 This work is an extension of \citep{gallego2017accurate,
   gallego2018unifying}. In these two works they showed how to estimate

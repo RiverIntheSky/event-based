@@ -8,19 +8,23 @@
    (TeX-run-style-hooks
     "latex2e"
     "preambles/asl_preamble"
-    "chapters/preface"
+    "chapters/declaration"
     "chapters/abstract"
     "chapters/symbols"
     "chapters/introduction"
     "chapters/chapter"
     "chapters/appendix_text"
+    "chapters/preface"
     "rep10"
     "pdfpages"
     "packages/ethasl"
     "mathrsfs"
     "algorithm2e"
     "bm"
-    "makecell")
+    "makecell"
+    "siunitx"
+    "float"
+    "caption")
    (LaTeX-add-bibliographies
     "bibliography/references"))
  :latex)

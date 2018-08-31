@@ -2,16 +2,16 @@
 close all
 clear all
 % boxes_rotation num_rot
-file = '/home/weizhen/Documents/dataset/boxes_6dof/planar/50000/';
+file = '/home/weizhen/Documents/dataset/boxes_translation/planar/50000/';
 
-groundtruth = fopen(strcat(file, 'groundtruth_rotation.txt'));
+groundtruth = fopen(strcat(file, 'groundtruth_translation.txt'));
 cg=textscan(groundtruth,'%f %f %f %f');
-estimated = fopen(strcat(file, 'estimated_rotation.txt'));
+estimated = fopen(strcat(file, 'estimated_translation.txt'));
 ce=textscan(estimated,'%f %f %f %f');
 
 
 lost = 1060;
-scale = 180.0/pi;   
+scale = 1;   
 % scale = 0.76;
 
 angles = zeros(lost, 2);
@@ -39,6 +39,7 @@ for i = 1:lost
     ce{1,2}(i) = ce{1,2}(i)*scale;
     ce{1,3}(i) = ce{1,3}(i) *scale;
     ce{1,4}(i) = ce{1,4}(i)*scale;
+
     error(i, 1) = abs( ce{1,2}(i) -cg{1,2}(i));
     error(i, 2) = abs( ce{1,3}(i) -cg{1,3}(i));
     error(i, 3) = abs( ce{1,4}(i) -cg{1,4}(i));

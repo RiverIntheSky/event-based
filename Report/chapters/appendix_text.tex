@@ -5,8 +5,10 @@ analytically computed as
 \begin{align}
   \intertext{Let}
   \rho\left(\vec{x};\bm{\theta}\right)&=\mathcal{I}\left(\vec{x};\bm{\theta}\right)-\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)\\
-  \intertext{Then}
-  \frac{\partial}{\partial\bm{\theta}}\mathrm{Var}\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)&=\frac{2}{\mid\Omega\mid}\int_{\Omega}\rho\left(\vec{x};\bm{\theta}\right)\frac{\partial\rho\left(\vec{x};\bm{\theta}\right)}{\partial{\bm{\theta}}}d\vec{x}    \label{eq:dVdw}
+  \intertext{with}
+  \mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)&=\frac{1}{\mid\Omega\mid}\int_{\Omega}\mathcal{I}\left(\vec{x};\bm{\theta}\right)d\vec{x},\label{eq:mean}
+                                                        \intertext{then}
+                                                        \frac{\partial}{\partial\bm{\theta}}\mathrm{Var}\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)&=\frac{2}{\mid\Omega\mid}\int_{\Omega}\rho\left(\vec{x};\bm{\theta}\right)\frac{\partial\rho\left(\vec{x};\bm{\theta}\right)}{\partial{\bm{\theta}}}d\vec{x}    \label{eq:dVdw}
 \end{align}
 The derivatives of the warped image are
 \begin{equation}
@@ -18,44 +20,44 @@ In the case of planar homography the events warping is computed as
   \bm{\theta}&=\left(\bm{\omega}^\top,\vec{v}^\top,\varphi,\psi\right)^\top\in\mathbb{R}^8\\
   \vec{x}'_k\left(\bm{\theta}\right)&=
                                       \begin{bmatrix}
-                                        x'_{im}&y'_{im}&1
+                                        x'_{im}&y'_{im}
                                       \end{bmatrix}^\top=
-                                                         \begin{bmatrix}
-                                                           x'/z'&y'/z'&1
-                                                         \end{bmatrix}^\top\\
+                                                 \begin{bmatrix}
+                                                   x'/z'&y'/z'
+                                                 \end{bmatrix}^\top\\
   \bar{\vec{x}}'_k\left(\bm{\theta}\right)&=
                                             \begin{bmatrix}
                                               x'&y'&z'
                                             \end{bmatrix}^\top\nonumber\\&=
-  \mat{P}\left(\mat{R}(t)^\top\left(\mat{I}+\vec{T}(t)\vec{n}^\top/d\right)\right)^{-1}\vec{x}_k\nonumber\\
+  \mat{P}\left(\mat{R}_t^\top\left(\mat{I}+\vec{t}_t\vec{n}^\top/d\right)\right)^{-1}\bar{\vec{x}}_k\nonumber\\
              &=
-               \mat{P}\left(\mat{I}+\vec{v}t\vec{n}^\top\right)^{-1}\mat{R}(t)\vec{x}_k, \label{eq:x_x}
+               \mat{P}\left(\mat{I}+\vec{v}t\vec{n}^\top\right)^{-1}\mat{R}_t
+               \bar{\vec{x}}_k, \label{eq:x_x}
                % &=
                % \mat{P}\left(\mat{I}-\frac{\vec{v}t\vec{n}^\top}{\vec{n}^\top\vec{v}t+1}\right)\mathrm{exp}(\bm{\omega}^\wedge
                % t)\vec{x}_k,
 \end{align}
 where $\mat{P}$ is the projection matrix from the camera frame to the
 world frame or the map, which does not have to correspond with the
-camera matrix provided by the dataset. Also, for simplicity of
+camera matrix provided by the data set. Also, for simplicity of
 notation we assume $d = 1$, and denote
 $\mat{P}\left(\mat{I}+\vec{v}t\vec{n}^\top\right)^{-1}$ as
 $\mat{P_v}$. Since $t$ usually spans a small temporal window, we can
 simplify the derivative with respect to angular velocity as
 \begin{align}
-  \mat{R}(t)& =\mathrm{exp}(\bm{\omega}^\wedge t)\approx\mat{I}+\bm{\omega}^\wedge t\\
-  \frac{\partial\bar{\vec{x}}'_k}{\partial\bm{\omega}}&=-\mat{P_v}t\vec{x}_k^\wedge.  \label{eq:dxdo}
+  \mat{R}_t& =\mathrm{exp}(\bm{\omega}^\wedge t)\approx\mat{I}+\bm{\omega}^\wedge t\\
+  \frac{\partial\bar{\vec{x}}'_k}{\partial\bm{\omega}}&=-\mat{P_v}t\bar{\vec{x}}_k^\wedge.  \label{eq:dxdo}
 \end{align}
 The above equation makes use of the equivalence
-$\bm{\omega}\times\vec{x}_k=-\vec{x}_k\times\bm{\omega}$.
+$\bm{\omega}\times\bar{\vec{x}}_k=-\bar{\vec{x}}_k\times\bm{\omega}$.
 
 The derivative with respect to the linear velocity is
-\begin{align}
-  \frac{\partial\bar{\vec{x}}'_k}{\partial\vec{v}}&=-\frac{t\vec{n}^\top\mat{R}(t)\vec{x}_k}{\vec{n}^\top\vec{v}t+1}\mat{P_v} \label{eq:dxdv}\\
-  eu
-\end{align}
+\begin{equation}
+  \frac{\partial\bar{\vec{x}}'_k}{\partial\vec{v}}=-\frac{t\vec{n}^\top\mat{R}_t\vec{x}_k}{\vec{n}^\top\vec{v}t+1}\mat{P_v} \label{eq:dxdv}
+\end{equation}
 Similarly we have
 \begin{align}
-  \frac{\partial\bar{\vec{x}}'_k}{\partial\vec{n}}&=-\frac{t\vec{v}^\top\mat{R}(t)\vec{x}_k}{\vec{n}^\top\vec{v}t+1}\mat{P_v} \\
+  \frac{\partial\bar{\vec{x}}'_k}{\partial\vec{n}}&=-\frac{t\vec{v}^\top\mat{R}_t\vec{x}_k}{\vec{n}^\top\vec{v}t+1}\mat{P_v} \\
   \intertext{and}
   \frac{\partial\bar{\vec{x}}'_k}{\partial(\varphi;\psi)}&= \frac{\partial\bar{\vec{x}}'_k}{\partial\vec{n}}\frac{\partial\vec{n}}{\partial(\varphi;\psi)},\\
   \intertext{with}
@@ -81,8 +83,11 @@ we can compute the gradient
 $\frac{\partial\vec{x}'_k}{\partial\bm{\theta}}$ as
 \begin{equation}
   \label{eq:dxdtheta}
-  \frac{\partial\vec{x}'_k}{\partial\bm{\theta}}=\frac{\partial\bar{\vec{x}}'_k}{\partial\bm{\theta}}\frac{1}{z'}-\bar{\vec{x}}'_k\frac{\partial z'}{\partial\bm{\theta}}\frac{1}{z'^2}
+  \frac{\partial\vec{x}'_k}{\partial\bm{\theta}}=\left[\frac{\partial\bar{\vec{x}}'_k}{\partial\bm{\theta}}\frac{1}{z'}-\bar{\vec{x}}'_k\frac{\partial z'}{\partial\bm{\theta}}\frac{1}{z'^2}\right]_{1:2},
 \end{equation}
+and the third component of the derivative within the bracket is equal
+to zero.
+
 Theoretically, to evaluate the derivative of the cost function, the
 dirac delta $\nabla\delta(\vec{x})$ should be evaluated at each pixel
 location ($240\times180$ for DAVIS). However, since we are using
@@ -118,7 +123,6 @@ project matrix with different focal lengths than the ones in the
 camera calibration matrix, so that there won't be event at integer
 pixel locations after warping.
 \begin{algorithm}
-  \label{alg:bi_voting}
   \DontPrintSemicolon \SetAlgoLined \SetKwInOut{Input}{Input}
   \SetKwInOut{Output}{Output} \Input{A warped event
     $e'_k=\{x_k',y_k',t_k\}$} \Output{The \textit{Dirac delta}
@@ -144,10 +148,11 @@ pixel locations after warping.
     x'_k}=y-y^-,\frac{\partial\delta(x^+-x'_k,y^+-y'_k)}{\partial
     y'_k}=x-x^-$\;
   \caption{Bilinear Voting}
+  \label{alg:bi_voting}
 \end{algorithm}
-\BlankLine
-By linearity of the mean and the derivative, gaussian smoothing
-
-However, a general nonlinear optimization is usually very hard,
-especially at bundle adjustment stage he jacobian matrix only measures
-the local grad
+\BlankLine For better convergence behavior, we smooth
+$\mathcal{I}\left(\vec{x};\bm{\theta}\right)$ by a Gaussian with a
+sigma of 1 as in\citep{gallego2017accurate}. Although for each event
+the jacobian only considers the four neighbors, the smoothing
+operation spreads this to broader pixels, leading to a smoother cost
+function which is easier to optimize.
