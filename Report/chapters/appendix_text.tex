@@ -1,5 +1,5 @@
 \chapter{Derivative of the Contrast Metric}\label{sec:jacobian}
-Since we use bilinear voting to evaluate the \textit{dirac delta}, the
+Since we use bilinear voting to evaluate the \textit{Dirac delta}, the
 derivatives of the cost function \cref{eq:variance} can be
 analytically computed as
 \begin{align}
@@ -7,8 +7,8 @@ analytically computed as
   \rho\left(\vec{x};\bm{\theta}\right)&=\mathcal{I}\left(\vec{x};\bm{\theta}\right)-\mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)\\
   \intertext{with}
   \mu\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)&=\frac{1}{\mid\Omega\mid}\int_{\Omega}\mathcal{I}\left(\vec{x};\bm{\theta}\right)d\vec{x},\label{eq:mean}
-                                                        \intertext{then}
-                                                        \frac{\partial}{\partial\bm{\theta}}\mathrm{Var}\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)&=\frac{2}{\mid\Omega\mid}\int_{\Omega}\rho\left(\vec{x};\bm{\theta}\right)\frac{\partial\rho\left(\vec{x};\bm{\theta}\right)}{\partial{\bm{\theta}}}d\vec{x}    \label{eq:dVdw}
+                                                               \intertext{then}
+                                                               \frac{\partial}{\partial\bm{\theta}}\mathrm{Var}\left(\mathcal{I}\left(\vec{x};\bm{\theta}\right)\right)&=\frac{2}{\mid\Omega\mid}\int_{\Omega}\rho\left(\vec{x};\bm{\theta}\right)\frac{\partial\rho\left(\vec{x};\bm{\theta}\right)}{\partial{\bm{\theta}}}d\vec{x}    \label{eq:dVdw}
 \end{align}
 The derivatives of the warped image are
 \begin{equation}
@@ -89,7 +89,7 @@ and the third component of the derivative within the bracket is equal
 to zero.
 
 Theoretically, to evaluate the derivative of the cost function, the
-dirac delta $\nabla\delta(\vec{x})$ should be evaluated at each pixel
+Dirac delta $\nabla\delta(\vec{x})$ should be evaluated at each pixel
 location ($240\times180$ for DAVIS). However, since we are using
 bilinear voting, a infinitesimal change $d\vec{x}$ at an event
 location $\vec{x}$ will only affect the derivative evaluated at the
@@ -99,7 +99,8 @@ four neighboring pixels of $\vec{x}$. An illustration is shown in
 \begin{figure}
   \begin{minipage}[t]{0.48\textwidth}
     \centering \includegraphics[trim={1cm 7cm 18cm 1cm},clip,width =
-    \textwidth]{images/bi_voting.pdf} (a) The intensity at a pixel
+    \textwidth]{images/bi_voting.pdf}
+    (a) The intensity at a pixel
     location is the area of the rectangle spanned by the opposite
     pixel and the event location
   \end{minipage}

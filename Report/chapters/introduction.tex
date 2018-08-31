@@ -7,19 +7,19 @@ Frame-based cameras that widely used in computer vision output images
 at a pre-set rate, even when the intensity values stay unchanged,
 resulting in redundant data. When the scene moves too fast, an
 insufficient frame rate would cause motion blur. To address this
-problem, \citet{lichtsteiner2008128} presents an event-based camera
-called DVS (dynamic vision sensor) that reports pixel-level log
-intensity changes at a rate of \unit{MHz} scale. Unlike traditional
-cameras that outputs a frame until all the pixels are scanned, an
+problem, in 2008 \citet{lichtsteiner2008128} present an event-based
+camera called DVS (dynamic vision sensor) that reports pixel-level log
+intensity changes at a rate of \unit{MHz} scale. Unlike a traditional
+camera that outputs a frame until all the pixels are scanned, the
 event-based camera outputs are asynchronous: when the intensity change
 at a pixel reaches a threshold
 $\mid\ln{I(t)}-\ln{I(t-\Delta t)}\mid>C$, the sensor outputs an
 ``event'' $e=\{x,y,t,p\}$, which includes the pixel coordinate
 $(x, y)$, the timestamp $t$ and the polarity $p=\pm1$ indicating
 positive or negative intensity change. The output is thus a stream of
-events instead of frames. Later \citet{brandli2014240} presents DAVIS
-(dynamic and active pixel vision sensor) that has additional APS
-(active pixel sensor) circuits that provide absolute intensity
+events instead of frames. Later in 2014 \citet{brandli2014240} present
+DAVIS (dynamic and active pixel vision sensor) which has additional
+APS (active pixel sensor) circuits that provide absolute intensity
 information, while offering DVS outputs with higher resolution
 (240$\times180$ against $128\times128$), higher dynamic range (130 dB
 against 120 dB) and lower latency (3 $\mu$s against 15 $\mu$s). Newer
@@ -32,8 +32,8 @@ feature detection and tracking algorithms that work well for standard
 cameras cannot be directly applied to event-based cameras. There are
 several works that try to adopt feature detection and tracking
 pipelines. \citet{zhu2017event} aggregate a small number of events to
-construct a frame, and perform Harris corner detector
-\citep{harris1988combined} on the synthesized frames, then track the
+construct a frame, perform Harris corner detector
+\citep{harris1988combined} on the synthesized frames, and track the
 features with implicit data association. The work of
 \citet{tedaldi2016feature} detects features on the APS outputs, and
 performs tracking with the DVS outputs. Instead of working with
@@ -41,15 +41,15 @@ frames, \citet{mueggler2017fast} detect corners directly in the
 spatiotemporal event stream. There are also works that perform 3D
 reconstruction with known poses \citep{rebecq2016emvs} or 6-DoF
 tracking with a known map \citep{gallego2017event}, or both with the
-help of IMUS which is integrated on DAVIS
+help of an IMU which is integrated in DAVIS
 \citep{rebecq2017real}. Besides, \citep{kim2016real,rebecq2017evo}
 perform 6-DoF tracking and 3D reconstruction purely based on event
 streams, with methods commonly applied in computer vision, for example
 DSI (disparity space image) or EKF (extended Kalman Filter). Newer
-works also combine machine learning and event-based camera
+works also combine machine learning and event-based cameras
 \citep{orchard2015hfirst,maqueda2018event,zhu2018ev}
 
-\citet{gallego2017accurate} first propose an interesting contrast
+\citet{gallego2017accurate} first proposed an interesting contrast
 maximization framework that is rather specific for event-based
 cameras. Without the help of any auxiliary variable such as optical
 flow or feature, this framework finds the optimal angular velocity
@@ -64,9 +64,17 @@ angular velocity in general scenes where only rotational motion is
 present, and 6-DoF motion in planar scenes with contrast maximization
 framework. In this work we will see that the same idea can be applied
 to perform SLAM (simultaneously localizing and mapping) in planar
-scenes, and motion estimation in general scenes with general motion.
+scenes, and motion estimation in unstructured scenes with 6-DoF
+motion.
 
 In this work we only used the DVS output of
 DAVIS\citep{brandli2014240}. The algorithms are tested on the
-event-camera dataset recorded by \citet{mueggler2017event}.  The
-outline of this work is as follows:
+event-camera dataset recorded by
+\citet{mueggler2017event}. \Cref{chap:per_frame} covers the contrast
+definition and motion estimation introduced
+in\citep{gallego2017accurate,gallego2018unifying},
+\cref{chap:planar_scenes} explains the parallel tracking and mapping
+process in planar scenes and gives the quantitative error estimation,
+\cref{chap:general_scene} introduces the ideas of 6-DoF motion
+estimation in general scenes. In \cref{chap:conclusion} we give
+conclusion and other notes.
