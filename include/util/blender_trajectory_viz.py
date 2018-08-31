@@ -94,11 +94,11 @@ def main():
     cam2.data = cam.data.copy()
     scene.objects.link(cam2)
 
-    groundtruth_translation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/groundtruth_pose_translation.txt'
-    groundtruth_rotation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/groundtruth_pose_rotation.txt'
+    groundtruth_translation_path = '~/Document/dataset/shapes_6dof_3000/groundtruth_pose_translation.txt'
+    groundtruth_rotation_path = '~/Document/dataset/shapes_6dof_3000/groundtruth_pose_rotation.txt'
     draw_path(cam, groundtruth_rotation_path, groundtruth_translation_path)
-    estimated_translation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/estimated_pose_translation.txt'
-    estimated_rotation_path = '/home/weizhen/Dropbox/MA/meeting/18.07.2018/shapes_6dof_3000/estimated_pose_rotation.txt'
+    estimated_translation_path = '~/Document/dataset/shapes_6dof_3000/estimated_pose_translation.txt'
+    estimated_rotation_path = '~/Document/dataset/shapes_6dof_3000/estimated_pose_rotation.txt'
     draw_path(cam2, estimated_rotation_path, estimated_translation_path)
 
 

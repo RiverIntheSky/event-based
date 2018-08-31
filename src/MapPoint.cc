@@ -39,7 +39,6 @@ std::array<double, 2>& MapPoint::getNormalDirection() {
 }
 
 void MapPoint::setWorldPos(const cv::Mat &Pos) {
-//    unique_lock<mutex> lock2(mGlobalMutex);
     lock_guard<mutex> lock(mMutexPos);
     Pos.copyTo(mWorldPos);
 }
@@ -61,7 +60,7 @@ int MapPoint::observations() {
 
 void MapPoint::swap(bool success) {
     if (success) {
-        mFront = -abs(mBack);
+        mFront = -abs(mBack); /* drop polarity in the map */
     } else {
         mFront.copyTo(mBack);
     }

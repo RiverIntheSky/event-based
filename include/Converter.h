@@ -1,3 +1,5 @@
+/** Adapted from ORB-SLAM2. */
+
 #pragma once
 
 #include <opencv2/core/core.hpp>

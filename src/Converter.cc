@@ -1,3 +1,5 @@
+/** Adapted from ORB-SLAM2. */
+
 #include "Converter.h"
 #include "glog/logging.h"
 

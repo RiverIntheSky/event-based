@@ -40,7 +40,6 @@ public:
     const unsigned mnFrameId;
 
     // all events within keyframe; a pointer to the events in frame
-    // safe implementation??
     std::set<EventMeasurement*, timeOrder>* vEvents;
 
     // Motion Model
@@ -66,6 +65,7 @@ public:
     okvis::Time mTimeStamp;
 
     // mutex
+    // multi-threading not implemented in planar_slam
     std::mutex mMutexPose;
 };
 }

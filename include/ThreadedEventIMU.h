@@ -20,8 +20,8 @@ class ThreadedEventIMU
      *  \brief
      *  This class manages the complete data flow in and out of the algorithm, as well as between the
      *  processing threads. It starts processing as soon as a certain amount of data is received. This
-     *  class was designed for sensor fusion, however, for this project only the event measurements
-     *  are used.
+     *  class was designed for sensor fusion. However, for this project only the event measurements
+     *  are used, this class name is a lie.
      */
 public:
 

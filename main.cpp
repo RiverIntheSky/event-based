@@ -15,10 +15,10 @@ int main(int argc, char *argv[])
     FLAGS_logtostderr = 1;
 
     if (argc <= 1) {
-        LOG(ERROR) << "\nusage: " << "./event_based dataset_name window_size experiment_name\n"
-                  << "example: " << "./event_based "
-                  << "/home/weizhen/Documents/dataset/slider_hdr_close"
-                  << " 50000 test\n";
+        LOG(ERROR) << "\nusage: " << "./planar_slam dataset_name window_size experiment_name\n"
+                  << "example: " << "./planar_slam "
+                  << "~/Documents/dataset/poster_translation"
+                  << " 30000 test\n";
         return 1;
     }
 
@@ -102,7 +102,6 @@ int main(int argc, char *argv[])
             w = -w; x = -x; y = -y; z = -z;
         }
 
-        // q = -q not strictly recognized
         Eigen::Quaterniond orientation(w, x, y, z);
 
         ev_estimator.addGroundtruth(t_gt, position, orientation);

@@ -21,6 +21,7 @@ class MapPoint{
     /**
      *  \brief
      *  A MapPoint is a plane with normal direction, position and texture
+     *  In planar scene only one MapPoint is present
      */
 public:
     MapPoint();
@@ -50,8 +51,9 @@ public:
     std::array<double, 2> mNormalDirection;
     cv::Mat mNormalVector;
 
-    // buffers to store the texture; mBack is the back buffer, will be constanly changed to
-    // compute the cost of different parameters; mFront is the optimized texture
+    // buffers to store the texture;
+    // mBack is the back buffer, will be constanly changed to compute the cost of different parameters;
+    // mFront is the optimized texture
     cv::Mat mFront;
     cv::Mat mBack;
 
@@ -60,14 +62,15 @@ public:
 
     static mutex mGlobalMutex;
 
-    // for accessing mPatch??
+    // for accessing mPatch
     mutex mMutexFeatures;
 
     // projection from world frame to patch frame;
     Eigen::Matrix3d Rn;
 
 protected:
-    // a point on the plane, could be center of the patch
+    // center of the patch
+    // not used por planar_slam
     cv::Mat mWorldPos;
 
     mutex mMutexPos;

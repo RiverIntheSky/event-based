@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.0.2)
 
-project(ev)
+project(dvs_slam)
 
-set(CMAKE_BUILD_TYPE "Release")
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif(NOT CMAKE_BUILD_TYPE)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 set(PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
@@ -24,9 +26,8 @@ find_package(GSL REQUIRED)
 # require OpenGV
 find_package(opengv REQUIRED)
 
+# require glog
 find_package(glog REQUIRED)
-
-#find_package(Gnuplot REQUIRED)
 
 FIND_PACKAGE(Boost COMPONENTS filesystem system iostreams REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
@@ -34,13 +35,13 @@ include_directories(${Boost_INCLUDE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include)
 
-file(GLOB_RECURSE LIBS "*.cc" "*.h" "*.*sh")
+file(GLOB_RECURSE LIBS "*.cc" "*.h")
 
 add_library(${PROJECT_NAME} SHARED ${LIBS})
 
-add_executable(event_based "main.cpp")
+add_executable(planar_slam "main.cpp")
 
-target_link_libraries(event_based
+target_link_libraries(planar_slam
     ${PROJECT_NAME}
     glog::glog
     ${OpenCV_LIBS}

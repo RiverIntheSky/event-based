@@ -17,13 +17,12 @@ shared_ptr<Frame> Tracking::getCurrentFrame() {
 }
 
 void Tracking::Track() {
-    // Get Map Mutex -> Map cannot be changed
     unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
     undistortEvents();
     mCurrentFrame->mTimeStamp = (*(mCurrentFrame->vEvents.cbegin()))->timeStamp;
     mCurrentFrame->dt = ((*(mCurrentFrame->vEvents.crbegin()))->timeStamp - mCurrentFrame->mTimeStamp).toSec();
     if(mState==NOT_INITIALIZED) {
-        // assume success??
+        // assume success
         init();
     } else if(mState==OK) {
         estimate();
@@ -65,16 +64,11 @@ void Tracking::Track() {
     R = mCurrentFrame->getRotation();
     r = rotm2axang(R);
     t = mCurrentFrame->getTranslation();
-//    LOG(INFO) << mCurrentFrame->mScale;
+
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
-
-    // under certain conditions, Create KeyFrame
-
-    // delete currentFrame
 }
 
 void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
-    // Get Map Mutex -> Map cannot be changed
     unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
     undistortEvents();
     mCurrentFrame->mTimeStamp = (*(mCurrentFrame->vEvents.cbegin()))->timeStamp;
@@ -92,19 +86,15 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     LOG(INFO);
 
     if(mState==NOT_INITIALIZED) {
-        // assume success??
+        // assume
         init();
     } else if(mState==OK) {
         estimate();
     }
     if (mState == LOST) {
-        cv::Mat R_ = mCurrentFrame->getRotation();
-        cv::Mat t_ = mCurrentFrame->getTranslation();
-        if (!relocalize(R_, t_, mCurrentFrame->w, mCurrentFrame->v)) {
-            relocalize(R, t, w, v);
-            // need better solution;
-            mState = OK;
-        }
+        relocalize(R, t, mCurrentFrame->w, mCurrentFrame->v);
+        // need better solution;
+        mState = OK;
     }
 
     // add frame to map
@@ -122,10 +112,6 @@ void Tracking::Track(cv::Mat R_, cv::Mat t_, cv::Mat w_, cv::Mat v_) {
     t = mCurrentFrame->getTranslation();
 
     mCurrentFrame = make_shared<Frame>(*mCurrentFrame);
-
-    // under certain conditions, Create KeyFrame
-
-    // delete currentFrame
 }
 
 bool Tracking::init() {
@@ -137,10 +123,10 @@ bool Tracking::init() {
     pMP->addObservation(pKF);
     mpMap->addKeyFrame(pKF);
 
-    // at initialization phase there is at most one element in mspMapPoints
+    // in a planar scene there is at most one element in mspMapPoints
     Optimizer::optimize(pMP.get());
 
-    // set pose of current frame to be the same as current keyframe??
+    // set pose of current frame to be the same as current keyframe
     mCurrentFrame->setAngularVelocity(pKF->getAngularVelocity());
     mCurrentFrame->setLinearVelocity(pKF->getLinearVelocity());
     mCurrentFrame->setFirstPose(pKF->getFirstPose());

@@ -39,8 +39,14 @@ public:
     };
 
     eTrackingState mState;
+
+    // use multiple frames to initialize the map
+    // the implementation is deleted later
+    // since it works worse than use only one frame
     static int nInitializer;
     static int nMapper;
+
+    // stores the motion model of the current frame
     static cv::Mat w;
     static cv::Mat v;
     static cv::Mat R;
@@ -51,6 +57,6 @@ protected:
     cv::Mat mK;
     cv::Vec<double, 5> mDistCoeffs;
     Map* mpMap;
-
 };
+
 }
