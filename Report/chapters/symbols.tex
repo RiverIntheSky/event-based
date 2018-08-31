@@ -6,30 +6,49 @@
 %\addcontentsline{toc}{chapter}{Symbolverzeichnis}
 
 \section*{Symbols}
-%\section*{Symbole}
+% \section*{Symbole}
 
 \begin{tabbing}
- \hspace*{1.6cm} \= \kill
-  $\phi, \theta, \psi$    \> roll, pitch and yaw angle \\[0.5ex] 					
-  $b$                     \> gyroscope bias \\[0.5ex]										
-  $\Omega_m$              \> 3-axis gyroscope measurement \\[0.5ex]   		
-\end{tabbing}
+  \hspace*{1.6cm} \= \kill
+  $\mat{I}_n$    \> $n\times n$ identity matrix \\[0.5ex]
+  $\mat{K}$      \> camera projection matrix \\[0.5ex]
+  $\mat{A}^\top$  \> matrix transpose \\[0.5ex]
+  $\mat{A}^{-1}$			 \> matrix inverse \\[0.5ex]
+  $\vec{0}_{m\times n}$     \> an $m\times n$-vector whose entries are 0 \\[0.5ex]
+  $\mathbb{R}^n$     \> space of real $n$-vectors, $n$-dimensional Euclidean space	\\[0.5ex]
+  $\mathbb{S}^n$     \> $n$-sphere	\\[0.5ex]
+  $SO(3)$     \> 3D special orthogonal group, 3D rotation group	\\[0.5ex]
+  $\mathfrak{so}(3)$  \> the vector space of $3\times3$ skew-symmetric matrices \\[0.5ex]
+  $SE(3)$     \> 3D special Euclidean group, the group of rigid body motion\\[0.5ex]
+  $e$                     \> event \\[0.5ex]
+  $p$                     \> event polarity\\[0.5ex]
+  $\mathscr{{E}}$                     \> a set of events\\[0.5ex]
+  $\delta$                     \> Dirac delta\\[0.5ex]
+  $\vec{x}$                     \> 2D pixel coordinate\\[0.5ex]
+  $\bar{\vec{x}}$                     \> homogeneous coordinate\\[0.5ex]
+  $\tilde{\vec{x}}$                     \> calibrated coordinate\\[0.5ex]
+  $\vec{X}$                     \> 3D point in space\\[0.5ex]
+  $\mat{R}$                     \> orientation\\[0.5ex]
+  $\vec{t}$                     \> translation\\[0.5ex]
+  $\vec{T}$                     \> camera pose, including $\mat{R}$ and $\vec{t}$  \\[0.5ex]
+  $\bm{\omega}$                     \> angular velocity\\[0.5ex]
+  $\vec{v}$                     \> linear velocity\\[0.5ex]
+  $\vec{n}$                     \> normal direction of a plane\\[0.5ex]
+  $\bm{\theta}$                     \> parameter set, might include $\mat{R},\vec{t},\bm{\omega},\vec{v}\text{ and }\vec{n}$ \\[0.5ex]
+  $^\wedge$                     \> hat operator\\[0.5ex]
+  $\sim$                     \> equality up to a non-zero scale\\[0.5ex]
 
-\section*{Indices}
-%\section*{Indizes}
-\begin{tabbing}
- \hspace*{1.6cm}  \= \kill
- $x$ \> x axis \\[0.5ex]
- $y$ \> y axis \\[0.5ex]
+
+  % \mathcal{I}(\vec{x})
 \end{tabbing}
 
 \section*{Acronyms and Abbreviations}
-%\section*{Akronyme und Abkürzungen}
+% \section*{Akronyme und Abkürzungen}
 \begin{tabbing}
- \hspace*{1.6cm}  \= \kill
- ETH \> Eidgenössische Technische Hochschule \\[0.5ex]
- EKF \> Extended Kalman Filter \\[0.5ex]
- IMU \> Inertial Measurement Unit \\[0.5ex]
- UAV \> Unmanned Aerial Vehicle \\[0.5ex]
- UKF \> Unscented Kalman Filter \\[0.5ex]
+  \hspace*{1.6cm}  \= \kill
+  DVS \> Dynamic Vision Sensor\\[0.5ex]
+  APS \> Active Pixel Sensor \\[0.5ex]
+  DoF \> Degrees of Freedom \\[0.5ex]
+  SLAM \> Simultaneously Localizing and Mapping \\[0.5ex]
+  BFGS \> Broyden-Fletcher-Goldfarb-Shanno Algorithm \\[0.5ex]
 \end{tabbing}

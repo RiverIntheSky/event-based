@@ -375,7 +375,7 @@ not change severely.
 
 A nonlinear optimizing problem naturally suffers from local optima
 problem. Without a good initialization, the per-frame optimization in
-would sometimes come up with a parameter set delivering an image that
+might come up with a parameter set delivering an image that
 appears sharp, despite being wrongly estimated (see
 \cref{fig:local_optimum}). We should also not simply integrate the
 velocities to obtain the global pose, which would result in drift over
@@ -533,18 +533,43 @@ preserve the former map, and use this map to start the
 
 \subsection{Relocalization}
 \label{sec:relocalization}
-A relocalization procedure purely depending on the a nonlinear
-optimization is hard, since we need a good initial guess. If the pose
-is already too much off, there is nothing much we can save. So the
+A relocalization procedure purely depending on nonlinear optimization
+is hard, since we always need a good initial guess. If the pose is
+already too much off, there is nothing much we can help. The
 suggestion is not to start relocalization only when it's too
 late. Later in \cref{sec:experiments} we will talk a little more about
 the situation where the tracking is lost when there is little texture
 visible.
 
-When relocalizing, we project the current events onto the map similar to
-
+When relocalizing, we still project the current events onto the map
+using \cref{eq:frame2map}, this time with two additional parameters
+$(\mat{R}_{wc},\vec{t}_{wc})$. As the initial guess, we use the
+current pose estimation. If the per-pixel overlap after optimization
+is still low, we restart relocalization with the pose of the last
+frame. If it still fails, we consider the current tracking as lost.
+\begin{figure}[h]
+  \centering \includegraphics[width = \textwidth]{images/pipeline.pdf}
+  \caption{The parallel tracking and mapping pipeline. All the frames
+    are used for tracking, but only the keyframes are used for
+    mapping}
+  \label{fig:pipeline}
+\end{figure}
 \section{Experiments}
 \label{sec:experiments}
+\begin{figure}[h]
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width = \textwidth]{images/axes.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering \includegraphics[width =
+    \textwidth]{images/axes_frame.png}
+  \end{minipage}
+  \hfill
+  \caption{Axes definition. Images on the left is adapted from
+    \citep{gallego2017accurate}}
+  \label{fig:axes}
+\end{figure}
 The algorithm is tested on four planar datasets provided by the
 \textit{Robotics and Perception Group} at UZH
 \citep{mueggler2017event}, which includes \textit{poster\_6dof,
@@ -555,24 +580,10 @@ assumption is redundant for the rotation datasets and thus the results
 are not listed for comparison here.
 
 We define the camera axes as in \cref{fig:axes}. The camera coordinate
-frame of the first synthesized frame is set as the global coordinate
-frame. The x, y and z axes are also pitch yaw, roll axes,
-respectively.
+frame of the first synthesized frame is set as the global frame. The
+x, y and z axes are also pitch yaw, roll axes, respectively.
 
-\begin{figure}
-  \begin{minipage}[t]{0.48\textwidth}
-    \centering \includegraphics[width = \textwidth]{images/axes.png}
-    (a)
-  \end{minipage}
-  \hfill
-  \begin{minipage}[t]{0.48\textwidth}
-    \centering \includegraphics[width =
-    \textwidth]{images/slider_groundtruth.png} (b)
-  \end{minipage}
-  \hfill
-  \caption{Axes definition}
-  \label{fig:axes}
-\end{figure}
+
 \Cref{fig:shapes_6dof_pose} shows the comparison of the results of the
 proposed method against ground truth on the whole
 \textit{shapes\_6dof} sequence. We observe that the orientation and
@@ -608,7 +619,7 @@ reasons for that:
   $30000-50000$. Apparently, a window size of 4000 is no longer enough
   in this case, which causes the motion estimation in this period
   being inaccurate.
-  \begin{figure}
+  \begin{figure}[h]
     \begin{minipage}[t]{0.48\textwidth}
       \centering \includegraphics[width =
       \textwidth]{images/window_size_good.jpg} (a)
@@ -654,7 +665,7 @@ reasons for that:
   ``local map'' (\cref{fig:shapes_tr_lost}(b)); the disadvantage is
   that the global map will most likely be polluted by the ``local
   map'' (\cref{fig:shapes_tr_lost}(c))
-  \begin{figure}
+  \begin{figure}[h]
     \begin{minipage}[t]{0.48\textwidth}
       \centering \includegraphics[width =
       \textwidth]{images/frame_00000520.png} (a) There is little
