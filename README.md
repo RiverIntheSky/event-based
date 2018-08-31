@@ -10,6 +10,14 @@ example:
 ```
 ./planar_slam ~/Documents/dataset/poster_translation 30000 test
 ```
+## Dependencies
+GNU-GSL https://www.gnu.org/software/gsl/
+
+glog https://github.com/google/glog
+
+Eigen http://eigen.tuxfamily.org
+
+OpenCV https://opencv.org/
 ## Note
 You can choose whether or not to use numerical differentiation in the tracking phase by setting the variable `num_diff` in source file `num_diff` to `true` or `false`. The size of the map can also be changed in the same file. 
 
